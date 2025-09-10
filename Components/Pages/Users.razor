@@ -1,0 +1,953 @@
+﻿@page "/users"
+@layout MainLayout
+@inject UserService UserService
+@inject IJSRuntime JSRuntime
+@using ScreenTracker1.Models
+@using ScreenTracker1.Services
+@using System.Text.Json
+@using ScreenTracker1.DTOS
+@using Microsoft.JSInterop;
+@using System.IdentityModel.Tokens.Jwt;
+@using ScreenTracker1.Components.Layout
+@inject NavigationManager NavigationManager
+@inject DesktopAutoCaptureService desktopAutoCaptureService
+@inject AfkTrackerService afkTrackerService
+@inject SystemThemeService SystemThemeService
+@inject AppUsageTracker appUsageTrackerService
+
+@if (isAdmin)
+{
+    @if (users == null && admins == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <div class="selectbox">
+            @if (userRole?.ToLower() == "superadmin")
+            {
+                <select @onchange="OnSelectedAdminChanged" class="stitch-user-select">
+                    <option value="">Select Admin</option>
+                    @foreach (var admin in admins)
+                    {
+                        <option value="@admin.username">@admin.username</option>
+                    }
+                </select>
+
+                @if (users != null && users.Count > 0)
+                {
+                    <select @onchange="OnSelectedUserChanged" class="stitch-user-select ms-2">
+                        <option value="">Select User</option>
+                        @foreach (var user in users)
+                        {
+                            <option value="@user.username">@user.username</option>
+                        }
+                    </select>
+                }
+            }
+            else
+            {
+                <select @onchange="OnSelectedUserChanged" class="stitch-user-select">
+                    <option value="">Select a user</option>
+                    @foreach (var user in users)
+                    {
+                        <option value="@user.username">@user.username</option>
+                    }
+                </select>
+            }
+
+            <div class="admin-btn">
+                <div class="tooltip-container">
+                    <button @onclick="NavigateToSettings" class="btn btn-primary ml-2">Settings</button>
+                    <span class="tooltip-text">View Setting page</span>
+                </div>
+
+                <div class="tooltip-container">
+                    <button @onclick="NavigateToRegister" class="btn btn-primary ms-lg-4">Register</button>
+                    <span class="tooltip-text">Register New User</span>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@if (userId != null && appUsageList != null)
+{
+    <div class="stitch-container">
+
+        <div class="stitch-toolbar">
+            <input type="date"
+                 
+                   @onchange="OnDateChanged"
+                   value="@selectedDate.ToString("yyyy-MM-dd")"
+                   max="@maxSelectableDate"
+                   class="stitch-date-picker"
+                   />
+
+            <div class="toolbar-section">
+                <label class="label">Auto Refresh</label>
+                <div class="tooltip-container">
+                    <select class="stitch-dropdown" @onchange="OnIntervalChanged" value="@selectedInterval">
+                        <option value="0">Off</option>
+                        <option value="10">10s</option>
+                        <option value="20">20s</option>
+                        <option value="30">30s</option>
+                    </select>
+
+
+                    <span class="tooltip-text">Select an interval to automatically refresh the page</span>
+                </div>
+            </div>
+
+            <div class="toolbar-section">
+                <div class="tooltip-container">
+                    <button class="stitch-refresh-btn" @onclick="OnRefreshClicked">Refresh</button>
+                    <span class="tooltip-text">Refresh page</span>
+                </div>
+            </div>
+            <div class="toolbar-section">
+                <label class="label">Tracking Status</label>
+                <div class="tooltip-container">
+                    <button class="tracking-toggle @(isOn ? "tracking-on" : "tracking-off")"
+                            @onclick="OnToggleStateClicked"
+                            aria-label="Toggle tracking state">
+                        @if (isOn)
+                        {
+                            <span class="tracking-indicator tracking-active"></span>
+                            <span class="tracking-text">ON</span>
+                        }
+                        else
+                        {
+                            <span class="tracking-indicator"></span>
+                            <span class="tracking-text">OFF</span>
+                        }
+                    </button>
+                    <span class="tooltip-text">Toggle tracking state</span>
+                </div>
+            </div>
+            <div style="flex-grow: 1;"></div>
+
+            <div class="toolbar-actions">
+
+                <div class="tooltip-container">
+                    <button class="stitch-refresh-btn" @onclick="OnViewScreenshotsClicked">My Screen</button>
+                    <span class="tooltip-text">View My Screenshots</span>
+                </div>
+
+            </div>
+            <div class="toolbar-actions">
+                <div class="tooltip-container">
+                    <button class="stitch-refresh-btn" @onclick="NavigateToReport">Reports</button>
+                    <span class="tooltip-text">View My Reports</span>
+                </div>
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="barChart" class="stitch-chart"></canvas>
+            <div class="stitch-info">
+                <h4>Activity for @selectedDate.ToString("dd-MM-yyyy")</h4>
+                <div class="info-row">
+                    <span>Login At: <strong>@LoginTime</strong></span>
+                </div>
+                <div class="info-row">
+                    <span>Ideal Time: <strong>@FormatDuration(totalAfkMinutes)</strong></span>
+                </div>
+
+                <div class="info-row">
+                    <span>Active Time:<strong>@FormatDuration(totalTimeInMinutes - totalAfkMinutes)</strong></span>
+
+                </div>
+
+                <div class="info-row">
+                    <span>Total Time : <strong>@FormatDuration(totalTimeInMinutes)</strong></span>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="stitch-tabs">
+            <div class="stitch-tab @(selectedTab == "summary" ? "active" : "")" @onclick='() => SelectTab("summary")'>Summary</div>
+            <div class="stitch-tab @(selectedTab == "window" ? "active" : "")" @onclick='() => SelectTab("window")'>Window</div>
+        </div>
+
+        <div class="stitch-tab-content">
+            @if (selectedTab == "summary")
+            {
+                <div class="stitch-summary-grid">
+                    <section class="stitch-card">
+                        <h4>Top Applications</h4>
+                        @if (appUsageList.Any())
+                        {
+                            var totalAppTime = appUsageList.Sum(a => a.durationInMinutes);
+                            @foreach (var app in appUsageList)
+                            {
+                                var percent = (app.durationInMinutes / totalAppTime) * 100;
+                                <div class="stitch-bar" @onclick="() => OnAppClick(app.appName)">
+                                    <div style="width:@percent%;background-color:@GetDynamicColor(app.appName);height:100%;"></div>
+                                    <span class="label">
+                                        @app.appName
+                                    </span>
+                                    <span class="time">@FormatDuration(app.durationInMinutes)</span>
+                                </div>
+                            }
+
+                            <div class="stitch-button-row">
+                                @if (appUsageList.Count >= 5 && appUsageList.Count < totalAppUsageRecords)
+                                {
+                                    <button class="stitch-btn" @onclick="LoadMoreAppUsage">Show More</button>
+                                }
+
+                                @if (currentAppUsagePage > 1)
+                                {
+                                    <button class="stitch-btn" @onclick="ShowLessAppUsage">Show Less</button>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p>No applications to display.</p>
+                        }
+                    </section>
+
+                    <section class="stitch-card">
+
+
+                        <h4>Top Window Titles "@selectedAppName"</h4>
+                        @if (appTitleList.Any())
+                        {
+                            var totalTitleTime = appTitleList.Sum(t => t.durationInMinutes);
+                            foreach (var title in appTitleList)
+                            {
+                                var percent = (title.durationInMinutes / totalTitleTime) * 100;
+                                <div class="stitch-bar">
+                                    <div style="width:@percent%;background-color:@GetDynamicColor(title.title);height:100%;"></div>
+
+                                    <span class="label" data-tooltip="@title.title">@title.title</span>
+                                    <span class="time">@FormatDuration(title.durationInMinutes)</span>
+                                </div>
+                            }
+                            <div class="stitch-button-row">
+                                @if (appTitleList.Count >= titlePageSize && moreTitlesAvailable)
+                                {
+                                    <button class="stitch-btn" @onclick="LoadMoreTitles">Show More</button>
+                                }
+                                @if (currentTitlePage > 1)
+                                {
+                                    <button class="stitch-btn" @onclick="ShowLessTitles">Show Less</button>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p>No window titles available for this date.</p>
+                        }
+                    </section>
+                    <section class="stitch-card">
+                        <h4>Top Categorie for "@selectedAppName"</h4>
+                        @if (categoryKeywordGroups != null && categoryKeywordGroups.Any())
+                        {
+                            var totalCategoryTime = categoryKeywordGroups.Sum(c => c.totalDurationInMinutes);
+                            foreach (var category in categoryKeywordGroups)
+                            {
+                                var percent = (category.totalDurationInMinutes / totalCategoryTime) * 100;
+                                <div class="stitch-bar">
+                                    <div style="width:@percent%;background-color:@GetDynamicColor(category.category);height:100%;"></div>
+                                    <span class="label">@category.category</span>
+                                </div>
+                            }
+                            <div class="stitch-button-row">
+                                @if (categoryKeywordGroups.Count >= 5 || categoryKeywordGroups.Count < totalCategoryRecords)
+                                {
+                                    <button class="stitch-btn" @onclick="LoadMoreCategories">Show More</button>
+                                }
+                                @if (currentCategoryPage > 1)
+                                {
+                                    <button class="stitch-btn" @onclick="ShowLessCategories">Show Less</button>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p>No category data available for this date.</p>
+                        }
+                    </section>
+
+                </div>
+            }
+        </div>
+
+        <div class="stitch-tab-content">
+            @if (selectedTab == "window")
+            {
+                <div class="stitch-summary-grid">
+                    <section class="stitch-card">
+                        <h4>Top Applications</h4>
+                        @if (appUsageList.Any())
+                        {
+                            var totalAppTime = appUsageList.Sum(a => a.durationInMinutes);
+                            @foreach (var app in appUsageList)
+                            {
+                                var percent = (app.durationInMinutes / totalAppTime) * 100;
+                                <div class="stitch-bar">
+                                    <div style="width:@percent%;background-color:@GetDynamicColor(app.appName);height:100%;"></div>
+                                    <span class="label"
+                                          @onclick="() => OnAppClick(app.appName)">
+                                        @app.appName
+                                    </span>
+                                    <span class="time">@FormatDuration(app.durationInMinutes)</span>
+                                </div>
+                            }
+
+                            <div class="stitch-button-row">
+                                @if (appUsageList.Count >= 5 && appUsageList.Count < totalAppUsageRecords)
+                                {
+                                    <button class="stitch-btn" @onclick="LoadMoreAppUsage">Show More</button>
+                                }
+
+                                @if (currentAppUsagePage > 1)
+                                {
+                                    <button class="stitch-btn" @onclick="ShowLessAppUsage">Show Less</button>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p>No applications to display.</p>
+                        }
+                    </section>
+
+                    <section class="stitch-card">
+                        <h4>Top Window Titles for "@selectedAppName"</h4>
+
+                        @if (appTitleList.Any())
+                        {
+                            var totalTitleTime = appTitleList.Sum(t => t.durationInMinutes);
+                            foreach (var title in appTitleList)
+                            {
+                                var percent = (title.durationInMinutes / totalTitleTime) * 100;
+                                <div class="stitch-bar">
+                                    <div style="width:@percent%;background-color:@GetDynamicColor(title.title);height:100%;"></div>
+                                    <span class="label" data-tooltip="@title.title">@title.title</span>
+                                    <span class="time">@FormatDuration(title.durationInMinutes)</span>
+                                </div>
+                            }
+
+                            <div class="stitch-button-row">
+                                @if (appTitleList.Count >= takePerPage)
+                                {
+                                    <button class="stitch-btn" @onclick="LoadMoreTitles">Show More</button>
+                                }
+
+                                @if (currentTitlePage > 1)
+                                {
+                                    <button class="stitch-btn" @onclick="ShowLessTitles">Show Less</button>
+                                }
+                            </div>
+                        }
+                        else if (!string.IsNullOrEmpty(selectedAppName))
+                        {
+                            <p>No window titles available for @selectedAppName on this date.</p>
+                        }
+                        else
+                        {
+                            <p>Click an application above to view window titles.</p>
+                        }
+                    </section>
+
+                </div>
+            }
+        </div>
+
+    </div>
+}
+
+@code {
+    private List<User> users;
+    private string selectedUsername;
+    private User selectedUser;
+    private List<AppUsage> appUsageList;
+    private List<AppTitle> appTitleList;
+    private string selectedTab = "summary";
+    private DateTime selectedDate = DateTime.Today;
+    private List<string> labels = new();
+    private List<double> data = new();
+    private List<CategoryKeywordGroup> categoryKeywordGroups;
+    private int currentTitlePage = 1;
+    private const int titlePageSize = 5;
+    private bool moreTitlesAvailable = true;
+    private List<AppTitle> initialAppTitleList = new();
+    private int currentAppUsagePage = 1;
+    private const int appUsagePageSize = 5;
+    private bool moreAppUsageAvailable = true;
+    private List<AppUsage> initialAppUsageList = new();
+
+    private int currentCategoryPage = 1;
+    private const int categoryPageSize = 5;
+    private bool moreCategoriesAvailable = true;
+    private List<CategoryKeywordGroup> initialCategoryList = new();
+    private string token;
+    private bool isAdmin;
+
+    private int currentPage = 1;
+    private int totalPages = 1;
+    private const int itemsPerPage = 5;
+    private List<AppUsage> appUsageListuser = new List<AppUsage>();
+    private string UserName;
+
+
+    private int userId;
+    private double totalTimeInMinutes => appUsageList?.Sum(a => a.durationInMinutes) ?? 0;
+
+    private int totalAppUsageRecords;
+    private int totalAppTitleRecords;
+    private int totalCategoryRecords;
+
+    private int selectedInterval = 0;
+    private System.Timers.Timer? _refreshTimer;
+
+    private string selectedAppName;
+    private const int takePerPage = 5;
+    private string? LoginTime;
+
+    private List<Screenshots> screenshots = new();
+    private bool showScreenshots = false;
+
+    private bool isOn = false;
+
+    private double totalAfkMinutes;
+
+
+    private string ToggleIconWithText => isOn
+    ? "<i class='fa-solid fa-power-off'></i> ON"
+    : "<i class='fa-solid fa-ban'></i> OFF";
+
+
+    private bool CanShowMoreAppUsage => moreAppUsageAvailable && appUsageList.Count < totalAppUsageRecords;
+    private bool CanShowMoreTitles => moreTitlesAvailable && appTitleList.Count < totalAppTitleRecords;
+    private string maxSelectableDate = DateTime.Today.ToString("yyyy-MM-dd");
+
+    private IJSObjectReference? localStorageModule;
+
+    private bool showMenu = false;
+
+
+    private List<User> admins;
+
+
+    private string selectedAdminUsername;
+    private User selectedAdmin;
+    private string userRole;
+    private int loggedInUserId;
+
+
+
+    private void ToggleMenu()
+    {
+        showMenu = !showMenu;
+    }
+
+    private void CloseMenu()
+    {
+        showMenu = false;
+        StateHasChanged();
+    }
+    private async Task OnToggleStateClicked()
+    {
+        isOn = !isOn;
+        await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
+        Preferences.Set("IsOnState", isOn);
+        if (isOn) StartAll(); else StopAll();
+
+    }
+    private void StartAll()
+    {
+        try { appUsageTrackerService.Start(); } catch { }
+        try { desktopAutoCaptureService.Start(); } catch { }
+        try { afkTrackerService.Start(userId); } catch { }
+    }
+
+    private void StopAll()
+    {
+        try { appUsageTrackerService.Stop(); } catch { }
+        try { desktopAutoCaptureService.StopTimer(); } catch { }
+        try { afkTrackerService.Stop(); } catch { }
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            localStorageModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/localStorage.js");
+            if (App.first)
+            {
+                isOn = false;
+                await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
+                StopAll();
+                App.first = false;
+            }
+            else isOn = await localStorageModule.InvokeAsync<bool>("getIsOnState");
+            StateHasChanged();
+        }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        if (_refreshTimer != null)
+        {
+            _refreshTimer.Dispose();
+        }
+    }
+
+    private async Task OnAppClick(string appName)
+    {
+        selectedAppName = appName;
+        currentTitlePage = 1;
+        currentCategoryPage = 1;
+        moreTitlesAvailable = true;
+
+        var titles = await UserService.GetAppTitleDetailsAsync(
+            selectedDate,
+            userId,
+            appName,
+            page: currentTitlePage,
+            take: takePerPage
+        );
+
+        appTitleList = new List<AppTitle>(titles);
+
+        var allTitles = await UserService.GetAppTitleDetailsAsync(
+            selectedDate,
+            userId,
+            appName,
+            page: 1,
+            take: int.MaxValue
+        );
+        totalAppTitleRecords = allTitles.Count;
+
+        var categories = await UserService.GetCategoryByAppNameAsync(appName);
+        categoryKeywordGroups = new List<CategoryKeywordGroup>(categories);
+        totalCategoryRecords = categoryKeywordGroups.Count;
+
+        StateHasChanged();
+    }
+    private void OnViewScreenshotsClicked()
+    {
+
+        NavigationManager.NavigateTo("/screenshots");
+    }
+
+    private void OnIntervalChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int newInterval))
+        {
+            selectedInterval = newInterval;
+            StartAutoRefresh(selectedInterval);
+        }
+    }
+
+    private void StartAutoRefresh(int intervalInSeconds)
+
+    {
+        StopAutoRefresh();
+        if (intervalInSeconds != 0)
+        {
+            _refreshTimer = new System.Timers.Timer(intervalInSeconds * 1000);
+            _refreshTimer.Elapsed += async (sender, args) =>
+            {
+                await InvokeAsync(async () =>
+                {
+                    await OnRefreshClicked();
+                });
+            };
+            _refreshTimer.AutoReset = true;
+            _refreshTimer.Enabled = true;
+        }
+    }
+
+    private void StopAutoRefresh()
+    {
+        if (_refreshTimer != null)
+        {
+            _refreshTimer.Stop();
+            _refreshTimer.Dispose();
+            _refreshTimer = null;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        bool isDark = Application.Current.RequestedTheme == AppTheme.Dark;
+
+        StartAutoRefresh(selectedInterval);
+        await base.OnInitializedAsync();
+        UserService.SetNavigationManager(NavigationManager);
+        token = Preferences.Get("authToken", null);
+        userRole = null;
+        loggedInUserId = 0;
+
+        if (!string.IsNullOrEmpty(token))
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+
+            if (jwtToken != null)
+            {
+                UserName = jwtToken?.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value;
+                userRole = jwtToken?.Claims.FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
+                isAdmin = userRole?.ToLower() == "admin" || userRole?.ToLower() == "superadmin";
+                var userIdClaim = jwtToken?.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+
+                if (int.TryParse(userIdClaim, out loggedInUserId))
+                {
+                    this.userId = loggedInUserId;
+                }
+
+                var loginTimeClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "LoginTime")?.Value;
+                if (!string.IsNullOrEmpty(loginTimeClaim))
+                {
+                    LoginTime = loginTimeClaim;
+                }
+
+                if (!isAdmin)
+                {
+                    await LoadDataAsync(this.userId);
+                    await LoadAppUsageData();
+                    totalAfkMinutes = await UserService.GetAfkLogsTotalAsync(this.userId, selectedDate);
+                    await UpdateChart();
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("User not authenticated.");
+        }
+
+        if (isAdmin && userRole?.ToLower() == "superadmin")
+        {
+            try
+            {
+                // Use the loggedInUserId instead of superAdminId
+                admins = await UserService.GetAdminsWithUsersAsync(loggedInUserId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading admins: {ex.Message}");
+            }
+        }
+        else if (isAdmin)
+        {
+            try
+            {
+                users = await UserService.GetAllUsersByAdminAsync(this.userId, userRole);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading users: {ex.Message}");
+            }
+        }
+        StateHasChanged();
+    }
+
+    private async Task OnSelectedAdminChanged(ChangeEventArgs e)
+    {
+        selectedAdminUsername = e.Value?.ToString();
+        selectedAdmin = admins.FirstOrDefault(a => a.username == selectedAdminUsername);
+
+        if (selectedAdmin != null)
+        {
+            users = await UserService.GetAllUsersByAdminAsync(selectedAdmin.id, "admin");
+            selectedUsername = null; // Reset selected user
+            selectedUser = null;
+        }
+        else
+        {
+            users = new List<User>();
+        }
+
+        StateHasChanged();
+    }
+
+
+    private async Task OnLogoutClicked()
+    {
+        if (isOn)
+        {
+            isOn = false;
+            await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
+            appUsageTrackerService.Stop();
+            desktopAutoCaptureService.StopTimer();
+            afkTrackerService.Stop();
+            await UserService.EndDailyTrackerAsync();
+
+        }
+        await UserService.EndDailyTrackerAsync();
+        SecureStorage.Remove("auth_token");
+        Preferences.Set("authToken", null);
+        App.SelectedUserId = 0;
+
+        NavigationManager.NavigateTo("/login");
+    }
+    private async Task UpdateChart()
+    {
+        try
+        {
+            StateHasChanged();
+            if (labels.Any() && data.Any()) await JSRuntime.InvokeVoidAsync("renderBarChart", labels, data);
+        }
+        catch (Exception ex) { Console.WriteLine($"Error rendering chart: {ex.Message}"); }
+    }
+
+    private async Task LoadDataAsync(int id)
+    {
+        try
+        {
+            var appUsageData = await UserService.GetAppUsageDataAsync(id);
+            labels = appUsageData.Select(x => x.date).ToList();
+            data = appUsageData.Select(x => x.totalDurationInMinutes).ToList();
+            appTitleList = await UserService.GetAppTitleByDateAsync(selectedDate, id);
+        }
+        catch (Exception ex) { Console.WriteLine($"Error fetching data: {ex.Message}"); }
+    }
+
+    private async Task OnSelectedUserChanged(ChangeEventArgs e)
+    {
+        selectedUsername = e.Value?.ToString();
+        selectedUser = users.FirstOrDefault(u => u.username == selectedUsername);
+        if (selectedUser != null)
+        {
+            App.SelectedUserId = selectedUser.id;
+
+            userId = selectedUser.id;
+            await LoadDataAsync(userId);
+            await LoadAppUsageData();
+            await UpdateChart();
+        }
+        else
+        {
+            App.SelectedUserId = 0;
+            appUsageList = null;
+            appTitleList = null;
+        }
+    }
+    private void SelectTab(string tabName) => selectedTab = tabName;
+
+    private string FormatDuration(double minutes)
+    {
+        int hours = (int)(minutes / 60);
+        int remainingMinutes = (int)(minutes % 60);
+        int seconds = (int)((minutes - (int)minutes) * 60);
+        return $"{hours}h {remainingMinutes}m {seconds}s";
+    }
+
+    private string GetDynamicColor(string key)
+    {
+
+        var hash = key.GetHashCode();
+
+
+        byte r = (byte)(160 + (hash & 0x3F) % 61);
+        byte g = (byte)(160 + ((hash >> 6) & 0x3F) % 61);
+        byte b = (byte)(160 + ((hash >> 12) & 0x3F) % 61);
+
+        return $"#{r:X2}{g:X2}{b:X2}";
+    }
+
+    private async Task LoadAppUsageData()
+    {
+        if (userId == null) return;
+
+        try
+        {
+            initialAppUsageList = await UserService.GetAppUsageByUserIdAsync(
+                userId,
+                selectedDate,
+                page: 1,
+                take: appUsagePageSize);
+
+            appUsageList = new List<AppUsage>(initialAppUsageList);
+            currentAppUsagePage = 1;
+
+            var allApps = await UserService.GetAppUsageDataAsync(userId);
+            totalAppUsageRecords = allApps.Count;
+
+            moreAppUsageAvailable = appUsageList.Count < totalAppUsageRecords;
+
+            var appTitleData = await UserService.GetAppTitleByDateAsync(selectedDate, userId);
+            totalAppTitleRecords = appTitleData.Count;
+
+
+            currentTitlePage = 1;
+            moreTitlesAvailable = true;
+
+
+            var allTitles = await UserService.GetAppTitleByDateAsync(selectedDate, userId, page: 1, take: int.MaxValue);
+            totalAppTitleRecords = allTitles.Count;
+
+
+            initialAppTitleList = await UserService.GetAppTitleByDateAsync(
+                selectedDate,
+                userId,
+                page: currentTitlePage,
+                take: takePerPage
+            );
+            appTitleList = new List<AppTitle>(initialAppTitleList);
+
+            var categoryData = await UserService.GetGroupedCategoryKeywordsAsync(userId, selectedDate);
+            totalCategoryRecords = categoryData.Count;
+            currentCategoryPage = 1;
+            moreCategoriesAvailable = true;
+
+            initialCategoryList = await UserService.GetGroupedCategoryKeywordsAsync(userId, selectedDate, page: 1, take: categoryPageSize);
+            categoryKeywordGroups = new List<CategoryKeywordGroup>(initialCategoryList);
+
+            totalAfkMinutes = await UserService.GetAfkLogsTotalAsync(userId, selectedDate);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading app usage data: {ex.Message}");
+            moreAppUsageAvailable = false;
+            moreTitlesAvailable = false;
+            moreCategoriesAvailable = false;
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+    private async Task LoadMoreTitles()
+    {
+        currentTitlePage++;
+
+        var more = await UserService.GetAppTitleDetailsAsync(
+            selectedDate,
+            userId,
+            selectedAppName,
+            page: currentTitlePage,
+            take: takePerPage
+        );
+
+        if (more.Any())
+        {
+            appTitleList.AddRange(more);
+            moreTitlesAvailable = appTitleList.Count < totalAppTitleRecords;
+        }
+        else
+        {
+            moreTitlesAvailable = false;
+        }
+
+        StateHasChanged();
+    }
+
+    private void NavigateToSettings()
+    {
+        NavigationManager.NavigateTo("/settings");
+    }
+    private void NavigateToRegister()
+    {
+        NavigationManager.NavigateTo("/register");
+    }
+
+    private void NavigateToReport()
+    {
+
+        NavigationManager.NavigateTo($"/rptTime/{userId}", false);
+    }
+
+
+    private async Task ShowLessTitles()
+    {
+        currentTitlePage = 1;
+        moreTitlesAvailable = true;
+
+        var initial = await UserService.GetAppTitleDetailsAsync(
+            selectedDate,
+            userId,
+            selectedAppName,
+            page: currentTitlePage,
+            take: takePerPage
+        );
+
+        appTitleList = new List<AppTitle>(initial);
+        StateHasChanged();
+    }
+    private async Task OnDateChanged(ChangeEventArgs e)
+    {
+        selectedDate = DateTime.Parse(e.Value.ToString());
+        await LoadAppUsageData();
+        StateHasChanged();
+    }
+
+    private async Task OnRefreshClicked()
+    {
+
+        await LoadAppUsageData();
+        await UpdateChart();
+    }
+    private async Task LoadMoreAppUsage()
+    {
+        if (!moreAppUsageAvailable) return;
+
+        try
+        {
+            var more = await UserService.GetAppUsageByUserIdAsync(
+                userId,
+                selectedDate,
+                page: currentAppUsagePage + 1,
+                take: appUsagePageSize);
+
+            if (more.Any())
+            {
+                appUsageList.AddRange(more);
+                currentAppUsagePage++;
+                moreAppUsageAvailable = appUsageList.Count < totalAppUsageRecords;
+            }
+            else
+            {
+                moreAppUsageAvailable = false;
+            }
+        }
+        catch
+        {
+            moreAppUsageAvailable = false;
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+
+    private async Task ShowLessAppUsage()
+    {
+        currentAppUsagePage = 1;
+        appUsageList = new List<AppUsage>(initialAppUsageList);
+        moreAppUsageAvailable = true;
+        StateHasChanged();
+    }
+
+    private async Task LoadMoreCategories()
+    {
+        currentCategoryPage++;
+        var more = await UserService.GetGroupedCategoryKeywordsAsync(userId, selectedDate, page: currentCategoryPage, take: categoryPageSize);
+
+        if (more.Any())
+        {
+            categoryKeywordGroups.AddRange(more);
+        }
+        else
+        {
+            moreCategoriesAvailable = false;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task ShowLessCategories()
+    {
+        currentCategoryPage = 1;
+        categoryKeywordGroups = new List<CategoryKeywordGroup>(initialCategoryList);
+        moreCategoriesAvailable = true;
+
+        StateHasChanged();
+    }
+
+}

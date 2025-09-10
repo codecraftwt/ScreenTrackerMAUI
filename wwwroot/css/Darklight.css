@@ -1,0 +1,705 @@
+﻿.dark-theme {
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #2d2d2d;
+    --bg-tertiary: #3d3d3d;
+    --text-primary: #ffffff;
+    --text-secondary: #cccccc;
+    --border-color: white; /* The requested change */
+    --card-bg: #2d2d2d;
+    --header-bg: #1f1f1f;
+    --accent-color: #4a7aff;
+    --bar-bg: #3d3d3d;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+}
+
+    .dark-theme body {
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+    }
+
+    .dark-theme .custom-calendar {
+        background-color: var(--background-color-dark);
+        color: var(--text-color-dark);
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+
+    .dark-theme .calendar-day.disabled {
+        color: #666;
+        cursor: not-allowed;
+        background-color: #444;
+    }
+
+
+    .dark-theme .calendar-day.today {
+        border: 2px solid var(--highlight-color-dark);
+        background-color: #2c2f36;
+        color: var(--text-color-dark);
+    }
+    .dark-theme .stitch-container {
+        background-color: var(--card-bg);
+        box-shadow: 0 4px 20px var(--shadow-color);
+        border-color: var(--border-color);
+    }
+
+    .dark-theme .stitch-heading {
+        color: var(--text-primary);
+        border-bottom-color: var(--border-color);
+    }
+
+    .dark-theme .stitch-user-select {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+        .dark-theme .stitch-user-select:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(74, 122, 255, 0.2);
+        }
+
+    .dark-theme .stitch-nav-btn {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+
+    .dark-theme .stitch-date-picker {
+        background-color: var(--bg-secondary);
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+        border-color: white;
+    }
+
+    .dark-theme .tooltip-container {
+      /*  background-color: var(--bg-secondary);*/
+        border-color: white;
+    }
+
+    .dark-theme .stitch-date-picker::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+        cursor: pointer;
+    }
+
+        .dark-theme .stitch-date-picker:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(74, 122, 255, 0.2);
+        }
+
+    .dark-theme .stitch-refresh-btn {
+        background-color: var(--accent-color);
+        color: white;
+    }
+
+    .dark-theme .stitch-header {
+        background-color: var(--header-bg);
+        border-bottom-color: var(--border-color);
+    }
+
+    .dark-theme .stitch-info {
+        background-color: var(--bg-secondary);
+    }
+
+        .dark-theme .stitch-info h4 {
+            color: var(--text-primary);
+        }
+
+    .dark-theme .info-row span {
+        color: var(--text-secondary);
+    }
+
+    .dark-theme .info-row strong {
+        color: var(--text-primary);
+    }
+
+    .dark-theme .stitch-tabs {
+        border-bottom-color: var(--border-color);
+    }
+
+    .dark-theme .stitch-tab {
+        color: var(--text-secondary);
+    }
+
+        .dark-theme .stitch-tab.active {
+            color: var(--accent-color);
+        }
+
+            .dark-theme .stitch-tab.active::after {
+                background-color: var(--accent-color);
+            }
+
+    .dark-theme .stitch-card {
+        background-color: var(--card-bg);
+        border-color: white;
+        box-shadow: 0 1px 3px var(--shadow-color);
+    }
+
+        .dark-theme .stitch-card h4 {
+            color: var(--text-primary);
+        }
+
+    .dark-theme .stitch-bar {
+        background-color: var(--bar-bg);
+    }
+
+        .dark-theme .stitch-bar .label {
+            color: var(--text-primary);
+        }
+
+        .dark-theme .stitch-bar .time {
+            color: var(--text-primary);
+        }
+
+        .dark-theme .stitch-bar .label[data-tooltip]:hover::after {
+            background: #555;
+            color: white;
+        }
+
+    .dark-theme .stitch-chart {
+        background-color: var(--bg-secondary);
+        border-color: white;
+    }
+
+    .dark-theme .stitch-btn {
+        background-color: var(--accent-color);
+        color: white;
+    }
+
+    .dark-theme .stitch-dropdown {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+     border-color:white;
+    }
+
+    .dark-theme .loading-spinner {
+        border: 3px solid var(--border-color);
+        border-top: 3px solid var(--accent-color);
+    }
+
+    .dark-theme .stitch-btn:disabled {
+        background-color: var(--border-color);
+        color: var(--text-secondary);
+    }
+
+    .dark-theme .stitch-theme-btn {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .dark-theme .stitch-logout-btn {
+        background-color: #c0392b;
+        color: white;
+    }
+
+    .dark-theme .label {
+        color: var(--text-primary);
+    }
+
+    .dark-theme .table-striped > tbody > tr:nth-of-type(odd) > * {
+        color: white !important;
+    }
+
+
+
+/* This is the new rule you wanted to add */
+.dark-theme {
+    --border-color: white;
+    /*   background-color: #3b4f7a;*/
+    background-color: dimgrey;
+}
+
+
+    .dark-theme * {
+        border-color: var(--border-color);
+    }
+
+    .dark-theme .container {
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        padding: 20px;
+    }
+
+    .dark-theme .form-control {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+        width: 150px;
+    }
+
+
+    .dark-theme .form-control {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+        .dark-theme .form-control::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+
+        .dark-theme .form-control:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(74, 122, 255, 0.2);
+        }
+
+
+    .dark-theme .btn-primary {
+        background-color: var(--accent-color);
+        border-color: var(--accent-color);
+        color: white;
+    }
+
+    .dark-theme .btn-secondary {
+        background-color: var(--bg-tertiary);
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .dark-theme .spinner-border {
+        color: var(--accent-color);
+    }
+
+    .dark-theme .screenshot-item {
+        position: relative;
+        margin-bottom: 20px;
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 5px;
+        overflow: hidden;
+        padding: 20px;
+    }
+
+    .dark-theme .image-container {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+    }
+
+    .dark-theme .screenshot-image {
+        width: 100%;
+        height: auto;
+    }
+
+    .dark-theme .screenshot-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        padding: 10px 15px;
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+    }
+
+        .dark-theme .screenshot-info p {
+            margin: 0;
+            color: var(--text-primary);
+        }
+
+    .dark-theme .delete-btn {
+        background-color: #c0392b;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+
+    .dark-theme .no-screenshots {
+        color: var(--text-secondary);
+    }
+
+ 
+
+    /* ScreenshotDetails page specific dark theme styles */
+    .dark-theme .table {
+        background-color: var(--card-bg);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .dark-theme .table-striped tbody tr:nth-of-type(odd) {
+        background-color: var(--bg-secondary);
+    }
+
+    .dark-theme .table th {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .dark-theme .table td {
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .dark-theme .text-danger {
+        color: #ff6b6b !important;
+    }
+
+    .dark-theme .btn-secondary {
+        background-color: var(--bg-tertiary);
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+        .dark-theme .btn-secondary:hover {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+    .dark-theme h4 {
+        color: var(--text-primary);
+    }
+
+    .dark-theme p {
+        color: var(--text-primary);
+    }
+
+    .dark-theme strong {
+        color: var(--text-primary);
+    }
+
+    .dark-theme .fas.fa-user-circle {
+        color: var(--text-primary);
+    }
+
+
+    .dark-theme .user-menu-dropdown {
+        background-color: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+    }
+
+        .dark-theme .user-menu-dropdown li a {
+            color: var(--text-primary);
+        }
+
+        .dark-theme .user-menu-dropdown li:hover {
+            background-color: var(--bg-tertiary);
+        }
+
+    .dark-theme .profile-container {
+        background-color: var(--bg-primary);
+    }
+
+    .dark-theme .profile-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 6px 20px var(--shadow-color);
+        border-color:white;
+    }
+
+    .dark-theme .profile-heading {
+        color: var(--text-primary);
+        border-bottom: 2px solid var(--accent-color);
+    }
+
+    .dark-theme .profile-row {
+        background-color: var(--bg-secondary);
+     
+    }
+
+        .dark-theme .profile-row p {
+            color: var(--text-primary);
+        }
+
+            .dark-theme .profile-row p strong {
+                color: var(--text-secondary);
+            }
+    .dark-theme .screenshot-info p {
+        color: var(--text-primary);
+    }
+
+
+
+    .dark-theme .screenshot-info {
+        isplay: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        margin-top: 10px;
+        gap: 5px;
+            margin-left: -31px;
+    font-size: 9px;
+    }
+
+        .dark-theme .screenshot-info p {
+            margin: 0;
+            color: var(--text-primary);
+        }
+
+    .dark-theme .block {
+        width: 10px; /* Make blocks smaller */
+        height: 7px;
+        background-color: lightgray;
+        border-radius: 2px;
+    }
+
+        .dark-theme .block.active {
+            background-color: #28A745; /* Use a more distinct green color */
+        }
+
+    .dark-theme .calendar-month {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: white;
+    }
+
+    .dark-theme .card,
+    .dark-theme .card-header {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 1px 3px var(--shadow-color);
+    }
+
+    .dark-theme .card-body {
+        background-color: var(--card-bg);
+        color: var(--text-primary);
+    }
+
+    .dark-theme .table {
+        background-color: var(--card-bg);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .dark-theme .table-striped tbody tr:nth-of-type(odd) {
+        background-color: var(--bg-secondary);
+    }
+
+    .dark-theme .table th {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .dark-theme .table td {
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .dark-theme .card-header {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .dark-theme .table thead.sticky-top {
+        background-color: var(--bg-tertiary);
+    }
+
+
+    .dark-theme .report-container {
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+    }
+
+    .dark-theme .header {
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .dark-theme .back-btn {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+
+    .dark-theme .timezone-info {
+        color: var(--text-primary);
+    }
+
+    .dark-theme .card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+    }
+
+    .dark-theme .title {
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .dark-theme .filters label {
+        color: var(--text-primary);
+    }
+
+    .dark-theme .input-date {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+
+        .dark-theme .input-date::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+
+    .dark-theme .btn-load {
+        background-color: var(--accent-color);
+        color: white;
+        border: 1px solid var(--border-color);
+    }
+
+    .dark-theme .tracker-table {
+        background-color: var(--card-bg);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+        .dark-theme .tracker-table th {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+
+        .dark-theme .tracker-table td {
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .dark-theme .tracker-table tr:nth-of-type(odd) {
+            background-color: var(--bg-secondary);
+        }
+
+    .dark-theme .summary {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+    }
+
+    /* Report.razor specific dark theme styles */
+    .dark-theme .report-container {
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+    }
+
+    .dark-theme .header {
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .dark-theme .back-btn {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+
+    .dark-theme .timezone-info {
+        color: var(--text-primary);
+    }
+
+    .dark-theme .card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+    }
+
+    .dark-theme .title {
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .dark-theme .filters label {
+        color: var(--text-primary);
+    }
+
+    .dark-theme .input-date {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+
+        .dark-theme .input-date::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+
+    .dark-theme .btn-load {
+        background-color: var(--accent-color);
+        color: white;
+        border: 1px solid var(--border-color);
+    }
+
+    .dark-theme .tracker-table {
+        background-color: var(--card-bg);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+        .dark-theme .tracker-table th {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+
+        .dark-theme .tracker-table td {
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .dark-theme .tracker-table tr:nth-of-type(odd) {
+            background-color: var(--bg-secondary);
+        }
+
+    .dark-theme .summary {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+    }
+    .dark-theme .menu-item-btn
+    {
+        color:white;
+    }
+
+    .dark-theme .filters
+    {
+        background-color:black;
+    }
+
+
+    /* Dark theme specific pagination styles */
+    .dark-theme .pagination {
+        background-color: black; /* Set the pagination background to black */
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 0.25rem;
+        display: flex;
+        list-style-type: none;
+        padding: 0.5rem;
+        margin: 0;
+    }
+
+        .dark-theme .pagination li {
+            margin: 0 0.25rem;
+        }
+
+            .dark-theme .pagination li a {
+                 color: white; /* Set page numbers text color to white */
+                text-decoration: none;
+                padding: 0.4rem 0.8rem;
+                border-radius: 0.25rem;
+              /*  color: var(--accent-color);*/
+                background-color: var(--bg-tertiary);
+            }
+
+                .dark-theme .pagination li a:hover {
+                    background-color: var(--bg-tertiary); /* Keep hover background color */
+                    color: var(--accent-color); /* Change hover text color to accent color */
+                }
+
+        .dark-theme .pagination .active a {
+            background-color: var(--accent-color); /* Active page background in accent color */
+            color: white; /* Active page number text color remains white */
+        }
+
+        .dark-theme .pagination .disabled a {
+            color: var(--text-secondary); /* Disabled page numbers with a secondary text color */
+            background-color: var(--bg-secondary);
+            cursor: not-allowed;
+        }
+
+        .dark-theme .pagination li:first-child a {
+            border-top-left-radius: 0.25rem;
+            border-bottom-left-radius: 0.25rem;
+        }
+
+        .dark-theme .pagination li:last-child a {
+            border-top-right-radius: 0.25rem;
+            border-bottom-right-radius: 0.25rem;
+        }

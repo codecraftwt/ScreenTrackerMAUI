@@ -1,0 +1,257 @@
+﻿/* Google Stitch Inspired Design */
+.register-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+    background-color: #f8f9fa;
+    font-family: 'Roboto', 'Google Sans', sans-serif;
+}
+
+.form-card {
+    width: 100%;
+    max-width: 560px;
+    background: #ffffff;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e0e0e0;
+}
+
+.form-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+    .form-header h2 {
+        font-size: 24px;
+        font-weight: 500;
+        color: #202124;
+        margin: 0 0 8px 0;
+    }
+
+    .form-header p {
+        font-size: 16px;
+        color: #5f6368;
+        margin: 0;
+    }
+
+.input-grid {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.input-group {
+    flex: 1;
+    margin-bottom: 16px;
+}
+
+label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #3c4043;
+    margin-bottom: 8px;
+}
+
+.input-field {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 16px;
+    border: 1px solid #dadce0;
+    border-radius: 8px;
+    background-color: #fff;
+    transition: all 0.2s;
+    box-sizing: border-box;
+}
+
+    .input-field:focus {
+        border-color: #1a73e8;
+        box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+        outline: none;
+    }
+
+    .input-field::placeholder {
+        color: #9aa0a6;
+    }
+
+.button-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    justify-content: flex-end;
+}
+
+.btn {
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+    .btn.primary {
+        background-color: #1a73e8;
+        color: white;
+    }
+
+        .btn.primary:hover {
+            background-color: #1967d2;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
+        }
+
+    .btn.secondary {
+        background-color: #f1f3f4;
+        color: #3c4043;
+    }
+
+        .btn.secondary:hover {
+            background-color: #e8eaed;
+        }
+
+    .btn.outline {
+        background-color: transparent;
+        color: #1a73e8;
+        border: 1px solid #dadce0;
+    }
+
+        .btn.outline:hover {
+            background-color: rgba(26, 115, 232, 0.04);
+            border-color: #1a73e8;
+        }
+
+.form-footer {
+    text-align: center;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid #e8eaed;
+}
+
+    .form-footer p {
+        margin: 0;
+        color: #5f6368;
+        font-size: 14px;
+    }
+
+.link {
+    color: #1a73e8;
+    text-decoration: none;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+    .link:hover {
+        text-decoration: underline;
+    }
+
+.message {
+    padding: 16px;
+    border-radius: 8px;
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+    .message.success {
+        background-color: #e6f4ea;
+        color: #137333;
+        border: 1px solid #b6e4c6;
+    }
+
+    .message.error {
+        background-color: #fce8e6;
+        color: #c5221f;
+        border: 1px solid #f5b5b2;
+    }
+
+/* Dark Theme */
+.dark-theme .register-container {
+    background-color: #202124;
+}
+
+.dark-theme .form-card {
+    background: #303134;
+    border-color: #5f6368;
+}
+
+.dark-theme .form-header h2 {
+    color: #e8eaed;
+}
+
+.dark-theme .form-header p {
+    color: #9aa0a6;
+}
+
+.dark-theme label {
+    color: #e8eaed;
+}
+
+.dark-theme .input-field {
+    background-color: #202124;
+    border-color: #5f6368;
+    color: #e8eaed;
+}
+
+    .dark-theme .input-field:focus {
+        border-color: #8ab4f8;
+        box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.2);
+    }
+
+.dark-theme .btn.secondary {
+    background-color: #5f6368;
+    color: #e8eaed;
+}
+
+    .dark-theme .btn.secondary:hover {
+        background-color: #70757a;
+    }
+
+.dark-theme .btn.outline {
+    background-color: transparent;
+    color: #8ab4f8;
+    border-color: #5f6368;
+}
+
+    .dark-theme .btn.outline:hover {
+        background-color: rgba(138, 180, 248, 0.08);
+        border-color: #8ab4f8;
+    }
+
+.dark-theme .form-footer {
+    border-color: #5f6368;
+}
+
+    .dark-theme .form-footer p {
+        color: #9aa0a6;
+    }
+
+.dark-theme .link {
+    color: #8ab4f8;
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+    .form-card {
+        padding: 24px;
+    }
+
+    .input-grid {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+    }
+}

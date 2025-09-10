@@ -1,0 +1,20 @@
+﻿@page "/images"
+@inject ImageService ImageService
+@inject IJSRuntime JS
+
+<h3>Image Gallery</h3>
+
+@if (!string.IsNullOrEmpty(ImageUrl))
+{
+    <img src="http://10.0.3.215:85/api/image/file?filename=0244e08c-a459-4bff-9079-b00f1e61488e.png" alt="Screenshot" class="img-fluid" />
+}
+
+@code {
+    private string ImageUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        
+        ImageUrl = await ImageService.GetImageBlobUrlAsync("0244e08c-a459-4bff-9079-b00f1e61488e.png", JS);
+    }
+}

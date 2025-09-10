@@ -1,0 +1,17 @@
+﻿@page "/radzen-datepicker-test"
+@using Radzen
+@using Radzen.Blazor
+
+<h3>Radzen DatePicker Example</h3>
+
+<RadzenDatePicker @bind-Value="selectedDate"
+                  DateFormat="dd-MM-yyyy"
+                  Max="@DateTime.Today"
+                  Style="width:200px" />
+
+<p>Selected Date: @(selectedDate.HasValue ? selectedDate.Value.ToString("dd-MM-yyyy") : "None")</p>
+
+@code {
+    // Must be nullable for DatePicker
+    private DateTime? selectedDate = DateTime.Today;
+}

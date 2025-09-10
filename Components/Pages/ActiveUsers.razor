@@ -1,0 +1,59 @@
+﻿@page "/active-users"
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@using ScreenTracker1.Models
+@using System.Linq
+@using ScreenTracker1.Services
+
+@if (activeUsers == null)
+{
+    <p class="loading">Loading active users...</p>
+}
+else if (!activeUsers.Any())
+{
+    <p class="no-users">No active users found.</p>
+}
+else
+{
+    <div class="users-grid">
+        @foreach (var user in activeUsers)
+        {
+            <div class="user-card" @onclick="() => OnCardClickAsync(user.id)">
+                <div class="user-header">
+                    <span class="user-avatar">@user.firstName[0]@user.lastName[0]</span>
+                    <div>
+                        <h4>@user.firstName @user.lastName</h4>
+                        <p class="role">@user.role</p>
+                    </div>
+                </div>
+                <div class="user-info">
+                    <p><strong>Username:</strong> @user.username</p>
+                    <p><strong>Email:</strong> @user.email</p>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<User>? activeUsers;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            activeUsers = await UserService.GetActiveUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching active users: {ex.Message}");
+            activeUsers = new List<User>();
+        }
+    }
+
+    private async Task OnCardClickAsync(int userId)
+    {
+        // Navigate to UserReport page, passing the user ID
+        NavigationManager.NavigateTo($"/userreport/{userId}");
+    }
+}

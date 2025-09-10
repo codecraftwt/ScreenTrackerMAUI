@@ -1,0 +1,149 @@
+﻿@page "/"
+@page "/login"
+@using ScreenTracker1.Models
+@using Microsoft.AspNetCore.Components.Forms
+@using ScreenTracker1.Services
+@using System.IdentityModel.Tokens.Jwt
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject AppUsageTracker AppUsageTracker
+@inject DesktopAutoCaptureService desktopAutoCaptureService
+@inject AfkTrackerService afkTrackerService
+@inject LoginService LoginService
+@inject UserService UserService
+@layout ScreenTracker1.Components.Layout.NoNavLayout
+
+<div class="login-container">
+    <div class="left-panel">
+        <div class="img-wrapper">
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="form-container">
+            <h2 class="text-center mb-4">Login</h2>
+
+            <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="form-group">
+                    <label>UserName</label>
+                    <InputText @bind-Value="loginModel.username" type="text" class="input" />
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <InputText @bind-Value="loginModel.password" type="password" class="input" />
+                </div>
+
+                <div class="form-group">
+                    <button type="submit" class="submit-btn">Login</button>
+                </div>
+            </EditForm>
+            <p class="text-center mt-2">
+                <a href="/forgot-password" class="link-btn">
+                    Forgot Password?
+                </a>
+            </p>
+
+            @if (!string.IsNullOrEmpty(message))
+            {
+                <p class="message">@message</p>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginModel loginModel = new();
+    private string message;
+    private int uid;
+    private IJSObjectReference? themeModule;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            themeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/theme.js");
+            bool isDarkTheme = await themeModule.InvokeAsync<bool>("getSystemTheme");
+            await themeModule.InvokeVoidAsync("setTheme", isDarkTheme);
+            await themeModule.DisposeAsync();
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        try
+        {
+            var result = await LoginService.LoginAsync(loginModel);
+
+            if (string.IsNullOrEmpty(result) || result.Contains("Invalid credentials") || result.Contains("Error"))
+            {
+                message = "Login failed: " + result;
+                return;
+            }
+
+            string token = result;
+            message = "Login successful!";
+
+            Preferences.Set("authToken", token);
+            await SecureStorage.SetAsync("auth_token", token);
+
+            var handler = new JwtSecurityTokenHandler();
+            var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+
+            if (jwtToken != null)
+            {
+                var userIdClaim = jwtToken.Claims
+                    .FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+
+                if (int.TryParse(userIdClaim, out int userId))
+                {
+                    uid = userId;
+                }
+            }
+
+            // var dailyTrackerResult = await UserService.StartDailyTrackerAsync();
+            string navigationUrl = "/users";
+
+            // if (dailyTrackerResult != null && dailyTrackerResult.StartTracker != null)
+            // {
+            //     string startTimeString = dailyTrackerResult.StartTracker.Value.ToString("o");
+            //     navigationUrl = $"/users?startTime={Uri.EscapeDataString(startTimeString)}";
+            // }
+
+            NavigationManager.NavigateTo(navigationUrl);
+        }
+        catch (Exception ex)
+        {
+            message = $"An unexpected error occurred during login: {ex.Message}";
+            Console.WriteLine(ex);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await SecureStorage.GetAsync("auth_token");
+
+        if (!string.IsNullOrEmpty(token))
+        {
+            var handler = new JwtSecurityTokenHandler();
+            try
+            {
+                var jwt = handler.ReadJwtToken(token);
+
+                if (jwt.ValidTo > DateTime.UtcNow)
+                {
+                    Preferences.Set("authToken", token);
+                    NavigationManager.NavigateTo("/users");
+                    return;
+                }
+            }
+            catch (Exception)
+            {
+                // Handle invalid token
+            }
+        }
+    }
+}

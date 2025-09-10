@@ -1,0 +1,145 @@
+﻿@page "/settings"
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@using ScreenTracker1.Models
+@using ScreenTracker1.Services
+@using System.IdentityModel.Tokens.Jwt
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@using Microsoft.Maui.Storage
+@using System.Security.Claims
+
+<div class="settings-container">
+    <div class="settings-header">
+        <h1>User Management</h1>
+        <button class="btn-back" @onclick="NavigateToUser">
+            <span class="back-icon">←</span>
+            Back to Home
+        </button>
+    </div>
+
+    <div class="user-management-card">
+        <div class="card-header">
+            <h2>User Permissions</h2>
+            <p>Manage delete authorization for users</p>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="loading-state">
+                <div class="spinner"></div>
+                <p>Loading users...</p>
+            </div>
+        }
+        else if (users == null || !users.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">👥</div>
+                <h3>No users found</h3>
+                <p>There are no users to manage at this time.</p>
+            </div>
+        }
+        else
+        {
+            <div class="users-table-container">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th class="text-center">Delete Authorization</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in users)
+                        {
+                            <tr class="user-row">
+                                <td class="user-info">
+                                    <div class="user-avatar">
+                                        @user.username[0].ToString().ToUpper()
+                                    </div>
+                                    <span class="username">@user.username</span>
+                                </td>
+                                <td class="permission-cell">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox"
+                                               checked="@user.isSelected"
+                                               @onchange="e => UpdateUserDeleteAuth(user, e)" />
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<User> users;
+    private bool isLoading = true;
+    private bool isAdmin = false;
+    private int userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        string token = Preferences.Get("authToken", null);
+
+        if (!string.IsNullOrEmpty(token))
+        {
+            var handler = new JwtSecurityTokenHandler();
+            try
+            {
+                var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+
+                if (jwtToken != null)
+                {
+                    var roleClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                    isAdmin = roleClaim?.ToLower() == "admin";
+                    var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+
+                    if (int.TryParse(userIdClaim, out int parsedUserId))
+                    {
+                        userId = parsedUserId;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error parsing token: {ex.Message}");
+            }
+        }
+
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        isLoading = true;
+
+        if (isAdmin)
+        {
+            var allUsers = await UserService.GetAllUsersByAdminAsync(userId, "admin");
+            users = allUsers.Where(u => u.role.Equals("user", StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+        else
+        {
+            users = new List<User>();
+        }
+
+        isLoading = false;
+    }
+
+    private async Task UpdateUserDeleteAuth(User user, ChangeEventArgs e)
+    {
+        user.isSelected = (bool?)e.Value;
+        bool isSelectedValue = user.isSelected ?? false;
+        await UserService.UpdateDeleteAuthAsync(user.id, userId, isSelectedValue);
+        StateHasChanged();
+    }
+
+    private void NavigateToUser()
+    {
+        NavigationManager.NavigateTo("/users");
+    }
+}

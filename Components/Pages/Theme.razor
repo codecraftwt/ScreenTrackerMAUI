@@ -1,0 +1,92 @@
+﻿@page "/theme"
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<div class="theme-container">
+    <div class="theme-section">
+        <label class="theme-label">Theme Mode</label>
+
+        <div class="theme-controls-row">
+            <div class="theme-dropdown-wrapper">
+                <select class="theme-dropdown" @onchange="OnThemeChanged">
+                    <option value="system">System</option>
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                </select>
+            </div>
+
+            <button class="theme-toggle-btn" @onclick="ToggleTheme">
+                <i class="fas @themeIcon"></i>
+            </button>
+        </div>
+    </div>
+
+    <button class="theme-back-btn" @onclick="BackToHome">Back to Home</button>
+</div>
+
+@code {
+    private string themeIcon = "fa-sun";
+    private bool isDarkTheme;
+    private string selectedTheme = "system";
+    private IJSObjectReference? themeModule;
+    private string currentTheme = "Unknown";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            themeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/theme.js");
+            isDarkTheme = await themeModule.InvokeAsync<bool>("getSystemTheme");
+            await ApplyTheme();
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnThemeChanged(ChangeEventArgs e)
+    {
+        selectedTheme = e.Value.ToString();
+        switch (selectedTheme)
+        {
+            case "system":
+                isDarkTheme = await themeModule.InvokeAsync<bool>("getSystemTheme");
+                break;
+            case "dark":
+                isDarkTheme = true;
+                break;
+            case "light":
+                isDarkTheme = false;
+                break;
+        }
+        await ApplyTheme();
+    }
+
+    private async Task ToggleTheme()
+    {
+        isDarkTheme = !isDarkTheme;
+        await ApplyTheme();
+    }
+
+    private async Task ApplyTheme()
+    {
+        if (themeModule != null)
+        {
+            await themeModule.InvokeVoidAsync("setTheme", isDarkTheme);
+        }
+
+        themeIcon = isDarkTheme ? "fa-moon" : "fa-sun";
+        currentTheme = isDarkTheme ? "Dark Theme" : "Light Theme";
+    }
+
+    private void BackToHome()
+    {
+        NavigationManager.NavigateTo("/users");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (themeModule is not null)
+        {
+            await themeModule.DisposeAsync();
+        }
+    }
+}

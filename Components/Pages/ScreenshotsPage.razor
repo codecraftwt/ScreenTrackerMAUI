@@ -1,0 +1,342 @@
+﻿@page "/screenshots"
+@page "/screenshots/{date:datetime?}"
+@inject NavigationManager NavigationManager
+@inject UserService UserService
+@inject KeyboardMouseService KeyboardMouseService
+@inject IJSRuntime JSRuntime
+@using ScreenTracker1.Models
+@using ScreenTracker1.Services
+@using System.IdentityModel.Tokens.Jwt
+@using Microsoft.JSInterop
+@using ScreenTracker1
+@using ScreenTracker1.Components.Layout
+@layout MainLayout
+
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+
+<div class="container mt-3" @onclick="CloseCustomCalendar">
+    <div class="card shadow-sm">
+        <div class="card-header d-flex align-items-center mb-2">
+            <button @onclick="NavigateHome" class="btn btn-primary me-3">Home</button>
+
+            <div class="position-relative">
+                <div class="screenshots-page">
+                    <input type="date"
+                           id="activityDate"
+                           @onchange="OnDateChanged"
+                           value="@selectedDate.ToString("yyyy-MM-dd")"
+                           max="@maxSelectableDate"
+                           class="stitch-date-picker"
+                           @ref="dateInputRef" />
+                </div>
+
+                <button class="calendar-toggle-btn" @onclick:stopPropagation @onclick="ToggleCustomCalendar">
+                    <i class="fa fa-calendar"></i>
+                </button>
+
+                @if (showCustomCalendar)
+                {
+                    <div class="custom-calendar-container" @onclick:stopPropagation>
+                        <div class="custom-calendar">
+                            <div class="calendar-header">
+                                <button @onclick="PrevMonth" class="calendar-nav-btn">&lt;</button>
+                                <span class="calendar-month">@currentCalendarDate.ToString("MMMM yyyy")</span>
+                                <button @onclick="NextMonth" class="calendar-nav-btn" disabled="@(currentCalendarDate.Date.Year > DateTime.Today.Year || (currentCalendarDate.Date.Year == DateTime.Today.Year && currentCalendarDate.Date.Month >= DateTime.Today.Month))">&gt;</button>
+                            </div>
+                            <div class="calendar-weekdays">
+                                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                            </div>
+                            <div class="calendar-days">
+                                @foreach (var day in calendarDays)
+                                {
+                                    var isAvailable = availableDates.Any(d => d.Date == day.Date);
+                                    var isSelected = selectedDate.Date == day.Date;
+                                    var isCurrentMonth = day.Month == currentCalendarDate.Month;
+                                    var isToday = day.Date == DateTime.Today;
+                                    var isFutureDate = day.Date > DateTime.Today;
+
+                                    var dayClass = "calendar-day";
+                                    if (!isCurrentMonth) dayClass += " other-month";
+                                    if (isSelected) dayClass += " selected";
+                                    if (isToday) dayClass += " today";
+                                    if (isFutureDate) dayClass += " disabled";
+
+                                    <div class="@dayClass" @onclick="() => SelectDate(day)">
+                                        @day.Day
+                                        @if (isAvailable && isCurrentMonth && !isFutureDate)
+                                        {
+                                            <span class="day-dot">•</span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="d-flex justify-content-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        }
+        else if (screenshots?.Any() == true)
+        {
+            <div class="row">
+                @foreach (var screenshot in screenshots)
+                {
+                    <div class="col-6 col-sm-4 col-md-2 screenshot-item">
+                        <div class="image-container">
+                            <img src="@screenshot.imageUrl" alt="Screenshot" class="img-fluid screenshot-image"
+                                 @onclick="() => NavigateToDetailsPage(screenshot.id)" />
+                        </div>
+                        <div class="screenshot-info">
+                            <p>@ConvertToIST(screenshot.captureTime)</p>
+                            @{
+                                int activeBlocks = GetActiveBlocks(screenshot);
+                            }
+                            <div class="activity-blocks">
+                                @for (int i = 1; i <= 10; i++)
+                                {
+                                    <span class="block @(i <= activeBlocks ? "active" : "")"></span>
+                                }
+                            </div>
+                            <p>@CalculateActivityScore(screenshot)%</p>
+                            @if (currentUser != null && (currentUser.role != "User" || currentUser.isSelected == true))
+                            {
+                                <button @onclick="() => DeleteScreenshot(screenshot.id)" class="delete-btn">
+                                    <i class="fa fa-trash"></i>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="d-flex justify-content-center mt-4">
+                <button @onclick="PreviousPage" class="btn btn-secondary" disabled="@(!CanGoToPreviousPage)">Previous</button>
+                <span class="mx-3">Page @currentPage</span>
+                <button @onclick="NextPage" class="btn btn-secondary" disabled="@(!CanGoToNextPage)">Next</button>
+            </div>
+        }
+        else
+        {
+            <p class="no-screenshots">No screenshots found for this date.</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public DateTime? Date { get; set; }
+
+    private List<Screenshots> screenshots;
+    private List<DateTime> availableDates = new List<DateTime>();
+    private string token;
+    private int userId;
+    private DateTime selectedDate;
+    private bool isLoading;
+    private int skip = 1;
+    private int take = 18;
+    private int currentPage = 1;
+    private User currentUser;
+    private bool CanGoToPreviousPage => currentPage > 1;
+    private bool CanGoToNextPage => screenshots?.Count == take;
+    private string maxSelectableDate = DateTime.Today.ToString("yyyy-MM-dd");
+
+    private bool showCustomCalendar = false;
+    private DateTime currentCalendarDate;
+    private List<DateTime> calendarDays = new List<DateTime>();
+    private ElementReference dateInputRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        selectedDate = Date ?? DateTime.Today;
+        currentCalendarDate = selectedDate;
+
+        token = Preferences.Get("authToken", null);
+        if (!string.IsNullOrEmpty(token))
+        {
+            var handler = new JwtSecurityTokenHandler();
+            if (handler.ReadToken(token) is JwtSecurityToken jwtToken)
+            {
+                if (App.SelectedUserId != 0)
+                {
+                    userId = App.SelectedUserId;
+                }
+                else
+                {
+                    var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+                    if (int.TryParse(userIdClaim, out int id))
+                    {
+                        userId = id;
+                    }
+                }
+                if (userId != 0)
+                {
+                    currentUser = await UserService.GetUserByIdAsync(userId);
+                    if (currentUser != null)
+                    {
+                        Console.WriteLine($"Current User Role: {currentUser.role}");
+                    }
+                    availableDates = await UserService.GetAvailableDatesAsync(userId);
+                    await LoadScreenshotsAsync();
+                    GenerateCalendarDays();
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("User not authenticated.");
+        }
+    }
+
+    private void GenerateCalendarDays()
+    {
+        calendarDays.Clear();
+        var firstDay = new DateTime(currentCalendarDate.Year, currentCalendarDate.Month, 1);
+        var lastDay = firstDay.AddMonths(1).AddDays(-1);
+        var startDate = firstDay.AddDays(-(int)firstDay.DayOfWeek);
+        var endDate = lastDay.AddDays(6 - (int)lastDay.DayOfWeek);
+
+        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        {
+            calendarDays.Add(date);
+        }
+    }
+
+    private void ToggleCustomCalendar()
+    {
+        showCustomCalendar = !showCustomCalendar;
+        if (showCustomCalendar)
+        {
+            currentCalendarDate = selectedDate;
+            GenerateCalendarDays();
+        }
+    }
+
+    private void CloseCustomCalendar()
+    {
+        showCustomCalendar = false;
+    }
+
+    private void PrevMonth()
+    {
+        currentCalendarDate = currentCalendarDate.AddMonths(-1);
+        GenerateCalendarDays();
+    }
+
+    private void NextMonth()
+    {
+        currentCalendarDate = currentCalendarDate.AddMonths(1);
+        GenerateCalendarDays();
+    }
+
+    private async Task SelectDate(DateTime date)
+    {
+        if (date.Date <= DateTime.Today)
+        {
+            selectedDate = date;
+            showCustomCalendar = false;
+            currentPage = skip = 1;
+            await LoadScreenshotsAsync();
+        }
+    }
+
+    private void NavigateToDetailsPage(int screenshotId) => NavigationManager.NavigateTo($"/screenshot-details/{screenshotId}?date={selectedDate:yyyy-MM-dd}");
+
+    private void NavigateHome() => NavigationManager.NavigateTo("/users");
+
+    private async Task LoadScreenshotsAsync()
+    {
+        isLoading = true;
+        StateHasChanged();
+        try
+        {
+            var basicScreenshots = await UserService.GetImagesByDateAsync(userId, selectedDate, skip, take);
+            screenshots = new List<Screenshots>();
+            if (basicScreenshots?.Any() == true)
+            {
+                foreach (var shot in basicScreenshots)
+                {
+                    var detailed = await KeyboardMouseService.GetImageActivityDataAsync(shot.id);
+                    screenshots.Add(detailed ?? shot);
+                }
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnDateChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var newDate))
+        {
+            selectedDate = newDate;
+            currentPage = skip = 1;
+            await LoadScreenshotsAsync();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("eval", $@"document.getElementById('activityDate').setAttribute('max', '{maxSelectableDate}');");
+        }
+    }
+
+    private async Task NextPage()
+    {
+        currentPage++;
+        skip++;
+        await LoadScreenshotsAsync();
+    }
+
+    private async Task PreviousPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+            skip--;
+            await LoadScreenshotsAsync();
+        }
+    }
+
+    private async Task DeleteScreenshot(int screenshotId)
+    {
+        if (await UserService.DeleteScreenshotAsync(screenshotId))
+        {
+            await LoadScreenshotsAsync();
+        }
+        else
+        {
+            Console.WriteLine("Failed to delete screenshot.");
+        }
+    }
+
+    private string ConvertToIST(DateTime captureTime)
+    {
+        var istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        var utcTime = DateTime.SpecifyKind(captureTime, DateTimeKind.Utc);
+        return TimeZoneInfo.ConvertTimeFromUtc(utcTime, istZone).ToString("hh:mm tt");
+    }
+
+    private int CalculateActivityScore(Screenshots screenshot)
+    {
+        int score = (int)((double)(screenshot.keyboardClicks + screenshot.mouseClicks) / 1000 * 100);
+        return Math.Clamp(score, 0, 100);
+    }
+
+    private int GetActiveBlocks(Screenshots screenshot)
+    {
+        int blocks = (int)Math.Round((double)(screenshot.keyboardClicks + screenshot.mouseClicks) / 1000 * 10);
+        return Math.Clamp(blocks, 0, 10);
+    }
+}

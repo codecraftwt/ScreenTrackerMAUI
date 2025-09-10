@@ -1,0 +1,71 @@
+﻿.page-title {
+    font-size: 1.8rem;
+    margin-bottom: 1.5rem;
+    color: #333;
+    font-weight: 600;
+}
+
+.loading,
+.no-users {
+    font-size: 1rem;
+    color: #666;
+    padding: 1rem;
+}
+
+.users-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    padding:20px;
+}
+
+.user-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+   /* .user-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+    }*/
+
+.user-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.user-avatar {
+    background: #4285f4;
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.2rem;
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.8rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.user-header h4 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #222;
+}
+
+.role {
+    font-size: 0.9rem;
+    color: #777;
+}
+
+.user-info p {
+    margin: 0.2rem 0;
+    font-size: 0.95rem;
+    color: #444;
+}

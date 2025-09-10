@@ -1,0 +1,32 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
+
+
+
+@code {
+    private bool ShouldShowNav => !HideNavPages.Contains(CurrentPage);
+
+    private string CurrentPage => NavigationManager.Uri.Replace(NavigationManager.BaseUri, "/").TrimEnd('/');
+
+    private readonly HashSet<string> HideNavPages = new()
+    {
+        "register",   // page path without leading slash
+        "login"       // optionally hide for login too
+    };
+}
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+   @*      <div class="top-row px-4">
+            <NavLink href="/summary" class="nav-link">App Summary</NavLink>
+
+        </div>
+ *@
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>

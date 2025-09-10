@@ -1,0 +1,267 @@
+﻿@page "/rptTime/{UserId:int}"
+@page "/rptTime"
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@using ScreenTracker1.DTOS
+@using ScreenTracker1.Services
+@using ScreenTracker1.Models
+@using System.IdentityModel.Tokens.Jwt
+@using System.Security.Claims
+@using Microsoft.Maui.ApplicationModel
+
+<div class="report-container">
+    <div class="card">
+        <h2 class="title">Daily Tracker History</h2>
+
+        <div class="filters">
+            <label>Date Range</label>
+            <div class="filters-row">
+                <InputDate @bind-Value="FromDate" class="input-date" />
+                <span class="to-text">to</span>
+                <InputDate @bind-Value="ToDate" class="input-date" />
+
+                @if (UserRole?.ToLower() == "admin" || UserRole?.ToLower() == "superadmin")
+                {
+                    <label>Search</label>
+                    <input type="text" @bind="SearchString" class="search-input" placeholder="Search users..." />
+                }
+
+                <button class="btn-load" @onclick="() => LoadHistory(1)">Load</button>
+            </div>
+        </div>
+
+        @if (Trackers == null)
+        {
+            <div class="loading">Loading...</div>
+        }
+        else if (!Trackers.Any())
+        {
+            <div class="no-data">No tracker data available for the selected range.</div>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table class="tracker-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>First Name</th>
+                            <th>Last Name</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var trackerDto in Trackers)
+                        {
+                            var tz = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+                            var tracker = trackerDto.Tracker;
+
+                            <tr>
+                                <td>@TimeZoneInfo.ConvertTimeFromUtc(tracker.Date, tz).ToString("MMM dd, yyyy")</td>
+                                <td>@trackerDto.User?.firstName</td>
+                                <td>@trackerDto.User?.lastName</td>
+                                <td>
+                                    @(tracker.StartTracker.HasValue
+                                        ? TimeZoneInfo.ConvertTimeFromUtc(tracker.StartTracker.Value, tz).ToString("hh:mm tt")
+                                        : "-")
+                                </td>
+                                <td>
+                                    @(tracker.EndTracker.HasValue
+                                        ? TimeZoneInfo.ConvertTimeFromUtc(tracker.EndTracker.Value, tz).ToString("hh:mm tt")
+                                        : "-")
+                                </td>
+                                <td class="duration">
+                                    @if (tracker.StartTracker.HasValue && tracker.EndTracker.HasValue)
+                                    {
+                                        var duration = tracker.EndTracker.Value - tracker.StartTracker.Value;
+                                        <span>@(duration.TotalMinutes >= 0 ? FormatDuration(duration) : "-")</span>
+                                    }
+                                    else
+                                    {
+                                        <span>-</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (TotalPages > 1)
+            {
+                <nav aria-label="Page navigation example" class="d-flex justify-content-center mt-4">
+                    <ul class="pagination">
+                        <li class="page-item @(CurrentPage == 1 ? "disabled" : "")">
+                            <a class="page-link" href="#" @onclick="PreviousPage" @onclick:preventDefault aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+
+                        @foreach (var pageNumber in GetPageNumbers())
+                        {
+                            @if (pageNumber == -1) // -1 represents an ellipsis
+                            {
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#">...</a>
+                                </li>
+                            }
+                            else
+                            {
+                                <li class="page-item @(pageNumber == CurrentPage ? "active" : "")">
+                                    <a class="page-link" href="#" @onclick="() => LoadHistory(pageNumber)" @onclick:preventDefault>
+                                        @pageNumber
+                                    </a>
+                                </li>
+                            }
+                        }
+
+                        <li class="page-item @(CurrentPage == TotalPages ? "disabled" : "")">
+                            <a class="page-link" href="#" @onclick="NextPage" @onclick:preventDefault aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            }
+            <div class="summary flex justify-between p-2 bg-gray-100 rounded-lg mt-4">
+                <span>Showing <b>@Trackers.Count</b> of <b>@TotalRecords</b> records</span>
+                <span><b>@FormatDuration(GetTotalDuration())</b> total</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int UserId { get; set; }
+
+    private DateTime FromDate { get; set; } = DateTime.Now.Date.AddDays(-7);
+    private DateTime ToDate { get; set; } = DateTime.Now.Date;
+    private List<DailyTrackerWithUserDto> Trackers { get; set; } = new();
+    private string? UserRole;
+    private string SearchString { get; set; } = string.Empty;
+    private int loggedInUserId;
+
+    // Pagination
+    private int CurrentPage { get; set; } = 1;
+    private int PageSize { get; set; } = 10;
+    private int TotalRecords { get; set; }
+    private int TotalPages => (int)Math.Ceiling((double)TotalRecords / PageSize);
+    private int PaginationDisplaySize { get; set; } = 5; // Number of pages to show at a time
+
+    private void NavigateToHome() => NavigationManager.NavigateTo("/active-users");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserDataAndRoleAsync();
+        await LoadHistory(1);
+    }
+
+    private async Task LoadUserDataAndRoleAsync()
+    {
+        var token = Preferences.Get("authToken", null);
+        if (!string.IsNullOrEmpty(token))
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+
+            if (jwtToken != null)
+            {
+                UserRole = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+
+                if (int.TryParse(userIdClaim, out int id))
+                    loggedInUserId = id;
+            }
+        }
+    }
+
+    private async Task LoadHistory(int pageNumber = 1)
+    {
+        try
+        {
+            CurrentPage = pageNumber;
+
+            if (UserRole?.ToLower() == "admin" || UserRole?.ToLower() == "superadmin")
+            {
+                var pagedResult = await UserService.GetAllUsersReportAsync(
+                    FromDate, ToDate, SearchString, loggedInUserId, CurrentPage, PageSize);
+
+                Trackers = pagedResult.Items;
+                TotalRecords = pagedResult.TotalCount;
+            }
+            else // For non-admin users
+            {
+                var pagedResult = await UserService.GetTodayDailyTrackerAsync(
+                    loggedInUserId, FromDate, ToDate, SearchString, CurrentPage, PageSize);
+
+                Trackers = pagedResult.Items;
+                TotalRecords = pagedResult.TotalCount;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading history: {ex.Message}");
+            Trackers = new List<DailyTrackerWithUserDto>();
+            TotalRecords = 0;
+        }
+    }
+
+    private IEnumerable<int> GetPageNumbers()
+    {
+        var pageNumbers = new List<int>();
+        var startPage = Math.Max(1, CurrentPage - (int)Math.Floor(PaginationDisplaySize / 2.0));
+        var endPage = Math.Min(TotalPages, startPage + PaginationDisplaySize - 1);
+
+        if (endPage - startPage + 1 < PaginationDisplaySize)
+        {
+            startPage = Math.Max(1, endPage - PaginationDisplaySize + 1);
+        }
+
+        if (startPage > 1)
+        {
+            pageNumbers.Add(1);
+            if (startPage > 2) pageNumbers.Add(-1); // Ellipsis
+        }
+
+        for (int i = startPage; i <= endPage; i++)
+        {
+            pageNumbers.Add(i);
+        }
+
+        if (endPage < TotalPages)
+        {
+            if (endPage < TotalPages - 1) pageNumbers.Add(-1); // Ellipsis
+            pageNumbers.Add(TotalPages);
+        }
+
+        return pageNumbers;
+    }
+
+    private async Task NextPage()
+    {
+        if (CurrentPage < TotalPages)
+            await LoadHistory(CurrentPage + 1);
+    }
+
+    private async Task PreviousPage()
+    {
+        if (CurrentPage > 1)
+            await LoadHistory(CurrentPage - 1);
+    }
+
+    private TimeSpan GetTotalDuration()
+    {
+        return Trackers
+            .Where(t => t.Tracker.StartTracker.HasValue && t.Tracker.EndTracker.HasValue &&
+                        (t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value).TotalMinutes >= 0)
+            .Aggregate(TimeSpan.Zero, (sum, t) => sum + (t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value));
+    }
+
+    private string FormatDuration(TimeSpan duration)
+    {
+        int hours = (int)duration.TotalHours;
+        int minutes = duration.Minutes;
+        return $"{hours} hrs {minutes} mins";
+    }
+}

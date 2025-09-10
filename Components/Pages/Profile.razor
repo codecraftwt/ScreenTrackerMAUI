@@ -1,0 +1,99 @@
+﻿@page "/profile"
+@using ScreenTracker1.Models
+@using ScreenTracker1.Services
+@using System.IdentityModel.Tokens.Jwt
+@using System.Security.Claims
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+
+<div class="profile-container">
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <p class="text-danger">@errorMessage</p>
+    }
+    else if (user == null)
+    {
+        <p>Loading profile...</p>
+    }
+    else
+    {
+        <div class="profile-card">
+            <h2 class="profile-heading">User Profile</h2>
+            <div class="profile-info">
+                <div class="profile-row">
+                    <p><strong>Username:</strong> @user.username</p>
+                    <p><strong>First Name:</strong> @user.firstName</p>
+                </div>
+                <div class="profile-row">
+                    <p><strong>Last Name:</strong> @user.lastName</p>
+                    <p><strong>Email:</strong> @user.email</p>
+                </div>
+                <div class="profile-row">
+                    <p><strong>Phone Number:</strong> @user.phoneNumber</p>
+                    <p><strong>Role:</strong> @user.role</p>
+                </div>
+                <div class="profile-row">
+                    <p><strong>Member Since:</strong> @user.createdAt.ToShortDateString()</p>
+                </div>
+            </div>
+            <button class="btn btn-secondary mt-3" @onclick="BackToHome">Back to Home</button>
+        </div>
+    }
+</div>
+
+@code {
+    private User? user;
+    private string errorMessage;
+    private int userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = Preferences.Get("authToken", null);
+        if (string.IsNullOrEmpty(token))
+        {
+            errorMessage = "User is not authenticated. Please log in.";
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        var handler = new JwtSecurityTokenHandler();
+        if (handler.ReadToken(token) is JwtSecurityToken jwtToken)
+        {
+            var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdClaim, out int id))
+            {
+                userId = id;
+            }
+        }
+
+        if (userId > 0)
+        {
+            await LoadUserProfileAsync();
+        }
+        else
+        {
+            errorMessage = "Invalid user ID found in token.";
+        }
+    }
+
+    private async Task LoadUserProfileAsync()
+    {
+        try
+        {
+            user = await UserService.GetUserByIdAsync(userId);
+            if (user == null)
+            {
+                errorMessage = "User data not found.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading profile: {ex.Message}";
+        }
+    }
+
+    private void BackToHome()
+    {
+        NavigationManager.NavigateTo("/users");
+    }
+}

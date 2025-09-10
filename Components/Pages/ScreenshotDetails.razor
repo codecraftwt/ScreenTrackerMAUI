@@ -1,0 +1,289 @@
+﻿@page "/screenshot-details/{ImageId:int}"
+@using ScreenTracker1.Models
+@using ScreenTracker1.Services
+@using System.Text.Json
+@using System.IdentityModel.Tokens.Jwt
+@inject KeyboardMouseService KeyboardMouseService
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+
+<style>
+    .image-container {
+        position: relative;
+    }
+
+    .nav-button {
+        background-color: transparent !important;
+        border: none !important;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 2.5rem;
+        z-index: 10;
+        transition: color 0.3s ease-in-out, transform 0.3s ease-in-out;
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+    }
+
+        .nav-button:hover {
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .nav-button:disabled {
+            color: rgba(255, 255, 255, 0.3) !important;
+            cursor: not-allowed;
+        }
+
+  
+
+
+
+</style>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <p class="text-danger">@errorMessage</p>
+}
+else if (screenshots == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div style="font-family: 'Comfortaa';">
+        <button @onclick="BackToScreenshots" class="btn btn-primary" style="margin-top: 20px; margin-bottom 20px;">
+            <i class="fa fa-arrow-left"></i> Back
+        </button>
+
+        <div class="row">
+            <div class="col-md-9">
+                @if (!string.IsNullOrEmpty(screenshots.imageUrl))
+                {
+                    <div class="image-container text-center">
+                        @if (hasPreviousScreenshot)
+                        {
+                            <button @onclick='() => LoadRelativeScreenshotAsync("previous")'
+                                    class="btn nav-button position-absolute top-50 start-0 translate-middle-y"
+                                    title="Previous">
+                                <i class="fa fa-chevron-left"></i>
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn nav-button position-absolute top-50 start-0 translate-middle-y" disabled title="Previous">
+                                <i class="fa fa-chevron-left"></i>
+                            </button>
+                        }
+
+                        <img src="@screenshots.imageUrl" alt="Screenshot"
+                             class="img-fluid screenshot-image"
+                             style="max-width: 80%; height: auto; border: 1px solid var(--border-color); border-radius: 4px; padding: 4px;" />
+
+                        @if (hasNextScreenshot)
+                        {
+                            <button @onclick='() => LoadRelativeScreenshotAsync("next")'
+                                    class="btn nav-button position-absolute top-50 end-0 translate-middle-y"
+                                    title="Next">
+                                <i class="fa fa-chevron-right"></i>
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn nav-button position-absolute top-50 end-0 translate-middle-y" disabled title="Next">
+                                <i class="fa fa-chevron-right"></i>
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p>No image available.</p>
+                }
+            </div>
+
+            <div class="col-md-3">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Screenshot Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Time:</strong> @FormatTimestamp(screenshots.captureTime)</p>
+                        <p><strong>Keyboard Clicks:</strong> @screenshots.keyboardClicks</p>
+                        <p><strong>Mouse Clicks:</strong> @screenshots.mouseClicks</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Activity Details</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (minuteActivity?.Any() == true)
+                        {
+                            <div class="activity-scroll" style="max-height: 400px; overflow-y: auto;">
+                                <table
+                                    class="table table-sm mb-0 table-striped"
+                                >
+                                    <thead class="sticky-top">
+                                        <tr>
+                                            <th>Time</th>
+                                            <th>K</th>
+                                            <th>M</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var entry in minuteActivity.Values.OrderBy(e => e.Timestamp))
+                                        {
+                                            <tr>
+                                                <td>@FormatTimeOnly(entry.Timestamp)</td>
+                                                <td>@entry.Keyboard</td>
+                                                <td>@entry.Mouse</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="p-3 mb-0">No activity data</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int ImageId { get; set; }
+    [Parameter][SupplyParameterFromQuery] public DateTime? Date { get; set; }
+
+    private Screenshots screenshots;
+    private Dictionary<string, MinuteActivity> minuteActivity;
+    private string errorMessage;
+    private int userId;
+    private string token;
+
+    private bool hasNextScreenshot;
+    private bool hasPreviousScreenshot;
+
+    protected override async Task OnInitializedAsync()
+    {
+        token = Preferences.Get("authToken", null);
+        if (!string.IsNullOrEmpty(token))
+        {
+            var handler = new JwtSecurityTokenHandler();
+            if (handler.ReadToken(token) is JwtSecurityToken jwtToken)
+            {
+                var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+                if (int.TryParse(userIdClaim, out int id))
+                {
+                    userId = id;
+                }
+            }
+        }
+
+        await LoadImageDataAsync();
+        await CheckForRelativeScreenshotsAsync();
+    }
+
+    private async Task LoadImageDataAsync()
+    {
+        try
+        {
+            screenshots = await KeyboardMouseService.GetImageActivityDataAsync(ImageId);
+
+            if (screenshots == null)
+            {
+                errorMessage = "No data found for the selected screenshot.";
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(screenshots.minuteActivityData))
+            {
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                minuteActivity = JsonSerializer.Deserialize<Dictionary<string, MinuteActivity>>(screenshots.minuteActivityData, options);
+            }
+            else
+            {
+                minuteActivity = new Dictionary<string, MinuteActivity>();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading screenshot details: {ex.Message}";
+        }
+    }
+
+    private async Task CheckForRelativeScreenshotsAsync()
+    {
+        if (screenshots == null || screenshots.captureTime == default)
+        {
+            hasPreviousScreenshot = false;
+            hasNextScreenshot = false;
+            return;
+        }
+
+        try
+        {
+            var nextCheck = await UserService.GetRelativeScreenshotAsync(userId, screenshots.id, screenshots.captureTime, "previous");
+            hasNextScreenshot = nextCheck != null;
+
+            var previousCheck = await UserService.GetRelativeScreenshotAsync(userId, screenshots.id, screenshots.captureTime, "next");
+            hasPreviousScreenshot = previousCheck != null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error checking for relative screenshots: {ex.Message}");
+            hasPreviousScreenshot = false;
+            hasNextScreenshot = false;
+        }
+    }
+
+    private async Task LoadRelativeScreenshotAsync(string direction)
+    {
+        if (screenshots == null || screenshots.captureTime == default)
+        {
+            errorMessage = "Cannot navigate without a valid screenshot and capture time.";
+            return;
+        }
+
+        var apiDirection = direction == "next" ? "previous" : "next";
+        var relativeScreenshot = await UserService.GetRelativeScreenshotAsync(
+            userId, screenshots.id, screenshots.captureTime, apiDirection);
+
+        if (relativeScreenshot != null)
+        {
+            ImageId = relativeScreenshot.id;
+
+            await LoadImageDataAsync();
+            await CheckForRelativeScreenshotsAsync();
+
+            errorMessage = null;
+
+            NavigationManager.NavigateTo($"/screenshot-details/{ImageId}?date={Date:yyyy-MM-dd}", false);
+        }
+        else
+        {
+            errorMessage = $"No {direction} screenshot found.";
+            if (direction == "previous")
+            {
+                hasPreviousScreenshot = false;
+            }
+            else
+            {
+                hasNextScreenshot = false;
+            }
+        }
+    }
+
+    // 🆕 Navigate back with the saved date
+    private void BackToScreenshots()
+    {
+        // Use the date parameter from the URL to navigate back to the correct date view
+        var dateParam = Date.HasValue ? Date.Value.ToString("yyyy-MM-dd") : null;
+        NavigationManager.NavigateTo($"/screenshots/{dateParam}");
+    }
+
+    private string FormatTimestamp(DateTime? timestamp) => timestamp?.ToLocalTime().ToString("h:mm:ss tt") ?? "N/A";
+    private string FormatTimeOnly(DateTime? timestamp) => timestamp?.ToLocalTime().ToString("h:mm:ss") ?? "N/A";
+}

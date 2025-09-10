@@ -1,0 +1,173 @@
+﻿@inject UserService UserService
+@inject IJSRuntime JSRuntime
+@using ScreenTracker1.Models
+@using ScreenTracker1.Services
+@using System.Text.Json
+@using ScreenTracker1.DTOS
+@using Microsoft.JSInterop;
+@using System.IdentityModel.Tokens.Jwt;
+@inject NavigationManager NavigationManager
+@inject DesktopAutoCaptureService desktopAutoCaptureService
+@inject AfkTrackerService afkTrackerService
+@inject SystemThemeService SystemThemeService
+@inject AppUsageTracker appUsageTrackerService
+
+<div class="stitch-header">
+    <h3 class="stitch-heading">
+        Welcome @UserName
+    </h3>
+    <div class="tooltip-container" @onclick:stopPropagation style="margin-left: 70%;">
+        <button class="user-menu-button" @onclick="ToggleMenu">
+            <i class="fas fa-user-circle"></i>
+        </button>
+        <span class="tooltip-text">User options</span>
+        @if (showMenu)
+        {
+            <ul class="user-menu-dropdown" style="right: 0;">
+                <li><button class="menu-item-btn" @onclick="ToggleThemePopup">Theme</button></li>
+                <li><NavLink href="/profile" @onclick="CloseMenu">Profile</NavLink></li>
+                <li><button class="menu-item-btn" @onclick="OnLogoutClicked">Logout</button></li>
+            </ul>
+        }
+    </div>
+    @if (showMenu)
+    {
+        <div class="overlay" @onclick="CloseMenu"></div>
+    }
+    @if (showThemePopup)
+    {
+        <div class="popup-container" @onclick="CloseThemePopup">
+            <div class="theme-container" @onclick:stopPropagation>
+                <div class="theme-section">
+                    <label class="theme-label">Theme Mode</label>
+                    <div class="theme-controls-row">
+                        <div class="theme-dropdown-wrapper">
+                            <select class="theme-dropdown" @onchange="OnThemeChanged" value="@selectedTheme">
+                                <option value="system">System</option>
+                                <option value="dark">Dark</option>
+                                <option value="light">Light</option>
+                            </select>
+                        </div>
+                        <button class="theme-toggle-btn" @onclick="ToggleTheme">
+                            <i class="fas @themeIcon"></i>
+                        </button>
+                    </div>
+                </div>
+                <button class="theme-back-btn" @onclick="CloseThemePopup">Close</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool showMenu = false;
+    private bool showThemePopup = false;
+    private string selectedTheme = "system";
+    private string themeIcon = "fa-sun";
+    private string UserName;
+    private bool isDarkTheme;
+    private IJSObjectReference? themeModule;
+    private bool isOn = false;
+    private IJSObjectReference? localStorageModule;
+    private string token;
+
+    protected override async Task OnInitializedAsync()
+    {
+        token = Preferences.Get("authToken", null);
+        
+        if (!string.IsNullOrEmpty(token))
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+
+            if (jwtToken != null)
+            {
+                UserName = jwtToken.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value;
+            }
+        }
+    }
+
+    private void ToggleMenu()
+    {
+        showMenu = !showMenu;
+    }
+    
+    private void ToggleThemePopup()
+    {
+        showThemePopup = !showThemePopup;
+        CloseMenu();
+    }
+    
+    private void CloseMenu()
+    {
+        showMenu = false;
+        StateHasChanged();
+    }
+    
+    private void CloseThemePopup()
+    {
+        showThemePopup = false;
+    }
+    
+    private async Task OnThemeChanged(ChangeEventArgs e)
+    {
+        selectedTheme = e.Value.ToString();
+        switch (selectedTheme)
+        {
+            case "system":
+                isDarkTheme = await themeModule.InvokeAsync<bool>("getSystemTheme");
+                break;
+            case "dark":
+                isDarkTheme = true;
+                break;
+            case "light":
+                isDarkTheme = false;
+                break;
+        }
+        await ApplyTheme();
+    }
+    
+    private async Task OnLogoutClicked()
+    {
+        if (isOn)
+        {
+            isOn = false;
+            await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
+            appUsageTrackerService.Stop();
+            desktopAutoCaptureService.StopTimer();
+            afkTrackerService.Stop();
+            await UserService.EndDailyTrackerAsync();
+        }
+        await UserService.EndDailyTrackerAsync();
+        SecureStorage.Remove("auth_token");
+        Preferences.Set("authToken", null);
+        App.SelectedUserId = 0;
+        NavigationManager.NavigateTo("/login");
+    }
+    
+    private async Task ToggleTheme()
+    {
+        isDarkTheme = !isDarkTheme;
+        await ApplyTheme();
+    }
+    
+    private async Task ApplyTheme()
+    {
+        if (themeModule != null)
+        {
+            await themeModule.InvokeVoidAsync("setTheme", isDarkTheme);
+        }
+        themeIcon = isDarkTheme ? "fa-moon" : "fa-sun";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            localStorageModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/localStorage.js");
+            isOn = false;
+            await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
+            StateHasChanged();
+        }
+    }
+}

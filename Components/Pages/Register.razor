@@ -1,0 +1,177 @@
+﻿@page "/register"
+@using ScreenTracker1.Models
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@inject NavigationManager NavigationManager
+@using ScreenTracker1.Services
+@inject RegisterService RegisterService
+@layout ScreenTracker1.Components.Layout.NoNavLayout
+
+
+@using System.IdentityModel.Tokens.Jwt;
+
+<div class="register-container">
+    <div class="form-card">
+        <div class="form-header">
+            <h2>Create Account</h2>
+            <p>Get started with your account</p>
+        </div>
+
+        <EditForm Model="@registerModel" OnValidSubmit="@HandleSubmit">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="input-grid">
+                <div class="input-group">
+                    <label>User Name</label>
+                    <InputText @bind-Value="registerModel.username" class="input-field" placeholder="Enter your username" />
+                </div>
+
+                <div class="input-group">
+                    <label>First Name</label>
+                    <InputText @bind-Value="registerModel.firstName" class="input-field" placeholder="Enter your first name" />
+                </div>
+            </div>
+
+            <div class="input-grid">
+                <div class="input-group">
+                    <label>Last Name</label>
+                    <InputText @bind-Value="registerModel.lastName" class="input-field" placeholder="Enter your last name" />
+                </div>
+
+                <div class="input-group">
+                    <label>Email</label>
+                    <InputText @bind-Value="registerModel.email" type="email" class="input-field" placeholder="Enter your email" />
+                </div>
+            </div>
+
+            <div class="input-grid">
+                <div class="input-group">
+                    <label>Password</label>
+                    <InputText @bind-Value="registerModel.Password" type="password" class="input-field" placeholder="Create a password" />
+                </div>
+
+                <div class="input-group">
+                    <label>Confirm Password</label>
+                    <InputText @bind-Value="registerModel.ConfirmPassword" type="password" class="input-field" placeholder="Confirm your password" />
+                </div>
+            </div>
+
+            <div class="input-grid">
+                <div class="input-group">
+                    <label>Role</label>
+                    <InputText @bind-Value="registerModel.role" class="input-field" readonly />
+                </div>
+
+                <div class="input-group">
+                    <label>Phone Number (Optional)</label>
+                    <InputText @bind-Value="registerModel.phoneNumber" class="input-field" placeholder="Enter your phone number" />
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button type="submit" class="btn primary">Register</button>
+                <button type="button" class="btn secondary" @onclick="NavigateToLogin">Cancel</button>
+                <button type="button" class="btn outline" @onclick="HandleReset">Reset</button>
+            </div>
+        </EditForm>
+
+        <div class="form-footer">
+            <p>Already have an account? <a @onclick="NavigateToLogin" class="link">Sign in</a></p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(message))
+        {
+            <div class="message @(message.Contains("success") ? "success" : "error")">
+                @message
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private RegisterModel registerModel = new();
+    private string message;
+    private bool isLoading = false;
+    private bool isSuperAdmin = false;
+    private string token;
+    private bool isAdmin = false;
+    private int userId = 0;
+    private string UserName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        token = Preferences.Get("authToken", null);
+
+        if (!string.IsNullOrEmpty(token))
+        {
+            string? role = null;
+
+            var handler = new JwtSecurityTokenHandler();
+            var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+
+            if (jwtToken != null)
+            {
+                UserName = jwtToken?.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value;
+                role = jwtToken?.Claims.FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
+                isAdmin = role?.ToLower() == "admin" || role?.ToLower() == "superadmin";
+                isSuperAdmin = role?.ToLower() == "superadmin";
+
+                var userIdClaim = jwtToken?.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+
+                if (int.TryParse(userIdClaim, out int loggedInUserId))
+                {
+                    this.userId = loggedInUserId;
+                    registerModel.IsCreatedBy = loggedInUserId;
+
+                }
+                if (!isSuperAdmin)
+                {
+                    registerModel.role = "User";
+                }
+                else
+                {
+                    registerModel.role = "Admin";
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("User not authenticated.");
+            NavigationManager.NavigateTo("/login");
+        }
+    }
+
+    private async Task NavigateToLogin()
+    {
+        NavigationManager.NavigateTo("/users");
+    }
+
+    private void HandleReset()
+    {
+        registerModel = new RegisterModel();
+        message = string.Empty;
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            var result = await RegisterService.RegisterAsync(registerModel);
+
+            if (result == "Registration successful")
+            {
+                message = result;
+                NavigationManager.NavigateTo("/login");
+            }
+            else
+            {
+                message = result;
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"An error occurred: {ex.Message}";
+        }
+    }
+}
