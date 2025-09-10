@@ -29,7 +29,8 @@ public partial class App : Application
         var tracker = serviceProvider.GetService<AppUsageTracker>();
 
 
-        MainPage = new MainPage();
+        //MainPage = new MainPage();
+        MainPage = serviceProvider.GetRequiredService<MainPage>();
     }
 }
 
