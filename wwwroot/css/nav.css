@@ -2,15 +2,14 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-  
-    background-color: #f8f9fa; /* Example background color */
+    background-color: #f8f9fa; 
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .header-content {
     display: flex;
     align-items: center;
-    gap: 20px; /* Space between the items */
+    gap: 20px;
 }
 
 .stitch-heading {

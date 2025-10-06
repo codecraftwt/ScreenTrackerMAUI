@@ -17,8 +17,6 @@
     }
 
     const today = new Date().toISOString().split('T')[0];
-
-    // Plugin for rounded bars
     const roundedBar = {
         id: 'roundedBar',
         beforeDatasetsDraw(chart) {
@@ -78,7 +76,7 @@
                     display: true,
                     beginAtZero: true,
                     grid: {
-                        // Set display to false to hide the horizontal lines
+                       
                         display: false
                     },
                     title: {
@@ -95,7 +93,7 @@
                         text: 'Date'
                     },
                     ticks: {
-                        // Removed auto-skip to display all labels
+                       
                         callback: function (value, index, ticks) {
                             return labels[index];
                         }

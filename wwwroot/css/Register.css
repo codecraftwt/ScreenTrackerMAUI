@@ -1,4 +1,4 @@
-﻿/* Google Stitch Inspired Design */
+﻿
 .register-container {
     display: flex;
     justify-content: center;
@@ -171,7 +171,6 @@ label {
         border: 1px solid #f5b5b2;
     }
 
-/* Dark Theme */
 .dark-theme .register-container {
     background-color: #202124;
 }
@@ -236,7 +235,6 @@ label {
     color: #8ab4f8;
 }
 
-/* Responsive Design */
 @media (max-width: 600px) {
     .form-card {
         padding: 24px;
@@ -254,4 +252,24 @@ label {
     .btn {
         width: 100%;
     }
+}
+.validation-message {
+    font-size: 12px;
+    color: #c5221f; 
+    margin-top: 4px;
+    display: block; 
+}
+
+.required {
+    color: #c5221f; 
+    font-weight: bold;
+    margin-left: 4px;
+}
+
+.dark-theme .validation-message {
+    color: #ff6e6e; 
+}
+
+.dark-theme .required {
+    color: #ff6e6e;
 }

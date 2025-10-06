@@ -1,8 +1,8 @@
 ﻿
 .login-container {
     display: flex;
-    justify-content: center; /* Horizontally centers the children (left and right panels) */
-    align-items: center; /* Vertically centers the children */
+    justify-content: center; 
+    align-items: center; 
     height: 100vh;
     overflow: hidden;
 }
@@ -127,4 +127,9 @@ a {
 
 .dark-theme h2, .dark-theme h5 {
     color: var(--text-primary);
+}
+
+.label-input
+{
+    margin-bottom:12px;
 }

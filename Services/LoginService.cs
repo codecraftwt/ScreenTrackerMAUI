@@ -23,12 +23,12 @@ namespace ScreenTracker1.Services
                 if (response.IsSuccessStatusCode)
                 {
                     var result = await response.Content.ReadAsStringAsync();
-                    return result; 
+                    return result;
                 }
                 else if (response.StatusCode == HttpStatusCode.Unauthorized)
                 {
-                   
-                    return "Invalid credentials. Please check your username and password.";
+                    var errorMessage = await response.Content.ReadAsStringAsync();
+                    return errorMessage;
                 }
                 else
                 {

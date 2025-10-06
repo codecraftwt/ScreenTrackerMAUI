@@ -27,10 +27,6 @@
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-   /* .user-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
-    }*/
 
 .user-header {
     display: flex;
@@ -69,3 +65,4 @@
     font-size: 0.95rem;
     color: #444;
 }
+

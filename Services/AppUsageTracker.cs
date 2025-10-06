@@ -1,6 +1,6 @@
 ﻿using Blazorise;
 using Microsoft.JSInterop;
-using Microsoft.Maui.ApplicationModel; // For MainThread
+using Microsoft.Maui.ApplicationModel;
 using ScreenTracker1.Models;
 using System;
 using System.Collections.Generic;
@@ -12,18 +12,40 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-
 namespace ScreenTracker1.Services
 {
     public class AppUsageTracker
     {
-
-
         private readonly HttpClient _httpClient;
         private readonly IJSRuntime _jsRuntime;
         private System.Timers.Timer _timer;
         private TrackedApp _currentApp;
         private AppTitleModel _currentTitleSession;
+        private string _startMode = "automatic";
+
+
+        private readonly Dictionary<string, string> _friendlyAppNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "msedgewebview2", "Microsoft Edge" },
+            { "ShellExperienceHost", "Windows Shell" },
+            { "SearchHost", "Windows Search" },
+            { "LockApp", "Windows Lock Screen" },
+            { "chrome", "Google Chrome" },
+            { "notepad", "Notepad" },
+            { "notepad++", "Notepad++" },
+            { "Slack", "Slack" },
+             { "code", "Slack" },
+            { "pgAdmin4", "pgAdmin 4" },
+            { "explorer", "File Explorer" },
+            { "devenv", "Visual Studio Code" },
+            { "msedge", "Microsoft Edge" },
+            { "chrome_proxy", "Google Chrome" },
+            { "Microsoft.Photos", "Microsoft Photos" },
+            { "Discord", "Discord" },
+            { "ms-teams", "Microsoft Teams" },
+            { "calc", "Calculator" },
+             { "ShellHost", "Windows Shell Host" }
+        };
 
         public List<TrackedApp> AppUsageLogs { get; private set; } = new();
         public List<AppTitleModel> TitleLogs { get; private set; } = new();
@@ -35,8 +57,9 @@ namespace ScreenTracker1.Services
             _jsRuntime = jsRuntime;
         }
 
-        public void Start()
+        public void Start(string startMode)
         {
+            _startMode = startMode.ToLower();
             if (_timer == null)
             {
                 _timer = new System.Timers.Timer(3000);
@@ -45,8 +68,11 @@ namespace ScreenTracker1.Services
             }
         }
 
-
-
+        public void StartAutomaticTracking()
+        {
+            _startMode = "automatic";
+            Start(_startMode);
+        }
 
         private async Task TrackActiveApp()
         {
@@ -63,11 +89,28 @@ namespace ScreenTracker1.Services
             try
             {
                 var proc = Process.GetProcessById(pid);
-                appName = proc.ProcessName;
+        
+                string processName = proc.ProcessName;
+                if (processName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    processName = processName.Substring(0, processName.Length - 4);
+                }
+
+               
+                if (_friendlyAppNames.ContainsKey(processName))
+                {
+                    appName = _friendlyAppNames[processName];
+                }
+                else
+                {
+                  
+                    appName = processName;
+                }
             }
             catch { }
+
             var now = DateTime.UtcNow;
-           
+
             if (_currentApp == null || _currentApp.AppName != appName)
             {
                 if (_currentApp != null)
@@ -79,25 +122,34 @@ namespace ScreenTracker1.Services
                     {
                         AppName = _currentApp.AppName,
                         StartTime = _currentApp.StartTime,
-                        EndTime = _currentApp.EndTime
+                        EndTime = _currentApp.EndTime,
+                        StartMode = _startMode
                     };
 
                     await SendToApi("AppUsage", usage);
                 }
-              
+
                 _currentApp = new TrackedApp
                 {
                     AppName = appName,
                     StartTime = now,
-                    EndTime = now 
+                    EndTime = now,
+                    StartMode = _startMode
                 };
 
-
-                MainThread.InvokeOnMainThreadAsync(() => OnAppListChanged?.Invoke());
+                if (MainThread.IsMainThread)
+                {
+                    OnAppListChanged?.Invoke();
+                }
+                else
+                {
+                    await MainThread.InvokeOnMainThreadAsync(() => OnAppListChanged?.Invoke());
+                }
             }
+
             if (_currentTitleSession == null ||
-               _currentTitleSession.Title != windowTitle ||
-               _currentTitleSession.AppName != appName)
+                _currentTitleSession.Title != windowTitle ||
+                _currentTitleSession.AppName != appName)
             {
                 EndCurrentTitleSession();
 
@@ -154,12 +206,11 @@ namespace ScreenTracker1.Services
                 _timer.Dispose();
                 _timer = null;
                 EndCurrentTitleSession();
-          
+
                 if (_currentApp != null)
                 {
                     _currentApp.EndTime = DateTime.UtcNow;
                     AppUsageLogs.Insert(0, _currentApp);
-                
                 }
             }
         }
@@ -173,5 +224,4 @@ namespace ScreenTracker1.Services
         [DllImport("user32.dll")]
         private static extern int GetWindowThreadProcessId(IntPtr hWnd, out int processId);
     }
-
- }
+}

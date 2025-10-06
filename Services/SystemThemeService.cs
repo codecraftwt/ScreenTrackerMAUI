@@ -10,7 +10,7 @@ namespace ScreenTracker1.Services
     {
         public bool IsSystemDarkTheme()
         {
-            // This uses MAUI's built-in theme detection
+    
             return Application.Current.RequestedTheme == AppTheme.Dark;
         }
     }

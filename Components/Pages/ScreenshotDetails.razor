@@ -31,11 +31,6 @@
             color: rgba(255, 255, 255, 0.3) !important;
             cursor: not-allowed;
         }
-
-  
-
-
-
 </style>
 
 @if (!string.IsNullOrEmpty(errorMessage))
@@ -119,9 +114,7 @@ else
                         @if (minuteActivity?.Any() == true)
                         {
                             <div class="activity-scroll" style="max-height: 400px; overflow-y: auto;">
-                                <table
-                                    class="table table-sm mb-0 table-striped"
-                                >
+                                <table class="table table-sm mb-0 table-striped">
                                     <thead class="sticky-top">
                                         <tr>
                                             <th>Time</th>
@@ -156,12 +149,14 @@ else
 @code {
     [Parameter] public int ImageId { get; set; }
     [Parameter][SupplyParameterFromQuery] public DateTime? Date { get; set; }
+    [Parameter][SupplyParameterFromQuery] public string UsageType { get; set; } = "all"; // NEW: Parameter to capture usageType
 
     private Screenshots screenshots;
     private Dictionary<string, MinuteActivity> minuteActivity;
     private string errorMessage;
     private int userId;
     private string token;
+    // REMOVED: private string usageType = "all";
 
     private bool hasNextScreenshot;
     private bool hasPreviousScreenshot;
@@ -225,10 +220,12 @@ else
 
         try
         {
-            var nextCheck = await UserService.GetRelativeScreenshotAsync(userId, screenshots.id, screenshots.captureTime, "previous");
+            // MODIFIED: Use the UsageType parameter
+            var nextCheck = await UserService.GetRelativeScreenshotAsync(userId, screenshots.id, screenshots.captureTime, "previous", UsageType);
             hasNextScreenshot = nextCheck != null;
 
-            var previousCheck = await UserService.GetRelativeScreenshotAsync(userId, screenshots.id, screenshots.captureTime, "next");
+            // MODIFIED: Use the UsageType parameter
+            var previousCheck = await UserService.GetRelativeScreenshotAsync(userId, screenshots.id, screenshots.captureTime, "next", UsageType);
             hasPreviousScreenshot = previousCheck != null;
         }
         catch (Exception ex)
@@ -247,9 +244,12 @@ else
             return;
         }
 
+        // The API uses the opposite direction for the time comparison (e.g., to get the *next* in time, you look for the *previous* ID in the query)
         var apiDirection = direction == "next" ? "previous" : "next";
+
+        // MODIFIED: Use the UsageType parameter
         var relativeScreenshot = await UserService.GetRelativeScreenshotAsync(
-            userId, screenshots.id, screenshots.captureTime, apiDirection);
+            userId, screenshots.id, screenshots.captureTime, apiDirection, UsageType);
 
         if (relativeScreenshot != null)
         {
@@ -260,7 +260,9 @@ else
 
             errorMessage = null;
 
-            NavigationManager.NavigateTo($"/screenshot-details/{ImageId}?date={Date:yyyy-MM-dd}", false);
+            // MODIFIED: Update the Navigation URL to include usageType
+            var dateParam = Date.HasValue ? Date.Value.ToString("yyyy-MM-dd") : null;
+            NavigationManager.NavigateTo($"/screenshot-details/{ImageId}?date={dateParam}&usageType={UsageType}", false);
         }
         else
         {
@@ -276,12 +278,11 @@ else
         }
     }
 
-    // 🆕 Navigate back with the saved date
     private void BackToScreenshots()
     {
-        // Use the date parameter from the URL to navigate back to the correct date view
         var dateParam = Date.HasValue ? Date.Value.ToString("yyyy-MM-dd") : null;
-        NavigationManager.NavigateTo($"/screenshots/{dateParam}");
+        // MODIFIED: Go back to the screenshots page, preserving the usageType filter
+        NavigationManager.NavigateTo($"/screenshots/{dateParam}?usageType={UsageType}");
     }
 
     private string FormatTimestamp(DateTime? timestamp) => timestamp?.ToLocalTime().ToString("h:mm:ss tt") ?? "N/A";

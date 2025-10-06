@@ -18,7 +18,7 @@ body.dark-theme {
     --shadow-light: rgba(255, 255, 255, 0.1);
 }
 
-/* Main Theme Container */
+
 .theme-container {
     max-width: 360px;
     margin: 2rem auto;
@@ -32,12 +32,10 @@ body.dark-theme {
     font-family: 'Comfortaa';
 }
 
-/* Theme Section */
 .theme-section {
     margin-bottom: 1.5rem;
 }
 
-/* Theme Label */
 .theme-label {
     display: block;
     font-size: 0.9rem;
@@ -48,19 +46,17 @@ body.dark-theme {
     letter-spacing: 0.5px;
 }
 
-/* Controls Row Container */
 .theme-controls-row {
     display: flex;
     align-items: center;
     gap: 0.75rem;
 }
 
-/* Dropdown Wrapper */
+
 .theme-dropdown-wrapper {
     flex: 1;
 }
 
-/* Theme Dropdown */
 .theme-dropdown {
     width: 100%;
     padding: 0.75rem;
@@ -89,7 +85,6 @@ body.dark-theme {
         box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
     }
 
-/* Theme Toggle Button */
 .theme-toggle-btn {
     width: 45px;
     height: 45px;
@@ -116,7 +111,7 @@ body.dark-theme {
         transform: translateY(0);
     }
 
-/* Back Button */
+
 .theme-back-btn {
     width: 100%;
     padding: 0.75rem 1rem;
@@ -141,7 +136,7 @@ body.dark-theme {
     }
 
 
-/* Smooth transitions for theme changes */
+
 .theme-container,
 .theme-dropdown,
 .theme-toggle-btn,

@@ -18,6 +18,6 @@ namespace ScreenTracker1.Models
         public TimeSpan? TotalTime { get; set; } = TimeSpan.Zero;
         public bool IsActive { get; set; }
         public string? UserName { get; set; }
-
+        public string? StartMode { get; set; }
     }
 }

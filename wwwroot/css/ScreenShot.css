@@ -1,12 +1,14 @@
-﻿input[type="date"]::-webkit-calendar-picker-indicator {
+﻿
+#DashboardactivityDate::-webkit-calendar-picker-indicator {
     display: none;
     -webkit-appearance: none;
 }
 
-/* For Firefox */
-input[type="date"]::-moz-calendar-picker-indicator {
+
+#DashboardactivityDate::-moz-calendar-picker-indicator {
     display: none;
 }
+
 
 .screenshot-item {
     padding: 10px;
@@ -158,13 +160,12 @@ body {
         color: #007bff;
     }
 
-/* New CSS for immediate display below the input */
 .custom-calendar-container {
     position: absolute;
     top: 100%;
     left: 0;
     z-index: 1000;
-    margin-top: 5px; /* Adjust spacing as needed */
+    margin-top: 5px;
 }
 
 .custom-calendar {
@@ -320,7 +321,7 @@ body {
     color: #6c757d;
 }
 
-/* Dark mode variables */
+
 :root {
     --background-color-light: white;
     --background-color-dark: #121212;
@@ -332,7 +333,6 @@ body {
     --border-color-dark: #333;
 }
 
-/* Dark mode specific styles */
 body.dark-mode {
     background-color: var(--background-color-dark);
     color: var(--text-color-dark);

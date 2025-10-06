@@ -10,6 +10,7 @@
 @inject AfkTrackerService afkTrackerService
 @inject SystemThemeService SystemThemeService
 @inject AppUsageTracker appUsageTrackerService
+@inject UserSelectionStateService UserStateService
 
 <div class="stitch-header">
     <div class="header-content">
@@ -17,18 +18,19 @@
 
         <NavLink href="/users" class="nav-link">Dashboard</NavLink>
         @if (!string.IsNullOrEmpty(UserRole) &&
-            (UserRole.Equals("admin", StringComparison.OrdinalIgnoreCase) ||
-             UserRole.Equals("superadmin", StringComparison.OrdinalIgnoreCase)))
+        (UserRole.Equals("admin", StringComparison.OrdinalIgnoreCase) ||
+        UserRole.Equals("superadmin", StringComparison.OrdinalIgnoreCase)))
         {
-        <NavLink href="/active-users" class="nav-link">Active Users</NavLink>
+            <NavLink href="/active-users" class="nav-link">Active Users</NavLink>
         }
 
 
-        <NavLink href="@($"rptTime/{UserId}")" class="nav-link">Reports</NavLink>
+        <NavLink href="@($"rptTime/{UserId}?usageType=all")" class="nav-link">Reports</NavLink>
+
     </div>
 
- 
-    <div class="tooltip-container" @onclick:stopPropagation>
+
+    <div class="tooltip-container" style="z-index:4;" @onclick:stopPropagation>
         <button class="user-menu-button" @onclick="ToggleMenu">
             <i class="fas fa-user-circle"></i>
         </button>
@@ -38,9 +40,18 @@
             <ul class="user-menu-dropdown" style="right: 0;">
                 <li><button class="menu-item-btn" @onclick="ToggleThemePopup">Theme</button></li>
                 <li><NavLink href="/profile" @onclick="CloseMenu">Profile</NavLink></li>
+                <li><button class="menu-item-btn" @onclick="NavigateToSettings">Settings</button></li>
+                @if (UserRole.ToLower() == "admin")
+                {
+                    <li><button class="menu-item-btn" @onclick="NavigateToRegister">Add User</button></li>
+                }
+
+
                 <li><button class="menu-item-btn" @onclick="OnLogoutClicked">Logout</button></li>
+
             </ul>
         }
+
     </div>
 
     @if (showMenu)
@@ -87,6 +98,18 @@
     private int UserId { get; set; }
     private string? UserRole;
 
+    [Parameter]
+    public EventCallback OnLogoutTriggered { get; set; }
+
+    // private async Task OnLogoutClicked()
+    // {
+    //     // Close the menu first
+    //     CloseMenu();
+
+    //     // Invoke the EventCallback, which will execute the method in the parent component
+    //     await OnLogoutTriggered.InvokeAsync();
+    // }
+
     protected override async Task OnInitializedAsync()
     {
         token = Preferences.Get("authToken", null);
@@ -96,22 +119,22 @@
             var handler = new JwtSecurityTokenHandler();
             var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
 
-           if (jwtToken != null)
-{
-    UserName = jwtToken.Claims
-        .FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value;
+            if (jwtToken != null)
+            {
+                UserName = jwtToken.Claims
+                  .FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value;
 
-    var userIdClaim = jwtToken.Claims
-        .FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
-    if (int.TryParse(userIdClaim, out int loggedInUserId))
-    {
-        UserId = loggedInUserId;
-    }
+                var userIdClaim = jwtToken.Claims
+                  .FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+                if (int.TryParse(userIdClaim, out int loggedInUserId))
+                {
+                    UserId = loggedInUserId;
+                }
 
-    
-    UserRole = jwtToken.Claims
-        .FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
-}
+
+                UserRole = jwtToken.Claims
+                  .FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
+            }
 
         }
     }
@@ -124,6 +147,14 @@
         CloseMenu();
     }
 
+    private void NavigateToSettings()
+    {
+        NavigationManager.NavigateTo("/settings");
+    }
+    private void NavigateToRegister()
+    {
+        NavigationManager.NavigateTo("/register");
+    }
     private void CloseMenu()
     {
         showMenu = false;
@@ -152,19 +183,35 @@
 
     private async Task OnLogoutClicked()
     {
-        // if (isOn)
-        // {
+        // 1. Stop tracking services if they were active
+        if (isOn)
+        {
             isOn = false;
-            await localStorageModule!.InvokeVoidAsync("setIsOnState", isOn);
+            await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
             appUsageTrackerService.Stop();
             desktopAutoCaptureService.StopTimer();
             afkTrackerService.Stop();
-        // }
+            await UserService.EndDailyTrackerAsync(); // First and only call
+        }
 
-        await UserService.EndDailyTrackerAsync();
+        // 2. Clear authentication tokens
         SecureStorage.Remove("auth_token");
         Preferences.Set("authToken", null);
+
+        // 3. CLEAR THE USER-SPECIFIC STATE IN THE SERVICE
+        UserStateService.UserId = 0; // Clear the User ID (since it's not nullable, use 0)
+        UserStateService.SelectedUsername = null;
+        UserStateService.SelectedAdminUsername = null;
+        UserStateService.SelectedUsageType = "all"; // Reset to default value
+        UserStateService.SelectedDate = DateTime.Today; // Reset to default value
+        UserStateService.Admins = new List<User>(); // Clear the list
+        UserStateService.Users = new List<User>(); // Clear the list
+
+        // Clear any application-wide selected ID (if App is a static class/property)
         App.SelectedUserId = 0;
+
+        // 4. Update UI and navigate
+        StateHasChanged();
         NavigationManager.NavigateTo("/login");
     }
 

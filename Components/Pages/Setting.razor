@@ -4,23 +4,37 @@
 @using ScreenTracker1.Models
 @using ScreenTracker1.Services
 @using System.IdentityModel.Tokens.Jwt
-@using Microsoft.AspNetCore.Components.Web.Virtualization
 @using Microsoft.Maui.Storage
 @using System.Security.Claims
 
 <div class="settings-container">
     <div class="settings-header">
         <h1>User Management</h1>
-        <button class="btn-back" @onclick="NavigateToUser">
-            <span class="back-icon">←</span>
-            Back to Home
-        </button>
     </div>
 
+    @if (isSuperAdmin)
+    {
+        <div class="admin-selection mb-3">
+            <label>Select Admin:</label>
+            <select class="form-select" @onchange="OnAdminChanged" value="@selectedAdminId">
+                <option value="">--Select Admin--</option>
+                @foreach (var admin in admins)
+                {
+                    <option value="@admin.id">@admin.username</option>
+                }
+            </select>
+        </div>
+    }
+
     <div class="user-management-card">
-        <div class="card-header">
-            <h2>User Permissions</h2>
-            <p>Manage delete authorization for users</p>
+        <div class="search-container mb-3">
+            <input type="text" style="width:24%"
+                   class="form-control search-input"
+                   placeholder="Search by username..."
+                   @bind-value="searchTerm" />
+            <button class="btn btn-primary" @onclick="HandleSearch">
+                Search
+            </button>
         </div>
 
         @if (isLoading)
@@ -30,56 +44,121 @@
                 <p>Loading users...</p>
             </div>
         }
-        else if (users == null || !users.Any())
+        else if (pagedUsers == null || !pagedUsers.Any())
         {
             <div class="empty-state">
-                <div class="empty-icon">👥</div>
-                <h3>No users found</h3>
-                <p>There are no users to manage at this time.</p>
+                <div class="empty-icon">@(!string.IsNullOrWhiteSpace(searchTerm) ? "🔎" : "👥")</div>
+                <h3>@(string.IsNullOrWhiteSpace(searchTerm) ? "No users found" : $"No users found for \"{searchTerm}\"")</h3>
+                <p>@(string.IsNullOrWhiteSpace(searchTerm) ? "There are no users to manage at this time." : "Please try a different search term or clear the search field.")</p>
             </div>
         }
         else
         {
             <div class="users-table-container">
-                <table class="users-table">
+
+                @* ⭐ FIX: Use @key="CurrentPage" to force the table to re-render completely when the page number changes. *@
+                <table class="users-table" @key="CurrentPage">
                     <thead>
                         <tr>
-                            <th>Username</th>
+                            <th class="text-center">Username</th>
                             <th class="text-center">Delete Authorization</th>
+                            <th class="text-center">Active Status</th>
+                            <th class="text-center">Delete</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var user in users)
+                        @foreach (var user in CurrentPageUsers)
                         {
                             <tr class="user-row">
                                 <td class="user-info">
-                                    <div class="user-avatar">
-                                        @user.username[0].ToString().ToUpper()
-                                    </div>
+                                    <div class="user-avatar">@user.username[0].ToString().ToUpper()</div>
                                     <span class="username">@user.username</span>
                                 </td>
                                 <td class="permission-cell">
                                     <label class="toggle-switch">
-                                        <input type="checkbox"
-                                               checked="@user.isSelected"
+                                        <input type="checkbox" checked="@user.isSelected"
                                                @onchange="e => UpdateUserDeleteAuth(user, e)" />
                                         <span class="toggle-slider"></span>
                                     </label>
+                                </td>
+                                <td class="permission-cell">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" checked="@user.isActive"
+                                               @onchange="e => UpdateUserActiveStatus(user, e)" />
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </td>
+                                <td>
+                                    <button class="btn btn-danger delete-button" @onclick="() => DeleteUser(user)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
                                 </td>
                             </tr>
                         }
                     </tbody>
                 </table>
             </div>
+
+            @if (TotalPages > 1)
+            {
+                <nav aria-label="Page navigation example" class="d-flex justify-content-center mt-4">
+                    <ul class="pagination">
+                        <li class="page-item @(CurrentPage == 1 ? "disabled" : "")">
+                            <a class="page-link" href="#" @onclick="PreviousPage" @onclick:preventDefault>&laquo;</a>
+                        </li>
+
+                        @foreach (var pageNumber in GetPageNumbers())
+                        {
+                            @if (pageNumber == -1)
+                            {
+                                <li class="page-item disabled"><a class="page-link" href="#">...</a></li>
+                            }
+                            else
+                            {
+                                <li class="page-item @(pageNumber == CurrentPage ? "active" : "")">
+                                    <a class="page-link" href="#" @onclick="() => ChangePage(pageNumber)" @onclick:preventDefault>@pageNumber</a>
+                                </li>
+                            }
+                        }
+
+                        <li class="page-item @(CurrentPage == TotalPages ? "disabled" : "")">
+                            <a class="page-link" href="#" @onclick="NextPage" @onclick:preventDefault>&raquo;</a>
+                        </li>
+                    </ul>
+                </nav>
+            }
+
+            <div class="summary flex justify-between p-2 bg-gray-100 rounded-lg mt-4">
+                <span>Showing <b>@CurrentPageUsers.Count</b> of <b>@pagedUsers.Count</b> users</span>
+            </div>
         }
     </div>
 </div>
 
 @code {
-    private List<User> users;
+    private List<User> pagedUsers = new();
     private bool isLoading = true;
     private bool isAdmin = false;
+    private bool isSuperAdmin = false;
     private int userId;
+    private int? selectedAdminId;
+    private List<User> admins = new();
+
+    private string searchTerm = string.Empty;
+    private string currentUserRole;
+
+    private const string SelectedAdminIdKey = "SelectedAdminId";
+
+    private int CurrentPage = 1;
+    private int PageSize = 5;
+    private int PaginationDisplaySize = 5;
+
+    private List<User> CurrentPageUsers => pagedUsers
+        .Skip((CurrentPage - 1) * PageSize)
+        .Take(PageSize)
+        .ToList();
+
+    private int TotalPages => (int)Math.Ceiling((double)(pagedUsers?.Count ?? 0) / PageSize);
 
     protected override async Task OnInitializedAsync()
     {
@@ -88,58 +167,177 @@
         if (!string.IsNullOrEmpty(token))
         {
             var handler = new JwtSecurityTokenHandler();
-            try
-            {
-                var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+            var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
 
-                if (jwtToken != null)
-                {
-                    var roleClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-                    isAdmin = roleClaim?.ToLower() == "admin";
-                    var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-
-                    if (int.TryParse(userIdClaim, out int parsedUserId))
-                    {
-                        userId = parsedUserId;
-                    }
-                }
-            }
-            catch (Exception ex)
+            if (jwtToken != null)
             {
-                Console.WriteLine($"Error parsing token: {ex.Message}");
+                var roleClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+                isAdmin = roleClaim?.ToLower() == "admin";
+                isSuperAdmin = roleClaim?.ToLower() == "superadmin";
+
+                var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+                if (int.TryParse(userIdClaim, out int parsedUserId))
+                    userId = parsedUserId;
+
+                currentUserRole = roleClaim;
             }
         }
 
-        await LoadUsers();
+        if (isSuperAdmin)
+        {
+            await LoadAdmins();
+
+            int persistedAdminId = Preferences.Get(SelectedAdminIdKey, 0);
+
+            if (persistedAdminId > 0 && admins.Any(a => a.id == persistedAdminId))
+            {
+                selectedAdminId = persistedAdminId;
+                await LoadUsers();
+            }
+            else
+            {
+                isLoading = false;
+            }
+        }
+        else
+        {
+            await LoadUsers();
+        }
+    }
+
+    private async Task LoadAdmins()
+    {
+        if (!string.IsNullOrEmpty(currentUserRole))
+        {
+            admins = await UserService.GetAllUsersByAdminAsync(userId, currentUserRole);
+        }
+    }
+
+    private async Task OnAdminChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int adminId))
+        {
+            selectedAdminId = adminId;
+            Preferences.Set(SelectedAdminIdKey, adminId);
+            await LoadUsers();
+        }
+        else
+        {
+            selectedAdminId = null;
+            Preferences.Remove(SelectedAdminIdKey);
+            pagedUsers = new List<User>();
+            CurrentPage = 1;
+            isLoading = false;
+        }
     }
 
     private async Task LoadUsers()
     {
         isLoading = true;
 
+        int adminIdToUse = 0;
         if (isAdmin)
         {
-            var allUsers = await UserService.GetAllUsersByAdminAsync(userId, "admin");
-            users = allUsers.Where(u => u.role.Equals("user", StringComparison.OrdinalIgnoreCase)).ToList();
+            adminIdToUse = userId;
         }
-        else
+        else if (isSuperAdmin && selectedAdminId.HasValue)
         {
-            users = new List<User>();
+            adminIdToUse = selectedAdminId.Value;
         }
 
+        if (adminIdToUse == 0)
+        {
+            pagedUsers = new List<User>();
+            isLoading = false;
+            return;
+        }
+
+        pagedUsers = await UserService.GetAllUsersByAdminAsyncforsetting(adminIdToUse, "user", searchTerm);
+        CurrentPage = 1;
         isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleSearch() => await LoadUsers();
+
+    // ⭐ SIMPLIFIED PAGINATION: Only update CurrentPage, the @key attribute handles the re-render.
+    private void ChangePage(int page)
+    {
+        if (page > 0 && page <= TotalPages)
+        {
+            CurrentPage = page;
+        }
+    }
+
+    private void PreviousPage()
+    {
+        if (CurrentPage > 1)
+        {
+            CurrentPage--;
+        }
+    }
+
+    private void NextPage()
+    {
+        if (CurrentPage < TotalPages)
+        {
+            CurrentPage++;
+        }
+    }
+
+    private IEnumerable<int> GetPageNumbers()
+    {
+        var pages = new List<int>();
+        int startPage = Math.Max(1, CurrentPage - (int)Math.Floor(PaginationDisplaySize / 2.0));
+        int endPage = Math.Min(TotalPages, startPage + PaginationDisplaySize - 1);
+
+        if (endPage - startPage + 1 < PaginationDisplaySize)
+            startPage = Math.Max(1, endPage - PaginationDisplaySize + 1);
+
+        if (startPage > 1)
+        {
+            pages.Add(1);
+            if (startPage > 2) pages.Add(-1);
+        }
+
+        for (int i = startPage; i <= endPage; i++)
+            pages.Add(i);
+
+        if (endPage < TotalPages)
+        {
+            if (endPage < TotalPages - 1) pages.Add(-1);
+            pages.Add(TotalPages);
+        }
+
+        return pages;
+    }
+
+    private async Task DeleteUser(User user)
+    {
+        var confirmed = await App.Current.MainPage.DisplayAlert(
+            "Confirm Deletion",
+            $"Are you sure you want to delete {user.username}?",
+            "Yes", "No");
+
+        if (confirmed)
+        {
+            var success = await UserService.DeleteUserAsync(user.id);
+            if (success) await LoadUsers();
+        }
     }
 
     private async Task UpdateUserDeleteAuth(User user, ChangeEventArgs e)
     {
-        user.isSelected = (bool?)e.Value;
-        bool isSelectedValue = user.isSelected ?? false;
-        await UserService.UpdateDeleteAuthAsync(user.id, userId, isSelectedValue);
-        StateHasChanged();
+        user.isSelected = (bool?)e.Value ?? false;
+        await UserService.UpdateDeleteAuthAsync(user.id, userId, user.isSelected.Value);
     }
 
-    private void NavigateToUser()
+    private async Task UpdateUserActiveStatus(User user, ChangeEventArgs e)
     {
-        NavigationManager.NavigateTo("/users");
+        if (e.Value is bool isActive)
+        {
+            user.isActive = isActive;
+            await UserService.UpdateActiveStatusAsync(user.id, userId, isActive);
+        }
     }
 }

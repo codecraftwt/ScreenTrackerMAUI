@@ -1,4 +1,4 @@
-﻿/* Main container styling */
+﻿
 .settings-container {
     max-width: 1000px;
     margin: 0 auto;
@@ -145,10 +145,10 @@
     transition: background-color 0.2s ease;
 }
 
-    .user-row:hover {
+  /*  .user-row:hover {
         background: #f8f9fa;
     }
-
+*/
     .user-row:last-child {
         border-bottom: none;
     }
@@ -229,3 +229,31 @@ input:checked + .toggle-slider {
     }
 
 
+.delete-button {
+    display: flex;
+    margin-left: 35px;
+}
+
+.search-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 2%;
+    margin: 20px;
+}
+.search-input, .form-control {
+    width: 24%;
+}
+
+.user-menu-dropdown .menu-item-btn {
+    width: 100%;
+    text-align: left; 
+   
+    display: block; 
+}
+
+.user-menu-dropdown .nav-link {
+    display: block;
+    width: 100%;
+ 
+}

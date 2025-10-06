@@ -11,6 +11,8 @@
 @using ScreenTracker1
 @using ScreenTracker1.Components.Layout
 @layout MainLayout
+@using NEvaldas.Blazor.Select2
+
 
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
 
@@ -22,12 +24,13 @@
             <div class="position-relative">
                 <div class="screenshots-page">
                     <input type="date"
-                           id="activityDate"
+                           id="DashboardactivityDate"
                            @onchange="OnDateChanged"
                            value="@selectedDate.ToString("yyyy-MM-dd")"
                            max="@maxSelectableDate"
                            class="stitch-date-picker"
                            @ref="dateInputRef" />
+
                 </div>
 
                 <button class="calendar-toggle-btn" @onclick:stopPropagation @onclick="ToggleCustomCalendar">
@@ -74,6 +77,23 @@
                     </div>
                 }
             </div>
+
+            @if (userRole == "Admin" || userRole == "superadmin")
+            {
+                <div class="toolbar-section ms-auto">
+                    <label class="label">Usage Type</label>
+                    <div class="tooltip-container">
+                        <select id="usage-type-select" class="stitch-user-select ms-2" value="@usageType">
+                          
+                            <option value="all">All</option>
+                            <option value="manual">Manual</option>
+                            <option value="automatic">Automatic</option>
+                        </select>
+                        <span class="tooltip-text">Filter data by usage type</span>
+                    </div>
+                </div>
+            }
+
         </div>
 
         @if (isLoading)
@@ -143,6 +163,7 @@
     private int take = 18;
     private int currentPage = 1;
     private User currentUser;
+    private string userRole;
     private bool CanGoToPreviousPage => currentPage > 1;
     private bool CanGoToNextPage => screenshots?.Count == take;
     private string maxSelectableDate = DateTime.Today.ToString("yyyy-MM-dd");
@@ -151,6 +172,14 @@
     private DateTime currentCalendarDate;
     private List<DateTime> calendarDays = new List<DateTime>();
     private ElementReference dateInputRef;
+
+    private DotNetObjectReference<ScreenshotsPage> objRef;
+
+    private bool isSelect2UsageTypeInitialized = false;
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string usageType { get; set; } = "all";
 
     protected override async Task OnInitializedAsync()
     {
@@ -163,27 +192,33 @@
             var handler = new JwtSecurityTokenHandler();
             if (handler.ReadToken(token) is JwtSecurityToken jwtToken)
             {
+                var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+                if (int.TryParse(userIdClaim, out int id))
+                {
+                    userId = id;
+                }
+
+                var roleClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
+                if (!string.IsNullOrEmpty(roleClaim))
+                {
+                    userRole = roleClaim;
+                }
+
                 if (App.SelectedUserId != 0)
                 {
                     userId = App.SelectedUserId;
                 }
-                else
-                {
-                    var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
-                    if (int.TryParse(userIdClaim, out int id))
-                    {
-                        userId = id;
-                    }
-                }
+
                 if (userId != 0)
                 {
                     currentUser = await UserService.GetUserByIdAsync(userId);
+                    StateHasChanged();
                     if (currentUser != null)
                     {
                         Console.WriteLine($"Current User Role: {currentUser.role}");
                     }
                     availableDates = await UserService.GetAvailableDatesAsync(userId);
-                    await LoadScreenshotsAsync();
+                    await LoadScreenshotsAsync(usageType);
                     GenerateCalendarDays();
                 }
             }
@@ -192,6 +227,55 @@
         {
             Console.WriteLine("User not authenticated.");
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("eval", $@"document.getElementById('DashboardactivityDate').setAttribute('max', '{maxSelectableDate}');");
+        }
+
+        if (userRole == "Admin" || userRole == "superadmin")
+        {
+            if (objRef == null)
+            {
+                objRef = DotNetObjectReference.Create(this);
+            }
+
+            if (!isSelect2UsageTypeInitialized)
+            {
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("initializeSelect2", "usage-type-select", objRef);
+                    isSelect2UsageTypeInitialized = true;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error initializing Usage Type Select2: {ex.Message}");
+                }
+            }
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnSelect2Changed(string elementId, string value)
+    {
+        if (elementId == "usage-type-select")
+        {
+            isLoading = true;
+            StateHasChanged();
+            usageType = value;
+            currentPage = skip = 1;
+            await LoadScreenshotsAsync(usageType);
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        objRef?.Dispose();
     }
 
     private void GenerateCalendarDays()
@@ -242,34 +326,55 @@
             selectedDate = date;
             showCustomCalendar = false;
             currentPage = skip = 1;
-            await LoadScreenshotsAsync();
+            await LoadScreenshotsAsync(usageType);
         }
     }
 
-    private void NavigateToDetailsPage(int screenshotId) => NavigationManager.NavigateTo($"/screenshot-details/{screenshotId}?date={selectedDate:yyyy-MM-dd}");
+    private void NavigateToDetailsPage(int screenshotId)
+    {
+        // Append both the date and the current usageType to the query string
+        NavigationManager.NavigateTo($"/screenshot-details/{screenshotId}?date={selectedDate:yyyy-MM-dd}&usageType={usageType}");
+    }
 
     private void NavigateHome() => NavigationManager.NavigateTo("/users");
 
-    private async Task LoadScreenshotsAsync()
+    private async Task LoadScreenshotsAsync(string usageType = "all")
     {
         isLoading = true;
+        // Notify the UI to show the loading spinner immediately
         StateHasChanged();
+
         try
         {
-            var basicScreenshots = await UserService.GetImagesByDateAsync(userId, selectedDate, skip, take);
-            screenshots = new List<Screenshots>();
+            // 1. Fetch the basic data from the server
+            var basicScreenshots = await UserService.GetImagesByDateAsync(userId, selectedDate, skip, take, usageType);
+
+            // 2. Create a temporary list to hold the detailed, processed results
+            var newScreenshots = new List<Screenshots>();
+
             if (basicScreenshots?.Any() == true)
             {
+                // 3. Process the detailed data, adding results to the temporary list
                 foreach (var shot in basicScreenshots)
                 {
                     var detailed = await KeyboardMouseService.GetImageActivityDataAsync(shot.id);
-                    screenshots.Add(detailed ?? shot);
+                    newScreenshots.Add(detailed ?? shot);
                 }
             }
+
+            // 4. Update the component's state list ONLY after all processing is complete
+            screenshots = newScreenshots;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading screenshots: {ex.Message}");
+            // Optionally clear the list on error
+            screenshots = new List<Screenshots>();
         }
         finally
         {
             isLoading = false;
+            // Notify the UI to hide the spinner and display the new data
             StateHasChanged();
         }
     }
@@ -280,15 +385,7 @@
         {
             selectedDate = newDate;
             currentPage = skip = 1;
-            await LoadScreenshotsAsync();
-        }
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            await JSRuntime.InvokeVoidAsync("eval", $@"document.getElementById('activityDate').setAttribute('max', '{maxSelectableDate}');");
+            await LoadScreenshotsAsync(usageType);
         }
     }
 
@@ -296,7 +393,7 @@
     {
         currentPage++;
         skip++;
-        await LoadScreenshotsAsync();
+        await LoadScreenshotsAsync(usageType);
     }
 
     private async Task PreviousPage()
@@ -305,7 +402,7 @@
         {
             currentPage--;
             skip--;
-            await LoadScreenshotsAsync();
+            await LoadScreenshotsAsync(usageType);
         }
     }
 
@@ -313,7 +410,7 @@
     {
         if (await UserService.DeleteScreenshotAsync(screenshotId))
         {
-            await LoadScreenshotsAsync();
+            await LoadScreenshotsAsync(usageType);
         }
         else
         {

@@ -23,5 +23,6 @@ namespace ScreenTracker1.Models
         public bool? isSelected { get; set; }
         public int? deleteAuthBy { get; set; } = 0;
         public int? IsCreatedBy { get; set; }
+        public bool? isActive { get; set; }
     }
 }

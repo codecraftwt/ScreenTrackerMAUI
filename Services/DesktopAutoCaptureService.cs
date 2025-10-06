@@ -33,6 +33,7 @@ namespace ScreenTracker1.Services
         private DateTime _lastActivityTime = DateTime.Now;
         private bool _isAfk = false;
         private const int AfkThresholdMinutes = 5;
+        private string _startMode;
 
         public DesktopAutoCaptureService(DesktopScreenshotService screenshotService)
         {
@@ -45,8 +46,10 @@ namespace ScreenTracker1.Services
 
         private string token;
 
-        public void Start()
+        public void Start(string startMode)
         {
+            _startMode = startMode;
+
             _keyboardClicks = 0;
             _mouseClicks = 0;
             _currentMinute = 0;
@@ -67,15 +70,31 @@ namespace ScreenTracker1.Services
                 _userId = userId;
             }
 
-            _oneMinuteTimer = new System.Timers.Timer(TimeSpan.FromMinutes(1).TotalMilliseconds);
-            _oneMinuteTimer.Elapsed += OnOneMinuteElapsed;
-            _oneMinuteTimer.AutoReset = true;
-            _oneMinuteTimer.Enabled = true;
+            if (startMode == "automatic")
+            {
 
-            _tenMinuteTimer = new System.Timers.Timer(TimeSpan.FromMinutes(10).TotalMilliseconds);
-            _tenMinuteTimer.Elapsed += async (s, e) => await CaptureAndSendAsync();
-            _tenMinuteTimer.AutoReset = true;
-            _tenMinuteTimer.Enabled = true;
+                _oneMinuteTimer = new System.Timers.Timer(TimeSpan.FromMinutes(1).TotalMilliseconds);
+                _oneMinuteTimer.Elapsed += OnOneMinuteElapsed;
+                _oneMinuteTimer.AutoReset = true;
+                _oneMinuteTimer.Enabled = true;
+
+                _tenMinuteTimer = new System.Timers.Timer(TimeSpan.FromMinutes(10).TotalMilliseconds);
+                _tenMinuteTimer.Elapsed += async (s, e) => await CaptureAndSendAsync();
+                _tenMinuteTimer.AutoReset = true;
+                _tenMinuteTimer.Enabled = true;
+            }
+            else if (startMode == "manual")
+            {
+                _oneMinuteTimer = new System.Timers.Timer(TimeSpan.FromMinutes(1).TotalMilliseconds);
+                _oneMinuteTimer.Elapsed += (s, e) => CaptureAndSendAsync().Wait();
+                _oneMinuteTimer.AutoReset = true;
+                _oneMinuteTimer.Enabled = true;
+
+                _tenMinuteTimer = new System.Timers.Timer(TimeSpan.FromMinutes(10).TotalMilliseconds);
+                _tenMinuteTimer.Elapsed += async (s, e) => await CaptureAndSendAsync();
+                _tenMinuteTimer.AutoReset = true;
+                _tenMinuteTimer.Enabled = true;
+            }
         }
 
         private void OnOneMinuteElapsed(object sender, ElapsedEventArgs e)
@@ -85,7 +104,7 @@ namespace ScreenTracker1.Services
             _keyboardClicks = 0;
             _mouseClicks = 0;
 
-            _currentMinute = (_currentMinute + 1) % 10; 
+            _currentMinute = (_currentMinute + 1) % 10;
 
             if (_currentMinute == 0)
             {
@@ -146,6 +165,7 @@ namespace ScreenTracker1.Services
                 content.Add(new StringContent(totalKeyboard.ToString()), "keyboardClicks");
                 content.Add(new StringContent(totalMouse.ToString()), "mouseClicks");
                 content.Add(new StringContent(minuteActivityJson), "minuteActivityData");
+                content.Add(new StringContent(_startMode), "startMode");
 
                 var response = await _httpClient.PostAsync("Image/upload", content);
                 response.EnsureSuccessStatusCode();
@@ -159,5 +179,6 @@ namespace ScreenTracker1.Services
                 Console.WriteLine($"Error capturing/sending screenshot: {ex.Message}");
             }
         }
+
     }
 }

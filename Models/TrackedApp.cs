@@ -15,5 +15,6 @@ namespace ScreenTracker1.Models
         public TimeSpan TotalTime =>
         (EndTime ?? DateTime.Now) - StartTime;
 
+        public string StartMode { get; set; }
     }
 }

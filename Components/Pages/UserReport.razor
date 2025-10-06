@@ -14,10 +14,6 @@
             <i class="fa-solid fa-house me-2"></i>
             Home
         </button>
-        <div class="timezone-info">
-            <span class="dot"></span>
-            India Standard Time
-        </div>
     </div>
 
     <div class="card">
@@ -29,13 +25,6 @@
                 <InputDate @bind-Value="FromDate" class="input-date" />
                 <span class="to-text">to</span>
                 <InputDate @bind-Value="ToDate" class="input-date" />
-
-                @if (UserRole?.ToLower() == "admin" || UserRole?.ToLower() == "superadmin")
-                {
-                    <label>Search</label>
-                    <input type="text" @bind="SearchString" class="search-input" placeholder="Search users..." />
-                }
-
                 <button class="btn-load" @onclick="() => LoadHistory(1)">Load</button>
             </div>
         </div>
@@ -59,6 +48,7 @@
                             <th>Last Name</th>
                             <th>Start Time</th>
                             <th>End Time</th>
+                            <th>Type</th>
                             <th>Duration</th>
                         </tr>
                     </thead>
@@ -82,6 +72,7 @@
                                         ? TimeZoneInfo.ConvertTimeFromUtc(tracker.EndTracker.Value, tz).ToString("hh:mm tt")
                                         : "-")
                                 </td>
+                                <td>@trackerDto.Tracker.StartMode</td>
                                 <td class="duration">
                                     @if (tracker.StartTracker.HasValue && tracker.EndTracker.HasValue)
                                     {
@@ -98,6 +89,7 @@
                     </tbody>
                 </table>
             </div>
+
             @if (TotalPages > 1)
             {
                 <nav aria-label="Page navigation example" class="d-flex justify-content-center mt-4">
@@ -108,16 +100,22 @@
                             </a>
                         </li>
 
-                        @for (int i = 1; i <= TotalPages; i++)
+                        @foreach (var pageNumber in GetPageNumbers())
                         {
-                            // Create a local copy of the loop variable 'i'
-                            var pageNumber = i;
-
-                            <li class="page-item @(pageNumber == CurrentPage ? "active" : "")">
-                                <a class="page-link" href="#" @onclick="() => LoadHistory(pageNumber)" @onclick:preventDefault>
-                                    @pageNumber
-                                </a>
-                            </li>
+                            @if (pageNumber == -1) 
+                            {
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#">...</a>
+                                </li>
+                            }
+                            else
+                            {
+                                <li class="page-item @(pageNumber == CurrentPage ? "active" : "")">
+                                    <a class="page-link" href="#" @onclick="() => LoadHistory(pageNumber)" @onclick:preventDefault>
+                                        @pageNumber
+                                    </a>
+                                </li>
+                            }
                         }
 
                         <li class="page-item @(CurrentPage == TotalPages ? "disabled" : "")">
@@ -128,6 +126,7 @@
                     </ul>
                 </nav>
             }
+
             <div class="summary flex justify-between p-2 bg-gray-100 rounded-lg mt-4">
                 <span>Showing <b>@Trackers.Count</b> of <b>@TotalRecords</b> records</span>
                 <span><b>@FormatDuration(GetTotalDuration())</b> total</span>
@@ -151,6 +150,7 @@
     private int PageSize { get; set; } = 10;
     private int TotalRecords { get; set; }
     private int TotalPages => (int)Math.Ceiling((double)TotalRecords / PageSize);
+    private int PaginationDisplaySize { get; set; } = 5; 
 
     private void NavigateToHome() => NavigationManager.NavigateTo("/active-users");
 
@@ -185,21 +185,17 @@
         {
             CurrentPage = pageNumber;
 
-
-
-
             var pagedResult = await UserService.GetTodayDailyTrackerAsync(
                 loggedInUserId, FromDate, ToDate, SearchString, CurrentPage, PageSize);
 
             Trackers = pagedResult.Items;
             TotalRecords = pagedResult.TotalCount;
-
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading history: {ex.Message}");
             Trackers = new List<DailyTrackerWithUserDto>();
-            TotalRecords = 0; // Reset TotalRecords on error
+            TotalRecords = 0; 
         }
     }
 
@@ -215,12 +211,28 @@
             await LoadHistory(CurrentPage - 1);
     }
 
-    private TimeSpan GetTotalDuration()
+    private IEnumerable<int> GetPageNumbers()
     {
-        return Trackers
-            .Where(t => t.Tracker.StartTracker.HasValue && t.Tracker.EndTracker.HasValue &&
-                        (t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value).TotalMinutes >= 0)
-            .Aggregate(TimeSpan.Zero, (sum, t) => sum + (t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value));
+        var pageNumbers = new List<int>();
+        var startPage = Math.Max(1, CurrentPage - (int)Math.Floor(PaginationDisplaySize / 2.0));
+        var endPage = Math.Min(TotalPages, startPage + PaginationDisplaySize - 1);
+
+        for (int i = startPage; i <= endPage; i++)
+        {
+            pageNumbers.Add(i);
+        }
+
+        if (startPage > 1)
+        {
+            pageNumbers.Insert(0, -1); 
+        }
+
+        if (endPage < TotalPages)
+        {
+            pageNumbers.Add(-1); 
+        }
+
+        return pageNumbers;
     }
 
     private string FormatDuration(TimeSpan duration)
@@ -228,5 +240,13 @@
         int hours = (int)duration.TotalHours;
         int minutes = duration.Minutes;
         return $"{hours} hrs {minutes} mins";
+    }
+
+    private TimeSpan GetTotalDuration()
+    {
+        return Trackers
+            .Where(t => t.Tracker.StartTracker.HasValue && t.Tracker.EndTracker.HasValue &&
+                        (t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value).TotalMinutes >= 0)
+            .Aggregate(TimeSpan.Zero, (sum, t) => sum + (t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value));
     }
 }

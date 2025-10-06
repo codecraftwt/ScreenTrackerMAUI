@@ -10,5 +10,6 @@ namespace ScreenTracker1.Models
     {
          public string date { get; set; }
         public double totalDurationInMinutes { get; set; }
+        public string UsageType { get; set; }
     }
 }
