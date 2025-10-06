@@ -14,5 +14,8 @@ namespace ScreenTracker1.DTOS
         public TimeSpan Duration { get; set; }
         public string StartMode { get; set; }
 
+
+
+
     }
 }
