@@ -15,7 +15,7 @@
         <h2 class="title">Daily Tracker History</h2>
 
         <div class="filters">
-            <label>Date Range</label>
+               @* <label>Date Range</label> *@
             <div class="filters-row">
                 <InputDate @bind-Value="FromDate" class="input-date" />
                 <span class="to-text">to</span>
@@ -23,10 +23,10 @@
 
                 @if (UserRole?.ToLower() == "admin" || UserRole?.ToLower() == "superadmin")
                 {
-                    <label>Search</label>
+                    <label class="labels-colors">Search</label>
                     <input type="text" @bind="SearchString" class="search-input" placeholder="Search users..." />
 
-                    <label>Usage Type</label>
+                    <label class="labels-colors">Usage Type</label>
                     <select id="usage-type-dropdown" @bind="selectedUsageType" class="stitch-user-selectreport ms-2">
                         <option value="all">All</option>
                         <option value="manual">Manual</option>
@@ -34,7 +34,7 @@
                     </select>
                 }
 
-                <button class="btn-load" @onclick="() => LoadHistory(1)">Load</button>
+                <button class="btn-load" @onclick="() => LoadHistory(1)"> <i class="fas fa-cloud-download-alt"></i> Load</button>
             </div>
         </div>
 

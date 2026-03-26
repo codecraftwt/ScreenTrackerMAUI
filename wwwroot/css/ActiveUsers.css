@@ -1,4 +1,6 @@
-﻿.page-title {
+﻿@import url('app.css');
+
+.page-title {
     font-size: 1.8rem;
     margin-bottom: 1.5rem;
     color: #333;
@@ -20,7 +22,9 @@
 }
 
 .user-card {
-    background: #fff;
+    /*    background: #fff;*/
+/*    background-color: #EEE8FF;*/
+    background-color: var( --color-secondary);
     border-radius: 12px;
     padding: 1.2rem;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -52,17 +56,20 @@
 .user-header h4 {
     margin: 0;
     font-size: 1.2rem;
-    color: #222;
+/*    color: #222;*/
+color:var(--color-text-color);
 }
 
 .role {
     font-size: 0.9rem;
-    color: #777;
+    /*    color: #777;*/
+    color: var(--color-text-color);
 }
 
 .user-info p {
     margin: 0.2rem 0;
     font-size: 0.95rem;
-    color: #444;
+    /*    color: #444;*/
+    color: var(--color-text-color);
 }
 

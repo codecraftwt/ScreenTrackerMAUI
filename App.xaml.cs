@@ -10,7 +10,7 @@ public partial class App : Application
     public static string BaseUrl { get; set; } = "http://localhost:5011";
     //http://10.0.3.64:99/api/user/allUsers
     //public static string BaseUrl { get; set; } = "http://10.0.3.64:99";
-    //public static string ImgURL { get; set; } = $"{BaseUrl}/uploads/";     
+    public static string ImgURL { get; set; } = $"{BaseUrl}/uploads/";
 
 
     public static bool first { get; set; } = true;
@@ -24,9 +24,6 @@ public partial class App : Application
     {
         InitializeComponent();
         var tracker = serviceProvider.GetService<AppUsageTracker>();
-
-
-    
         MainPage = serviceProvider.GetRequiredService<MainPage>();
     }
 }

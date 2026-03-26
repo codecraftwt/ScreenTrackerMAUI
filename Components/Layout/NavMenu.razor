@@ -14,35 +14,44 @@
 
 <div class="stitch-header">
     <div class="header-content">
-        <h3 class="stitch-heading">Welcome @UserName</h3>
+       
 
-        <NavLink href="/users" class="nav-link">Dashboard</NavLink>
+        <NavLink href="/users" class="nav-link">
+            <i class="bi bi-house-door"></i> Dashboard
+        </NavLink>
+        
         @if (!string.IsNullOrEmpty(UserRole) &&
         (UserRole.Equals("admin", StringComparison.OrdinalIgnoreCase) ||
         UserRole.Equals("superadmin", StringComparison.OrdinalIgnoreCase)))
         {
-            <NavLink href="/active-users" class="nav-link">Active Users</NavLink>
+            <NavLink href="/active-users" class="nav-link">
+                <i class="bi bi-person-circle"></i> Active Users
+            </NavLink>
         }
 
+        <NavLink href="@($"rptTime/{UserId}?usageType=all")" class="nav-link">
+            <i class="bi bi-bar-chart-line"></i> Reports
+        </NavLink>
 
-        <NavLink href="@($"rptTime/{UserId}?usageType=all")" class="nav-link">Reports</NavLink>
 
     </div>
 
 
     <div class="tooltip-container" style="z-index:4;" @onclick:stopPropagation>
+        <h3 class="stitch-heading">Welcome @UserName</h3>
         <button class="user-menu-button" @onclick="ToggleMenu">
             <i class="fas fa-user-circle"></i>
         </button>
-        <span class="tooltip-text">User options</span>
+   @*         <span class="tooltip-text tooltip-text-user">User options</span> *@
         @if (showMenu)
         {
             <ul class="user-menu-dropdown" style="right: 0;">
                 <li><button class="menu-item-btn" @onclick="ToggleThemePopup">Theme</button></li>
-                <li><NavLink href="/profile" @onclick="CloseMenu">Profile</NavLink></li>
-                <li><button class="menu-item-btn" @onclick="NavigateToSettings">Settings</button></li>
+                <li><NavLink href="/profile" class="menu-item-btn" @onclick="CloseMenu">Profile</NavLink></li>
+         
                 @if (UserRole.ToLower() == "admin")
                 {
+                    <li><button class="menu-item-btn" @onclick="NavigateToSettings">Settings</button></li>
                     <li><button class="menu-item-btn" @onclick="NavigateToRegister">Add User</button></li>
                 }
 
@@ -184,15 +193,15 @@
     private async Task OnLogoutClicked()
     {
         // 1. Stop tracking services if they were active
-        if (isOn)
-        {
+        // if (isOn)
+        // {
             isOn = false;
             await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
             appUsageTrackerService.Stop();
             desktopAutoCaptureService.StopTimer();
             afkTrackerService.Stop();
             await UserService.EndDailyTrackerAsync(); // First and only call
-        }
+        // }
 
         // 2. Clear authentication tokens
         SecureStorage.Remove("auth_token");
@@ -221,6 +230,17 @@
         await ApplyTheme();
     }
 
+    // private async Task ApplyTheme()
+    // {
+    //     if (themeModule != null)
+    //     {
+    //         await themeModule.InvokeVoidAsync("setTheme", isDarkTheme);
+    //     }
+    //     themeIcon = isDarkTheme ? "fa-moon" : "fa-sun";
+    // }
+
+
+
     private async Task ApplyTheme()
     {
         if (themeModule != null)
@@ -228,7 +248,12 @@
             await themeModule.InvokeVoidAsync("setTheme", isDarkTheme);
         }
         themeIcon = isDarkTheme ? "fa-moon" : "fa-sun";
+
+        await JSRuntime.InvokeVoidAsync("eval", $"if (typeof window.updateChartThemeColor !== 'undefined') {{ window.updateChartThemeColor({isDarkTheme.ToString().ToLower()}); }}");
     }
+
+ 
+
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

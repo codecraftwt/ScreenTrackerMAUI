@@ -1,6 +1,9 @@
-﻿.profile-container {
+﻿@import url('app.css');
+
+.profile-container {
     padding: 20px;
-    background-color: #f0f2f5; 
+/*    background-color: #f0f2f5; */
+background:var(--color-primary);
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -13,15 +16,17 @@
     max-width: 650px;
     margin-top: 50px;
     padding: 30px 40px;
-    background-color: #ffffff;
+/*    background-color: #ffffff;*/
+background:var(--color-secondary);
     border-radius: 12px;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e0e0e0;
+/*    border: 1px solid #e0e0e0;*/
 }
 
 .profile-heading {
     text-align: center;
-    color: #2c3e50; 
+/*    color: #2c3e50; */
+color:var(--color-text-color);
     margin-bottom: 30px;
     font-size: 28px;
     font-weight: 600;
@@ -41,21 +46,28 @@
     justify-content: space-between;
     align-items: center;
     padding: 15px;
-    background-color: #fafafa;
+/*    background-color: #fafafa;*/
+background:var(--color-firt-card);
     border-radius: 8px;
-    border: 1px solid #e0e0e0;
+/*    border: 1px solid #e0e0e0;*/
+}
+.profile-row-card {
+    background: var(--color-second-card);
 }
 
-    .profile-row p {
-        flex: 1;
-        margin: 0;
-        padding: 0 10px;
-        font-size: 1rem;
-        color: #444;
-    }
+.profile-row p {
+    flex: 1;
+    margin: 0;
+    padding: 0 10px;
+    font-size: 1rem;
+    /*        color: #444;*/
+    color: var(--color-text-color);
+}
 
         .profile-row p strong {
-            color: #333;
+/*            color: #333;*/
+            color:var(--color-text-color);
+
             display: block;
             margin-bottom: 5px;
             font-size: 0.9rem;

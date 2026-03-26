@@ -1,4 +1,6 @@
-﻿:root {
+﻿@import url('app.css');
+
+:root {
     --bg-color: #ffffff;
     --text-color: #212529;
     --border-color: #ced4da;
@@ -23,7 +25,8 @@ body.dark-theme {
     max-width: 360px;
     margin: 2rem auto;
     padding: 2rem;
-    background-color: var(--bg-color);
+/*    background-color: var(--bg-color);*/
+background:var(--color-secondary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     box-shadow: 0 2px 8px var(--shadow-light);
@@ -40,7 +43,8 @@ body.dark-theme {
     display: block;
     font-size: 0.9rem;
     font-weight: 600;
-    color: var(--text-color);
+/*    color: var(--text-color);*/
+color :var(--color-text-color);
     margin-bottom: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -55,16 +59,19 @@ body.dark-theme {
 
 .theme-dropdown-wrapper {
     flex: 1;
+  
 }
 
 .theme-dropdown {
     width: 100%;
     padding: 0.75rem;
     font-size: 1rem;
-    background-color: var(--input-bg);
-    color: var(--text-color);
+/*    background-color: var(--input-bg);*/
+background:var(--color-pink-shade);
+/*    color: var(--text-color);*/
+color:var(--color-text-color-dark);
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: 12px;
     cursor: pointer;
     transition: all 0.2s ease;
     appearance: none;
@@ -88,8 +95,9 @@ body.dark-theme {
 .theme-toggle-btn {
     width: 45px;
     height: 45px;
-    background-color: var(--button-bg);
-    color: var(--text-color);
+/*    background-color: var(--button-bg);*/
+background:var(--color-pink-shade);
+/*    color: var(--text-color);*/
     border: 1px solid var(--border-color);
     border-radius: 6px;
     cursor: pointer;
@@ -115,7 +123,8 @@ body.dark-theme {
 .theme-back-btn {
     width: 100%;
     padding: 0.75rem 1rem;
-    background-color: var(--button-bg);
+    /*    background-color: var(--button-bg);*/
+    background: var(--color-pink-shade);
     color: var(--text-color);
     border: 1px solid var(--border-color);
     border-radius: 6px;

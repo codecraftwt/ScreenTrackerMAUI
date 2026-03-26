@@ -1,4 +1,5 @@
-﻿
+﻿@import url('app.css');
+
 #DashboardactivityDate::-webkit-calendar-picker-indicator {
     display: none;
     -webkit-appearance: none;
@@ -90,7 +91,7 @@
     }
 
 body {
-    background-color: aliceblue;
+    background-color: var(--color-primary);
 }
 
 .dot-indicator {
@@ -103,6 +104,7 @@ body {
 
 .stitch-date-picker {
     position: relative;
+
 }
 
 .dot-container {
@@ -342,6 +344,7 @@ body.dark-mode {
     border-radius: 8px;
     padding: 20px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    background: var(--color-pink-shade);
 }
 
     .custom-calendar .calendar-weekdays,
@@ -426,6 +429,7 @@ body.dark-mode {
 .screenshot-item {
     padding: 10px;
     margin-bottom: 20px;
+    width: 20%;
 }
 
 .image-container {
@@ -450,6 +454,8 @@ body.dark-mode {
 .screenshot-info {
     margin-top: 8px;
     font-size: 14px;
+/*    background-color: #E1C8E6;*/
+    color:var(--color-text-color);
 }
 
 .activity-blocks {
@@ -485,4 +491,35 @@ body.dark-mode {
     text-align: center;
     padding: 40px;
     color: #6c757d;
+}
+.card {
+    /*    background-color: #EEE8FF;*/
+    background-color: var(--color-secondary);
+    border-radius: 23px;
+    color:var(--color-text-color);
+}
+
+.btn-secondary.btn-sm {
+    margin: 0 45%; /* Adjust margins to ensure space between buttons */
+    padding: 5px 10px;
+}
+
+span.mx-2 {
+    margin-left: 15px; /* Adjust this to tweak the spacing between page number and buttons */
+    margin-right: 15px;
+}
+
+.paginatiion-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 20px; /* Add margin on left and right to ensure spacing */
+    white-space: nowrap;
+}
+
+.table{
+    color:var(--color-text-color);
+}
+.card-header-background {
+    background: var(--color-pink-shade) !important;
 }

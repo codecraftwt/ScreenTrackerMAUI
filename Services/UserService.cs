@@ -299,14 +299,11 @@ namespace ScreenTracker1.Services
 			}
 		}
 
-
-
-        // Change signature to accept usageType
         public async Task<List<AppUsageData>> GetAppUsageDataAsync(int id, string usageType, string userRole)
         {
             try
             {
-                // Append both usageType and userRole as query string parameters
+              
                 var url = $"{App.URL}AppUsage/lastDaysTotal/{id}?usageType={usageType}&userRole={userRole}";
 
                 var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -322,7 +319,7 @@ namespace ScreenTracker1.Services
                 }
 
                 var responseString = await response.Content.ReadAsStringAsync();
-                var appUsageData = JsonSerializer.Deserialize<List<AppUsageData>>(responseString);
+                 var appUsageData = JsonSerializer.Deserialize<List<AppUsageData>>(responseString);
                 return appUsageData ?? new List<AppUsageData>();
             }
             catch (Exception ex)
@@ -811,13 +808,7 @@ namespace ScreenTracker1.Services
             }
         }
 
-
-
-
-
-
-
-        public async Task<DailyTracker> EndDailyTrackerAsync()
+       public async Task<DailyTracker> EndDailyTrackerAsync()
 		{
 			try
 			{
@@ -877,45 +868,54 @@ namespace ScreenTracker1.Services
 			}
 		}
 
-		public async Task<List<User>> GetActiveUsersAsync()
-		{
-			try
-			{
-				var url = $"{App.URL}DailyTracker/ActiveUser";
-				var request = new HttpRequestMessage(HttpMethod.Get, url);
-				AddAuthorizationHeader(request);
+        // In your UserService class
+        public async Task<List<User>> GetActiveUsersAsync(int? adminId = null)
+        {
+            try
+            {
+                var url = $"{App.URL}DailyTracker/ActiveUser";
 
-				var response = await _httpClient.SendAsync(request);
+                // 🚀 CRITICAL CHANGE: Append adminId as a query parameter
+                if (adminId.HasValue)
+                {
+                    // This is how the backend controller expects the data: /ActiveUser?adminId=123
+                    url += $"?adminId={adminId.Value}";
+                }
 
-				if (!response.IsSuccessStatusCode)
-				{
-					if (response.StatusCode == HttpStatusCode.Unauthorized)
-					{
-						HandleUnauthorized();
-					}
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                AddAuthorizationHeader(request);
 
-					Console.WriteLine($"HTTP {response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
-					return new List<User>();
-				}
+                var response = await _httpClient.SendAsync(request);
 
-				var responseString = await response.Content.ReadAsStringAsync();
-				var activeUsers = JsonSerializer.Deserialize<List<User>>(responseString, new JsonSerializerOptions
-				{
-					PropertyNameCaseInsensitive = true
-				});
+                if (!response.IsSuccessStatusCode)
+                {
+                    if (response.StatusCode == HttpStatusCode.Unauthorized)
+                    {
+                        HandleUnauthorized();
+                    }
 
-				return activeUsers ?? new List<User>();
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine($"Error fetching active users: {ex.Message}");
-				return new List<User>();
-			}
-		}
+                    Console.WriteLine($"HTTP {response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+                    return new List<User>();
+                }
+
+                var responseString = await response.Content.ReadAsStringAsync();
+                var activeUsers = JsonSerializer.Deserialize<List<User>>(responseString, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                return activeUsers ?? new List<User>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching active users: {ex.Message}");
+                return new List<User>();
+            }
+        }
 
 
 
-		public async Task<PagedResult<DailyTrackerWithUserDto>> GetAllUsersReportAsync(
+        public async Task<PagedResult<DailyTrackerWithUserDto>> GetAllUsersReportAsync(
 	  DateTime fromDate,
 	  DateTime toDate,
 	  string searchString,
@@ -1054,5 +1054,76 @@ namespace ScreenTracker1.Services
 				return new List<DateTime>();
 			}
 		}
-	}
+
+
+		public async Task<DateTime?>GetTodaysStartTrackerAsync(int userId)
+		{
+			try
+			{
+				var response = await _httpClient.GetAsync($"{App.URL}DailyTracker/today/{userId}");
+				if(response.StatusCode == HttpStatusCode.Unauthorized)
+				{
+					HandleUnauthorized();
+					return null ;
+				}
+				if(!response.IsSuccessStatusCode)
+				{
+					Console.WriteLine($"API Error:{response.StatusCode}");
+					return null ;
+				}
+				var json = await response.Content.ReadAsStringAsync();
+				if(string.IsNullOrWhiteSpace(json))
+				{
+					return null;
+				}
+				var tracker = JsonSerializer.Deserialize<DailyTrackerDto>(json,new JsonSerializerOptions { PropertyNameCaseInsensitive=true });
+				return tracker?.StartTracker;
+
+			}
+			catch(Exception e)
+			{
+				Console.WriteLine(e);
+				return null ;
+			}
+		}
+
+        public async Task<DailyTrackerAggregateResponse> GetDailyTrackerAggregateAsync(int userId, DateTime date, string startMode)
+        {
+            // Format date to ensure correct parsing by the API, e.g., "2025-10-14"
+            string dateStr = date.ToString("yyyy-MM-dd");
+
+            // Assuming the controller name is DailyTracker
+            string url = $"{App.URL}DailyTracker/aggregate?userId={userId}&date={dateStr}&startMode={startMode}";
+
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                AddAuthorizationHeader(request);
+
+                var response = await _httpClient.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    var result = JsonSerializer.Deserialize<DailyTrackerAggregateResponse>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    return result ?? new DailyTrackerAggregateResponse();
+                }
+                else if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    HandleUnauthorized();
+                    return new DailyTrackerAggregateResponse();
+                }
+                else
+                {
+                    Console.WriteLine($"Error fetching aggregate data: {response.StatusCode} - {await response.Content.ReadAsStringAsync()}");
+                    return new DailyTrackerAggregateResponse();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception fetching aggregate data: {ex.Message}");
+                return new DailyTrackerAggregateResponse();
+            }
+        }
+    }
 }

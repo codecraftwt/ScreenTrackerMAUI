@@ -80,6 +80,7 @@ namespace ScreenTracker1
             builder.Services.AddScoped<AppStateService>();
             builder.Services.AddSingleton<AppUsageTracker>();
             builder.Services.AddScoped<UserStateService>();
+            builder.Services.AddScoped<CurrentThemeService>();
 
 #if WINDOWS
             builder.Services.AddSingleton<DesktopScreenshotService>();

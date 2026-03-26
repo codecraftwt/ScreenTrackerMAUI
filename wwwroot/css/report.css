@@ -1,4 +1,6 @@
-﻿.report-container {
+﻿@import url('app.css');
+
+.report-container {
     padding: 1rem;
     margin-top: 22px;
     font-family: 'Comfortaa';
@@ -51,14 +53,17 @@
     font-size: 1.1rem;
     font-weight: 600;
     margin-bottom: 1rem;
-    color: #111827;
+/*    color: #111827;*/
+color:var(--color-text-color);
 }
 
 .filters {
-    background: #f9fafb;
+    /*    background: #f9fafb;*/
+    background-color: #E1C8E6;
     padding: 0.8rem;
     border-radius: 0.4rem;
     margin-bottom: 1rem;
+    color:var(--color-text-color-dark);
 }
 
 .filters-row {
@@ -83,6 +88,7 @@
     border: none;
     font-size: 0.8rem;
     cursor: pointer;
+    gap:7px;
 }
 
     .btn-load:hover {
@@ -104,6 +110,7 @@
 .tracker-table {
     width: 100%;
     border-collapse: collapse;
+    color: var(--color-text-color);
 }
 
     .tracker-table th {
@@ -157,4 +164,11 @@ body {
     margin-bottom: 0px;
 
     margin-left: 585px;
+}
+/*.label{
+    color:var(--color-text-color-dark);
+}*/
+.labels-colors
+{
+    color:var(--color-text-color-dark);
 }

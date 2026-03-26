@@ -1,4 +1,6 @@
-﻿body, select, input, button, h3, h4 {
+﻿@import url('app.css');
+
+body, select, input, button, h3, h4 {
     font-family: 'Comfortaa';
 }
 
@@ -15,7 +17,11 @@
 }
 
 
-
+.title-list-container {
+    overflow-y: scroll;
+    overflow-x: hidden;
+    height: 276px;
+}
 
 .stitch-nav-btn, .stitch-refresh-btn {
     background-color: #1a73e8;
@@ -31,7 +37,6 @@
     padding: 1.25rem;
     border-radius: 8px;
     margin-bottom: 1.5rem;
- 
 }
 
     .stitch-info h4 {
@@ -87,7 +92,6 @@
     padding: 20px;
     border-radius: 10px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-
 }
 
 .stitch-bar {
@@ -144,7 +148,7 @@
             margin-bottom: 8px;
         }
 
-  
+
     .stitch-bar .time {
         position: absolute;
         right: 12px;
@@ -159,11 +163,11 @@
 
 .stitch-chart {
     width: 100%;
-    max-width: 600px;
+    /*    max-width: 600px;*/
     height: 185px !important;
     margin: 0;
     padding: 0;
-    border: 0.5px solid #ddd;
+/*    border: 0.5px solid #ddd;*/
     border-radius: 8px;
     background-color: white;
 }
@@ -186,13 +190,149 @@
 .stitch-container {
     margin: 40px auto;
     padding: 1.5rem;
-    background-color: #FFFFFF;
+    background-color: var(--color-primary);
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     font-family: 'Comfortaa';
     font-size: smaller;
-    margin-top: 30px;
+margin:0;
+
 }
+
+.dashboard-card {
+    /* Keep existing styling... */
+    /*    background-color: #ffffff;*/
+    /*   background-color:#E1C8E6 ;*/
+
+    border-radius: 12px;
+    padding: 15px 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+/*    border: 1px solid #e0e0e0;*/
+    /* KEY CHANGE for horizontal sizing */
+    min-width: 250px; /* Ensures all cards are a consistent, readable width */
+    flex-shrink: 0; /* Prevents cards from shrinking when space is tight */
+
+    background-color:var(--color-secondary);
+    color: var(--color-text-color);
+}
+
+.toolbar-AutoRefresh {
+ 
+    flex-direction: row;
+    gap: 50px;
+    align-items: center;
+    background-color: var(--color-secondary);
+    display: flex;
+    padding: 14px;
+    align-content: center;
+    border-radius: 12px;
+}
+
+.sidebar {
+    left: 0;
+    background-color: var(--color-primary); 
+    color: #f1f1f1; 
+    padding: 10px 0;
+    flex-direction: column;
+    z-index: 9; 
+/*    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);*/
+    display: flex;
+    width: 15%;
+    position: sticky;
+    top: 10px;
+    height: 98vh;
+}
+
+.main-value {
+    font-size: 30px;
+    font-weight: bold;
+}
+
+.dashboard-card-voilet {
+    background: var(--color-firt-card);
+}
+.dashboard-card-pink-voilet{
+    background: var(--color-second-card);
+}
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    /*    background-color:#EEE8FF !important;*/
+    background-color: var(--color-fourth) !important;
+    display: flex;
+    justify-content: space-between;
+}
+
+.toolbar-container {
+    display: grid;
+    grid-template-columns: 1fr auto; /* left and right columns */
+    grid-template-rows: auto auto; /* two rows */
+    grid-template-areas:
+        "tracking tracking"
+        "left right";
+    gap: 0.75rem; /* space between rows and columns */
+    align-items: center;
+    width: 100%;
+}
+
+/* First row (Tracking Status) */
+.toolbar-center {
+    grid-area: tracking;
+    justify-self: end; /* right-align */
+}
+
+/* Second row - left side (Date + Auto Refresh) */
+.toolbar-left {
+    grid-area: left;
+    justify-self: start; /* left-align */
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* Second row - right side (Refresh + Screen) */
+.toolbar-right {
+    grid-area: right;
+    justify-self: end; /* right-align */
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Optional spacing control */
+.row-gap {
+    row-gap: 1rem;
+}
+
+.column-gap {
+    column-gap: 1rem;
+}
+
+/* If extra control needed over column/row spanning */
+.toolbar-center {
+    grid-column: 1 / 3; /* makes it span full width (top row) */
+}
+
+.row {
+    /* Set a small margin below the row for consistent spacing if needed, but the column padding is key */
+    margin-bottom: 0;
+}
+
+.col-md-6, .col-sm-12, .col-sm-6 {
+    padding: 10px; /* Adjust this value (e.g., 10px or 15px) for the desired gap/spacing */
+}
+
+
+.btn-group {
+    display: flex;
+    background-color: var(--color-secondary);
+    border-radius: 12px;
+    align-items: center;
+    padding: 14px;
+}
+
 
 .stitch-heading {
     color: #2D3748;
@@ -221,11 +361,9 @@
     margin-bottom: 0px;
     margin-top: 20px;
     margin: 0;
-
     height: unset;
-    display:flex;
+    display: flex;
     padding: 13px;
-  
 }
 
 
@@ -260,13 +398,13 @@
     padding: 0.5rem 1rem;
     border: 1px solid #E2E8F0;
     border-radius: 8px;
-    background-color: #F8FAFC;
+    /*    background-color: #F8FAFC;*/
+    background-color: #E1C8E6;
     color: #1E293B;
     font-size: 0.95rem;
     transition: all 0.2s ease;
     height: 40px;
     margin-right: -35px;
- 
 }
 
     .stitch-date-picker:focus {
@@ -292,9 +430,11 @@
 
 .stitch-chart {
     margin-bottom: 2rem;
-    background-color: #F8FAFC;
+    /*    background-color: #F8FAFC;*/
+/*    background-color: #E1C8E6;*/
+background-color:var(--color-secondary);
     width: 100% !important;
-    height: 203px !important;
+    height: 350px !important;
 }
 
 .stitch-header {
@@ -306,7 +446,7 @@
     border-bottom: 1px solid #ccc;
     margin-top: 22px;
     position: relative;
-    z-index: 1; 
+    z-index: 1;
 }
 
 .stitch-heading {
@@ -332,6 +472,8 @@
     justify-content: space-between;
     align-items: flex-start;
     margin-top: 20px;
+    flex-direction: column-reverse;
+    gap: 25px;
 }
 
 .stitch-info {
@@ -403,16 +545,20 @@
 }
 
 .stitch-card {
-    background-color: #FFFFFF;
-    border: 1px solid #E2E8F0;
+    /*    background-color: #FFFFFF;*/
+/*    background-color: #E1C8E6;*/
+    background-color:var(--color-secondary);
+/*    border: 1px solid #E2E8F0;*/
     border-radius: 8px;
     padding: 1.25rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-
+    max-height: 427px;
+    overflow-y: auto;
 }
 
     .stitch-card h4 {
-        color: #2D3748;
+        /*        color: #2D3748;*/
+        color: var( --color-text-color);
         font-size: 1.1rem;
         font-weight: 600;
         margin-bottom: 1rem;
@@ -425,7 +571,8 @@
     overflow: visible;
     display: flex;
     align-items: center;
-    background: #e8eaed;
+    /*    background: #e8eaed;*/
+    background-color: #EEE8FF;
 }
 
 
@@ -454,6 +601,7 @@
     font-size: 0.85rem;
     font-weight: 500;
     transition: all 0.2s ease;
+    gap: 7px;
 }
 
 .loading-container {
@@ -474,17 +622,28 @@
 
 .selectbox {
     display: flex;
-    align-items:center;
-    align-content:center;
-    margin-top:14px;
+    align-items: center;
+    align-content: center;
+    margin-top: 14px;
     flex-direction: row;
     padding-bottom: -43px;
     padding: -5px;
+    gap: 15px;
+ margin:0;
+    background-color: #272d34;
+
+    justify-content: flex-start;
+    height: 8%;
+    border-radius: 17px;
+}
+
+
 }
 
 body {
     background-color: lavender;
-    font-family: 'Comfortaa';
+    /*    font-family: 'Comfortaa';*/
+    font-family: "Georgia", serif !important;
     font-size: 16px;
 }
 
@@ -497,7 +656,8 @@ body {
     padding: 0.5rem 1rem;
     border: 1px solid #E2E8F0;
     border-radius: 8px;
-    background-color: #F8FAFC;
+    /*    background-color: #F8FAFC;*/
+    background-color: #E1C8E6;
     color: #1E293B;
     font-size: 0.95rem;
     transition: all 0.2s ease;
@@ -539,13 +699,18 @@ body {
 
 .toolbar-section {
     flex-direction: row;
-    display:flex;
+    display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 15px;
     margin-left: 4%;
     margin-right: 4%;
-
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
 }
+
+
 
 .toolbar-actions {
     z-index: 1;
@@ -562,8 +727,8 @@ body {
 .tooltip-container {
     position: relative;
     display: inline-block;
-  /*  z-index: 2; */
-  z-index:0;
+    /*  z-index: 2; */
+    z-index: 0;
 }
 
 .tooltip-text {
@@ -578,8 +743,10 @@ body {
     z-index: 1;
     bottom: 125%;
     left: 50%;
-    margin-left: -60px; 
+    margin-left: -60px;
 }
+
+
 
 .tooltip-container:hover .tooltip-text {
     visibility: visible;
@@ -602,19 +769,20 @@ body {
         color: #007bff;
     }
 
-.user-menu-dropdown {
+/*.user-menu-dropdown {
     list-style: none;
     padding: 0;
     margin: 0;
     position: absolute;
     top: 100%;
-    right: 0;
-    background: white;
+    right: 0;*/
+/*    background: white;*/
+/*background-color:var(--color-secondary);
     border: 1px solid #ccc;
     min-width: 150px;
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-    z-index: 9999; 
-}
+    z-index: 9999;
+}*/
 
     .user-menu-dropdown li {
         padding: 10px 15px;
@@ -622,14 +790,15 @@ body {
 
         .user-menu-dropdown li a {
             text-decoration: none;
-            color: #333;
+/*            color: #333;*/
+color:var(--color-text-color);
             display: block;
         }
 
-        .user-menu-dropdown li:hover {
+/*        .user-menu-dropdown li:hover {
             background-color: #f5f5f5;
             position: relative;
-        }
+        }*/
 
 
 .overlay {
@@ -855,6 +1024,7 @@ body.dark-theme {
 body {
     background-color: aliceblue;
 }
+
 .loader-container {
     position: fixed;
     top: 0;
@@ -877,28 +1047,110 @@ body {
     animation: spinner-border 0.75s linear infinite;
 }
 
-.sidebar {
-    z-index: 9;
-    position: sticky;
-    top: 5px;
+
+
+.tooltip-bottom {
+    bottom: -60px;
 }
 
-.tooltip-bottom
-{
-    bottom:-60px;
+.select2-container {
+    width: 150px !important;
+        border-radius:8px;
 }
 
-.select2-container{
-    width:150px !important
-}
-    .select2-container .select2-selection--single{
-        padding:5px;
-        height:unset
+    .select2-container .select2-selection--single {
+        padding: 5px;
+        height: unset;
+        background-color: #EEE8FF;
     }
-.select2-container--default .select2-selection--single .select2-selection__arrow{
-    top:7px
+..select2-container--default .select2-selection--single
+{
+    border-radius:8px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    top: 7px
 }
 
 .tooltip-superadmin {
     bottom: -83px;
 }
+/*.label {
+    margin-top: 9px;
+    margin-left: 51px;
+}*/
+
+.card-container {
+    display: flex; /* Key change for horizontal layout */
+    gap: 15px; /* Spacing between cards */
+    padding: 10px;
+    /* Optional properties for a horizontal row: */
+    overflow-x: auto; /* Allows horizontal scrolling if cards exceed screen width */
+    white-space: nowrap; /* Prevents cards from wrapping to the next line */
+    align-items: flex-start; /* Ensures all cards start at the same top position */
+}
+
+/* Base style for the card - IMPORTANT: Add min-width for consistent sizing */
+
+
+/* ... all other CSS remains the same ... */
+
+/* Example of other unchanged CSS: */
+
+
+
+.label-Auto-Refresh {
+    margin-top: 10px;
+    white-space: nowrap;
+}
+
+.tooltip-container-Auto-Refresh {
+    gap: 0px;
+    margin-left: 59px;
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+}
+
+
+.tooltip-text-Auto-Refresh {
+    margin-left: 33px;
+}
+
+
+.toolbar-section-tracker {
+    margin-left: 532px;
+    flex-direction: row;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-right: 4%;
+    display: flex;
+}
+
+    .toolbar-section-tracker .label {
+        white-space: nowrap;
+    }
+
+
+
+.select2-results__options {
+    background-color: #F5E1FA;
+}
+
+.select2-search--dropdown {
+/*    background-color: var(--color-dropdown);*/
+    /*    background-color: var( --color-secondary);*/
+}
+
+.select2-container--default {
+    background-color: #EEE8FF;
+}
+
+    .select2-container--default .select2-search--dropdown .select2-search__field {
+        background-color: #F5E1FA;
+    }
+
+
+
+

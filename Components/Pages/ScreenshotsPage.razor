@@ -18,11 +18,18 @@
 
 <div class="container mt-3" @onclick="CloseCustomCalendar">
     <div class="card shadow-sm">
-        <div class="card-header d-flex align-items-center mb-2">
-            <button @onclick="NavigateHome" class="btn btn-primary me-3">Home</button>
+        @* --- START: ALIGNED CARD HEADER --- *@
+       <div class="card-header d-flex align-items-center justify-content-between mb-2 p-2">
 
-            <div class="position-relative">
-                <div class="screenshots-page">
+            @* 1. Home Button *@
+            <button @onclick="NavigateHome" class="btn btn-primary me-3">
+                <i class="fa-solid fa-house me-2"></i>
+                Home
+            </button>
+
+            @* 2. Date Picker and Custom Calendar (Crucial Fix: Added d-flex align-items-center to the inner container) *@
+            <div class="position-relative d-flex align-items-center">
+                <div class="screenshots-page d-flex align-items-center">
                     <input type="date"
                            id="DashboardactivityDate"
                            @onchange="OnDateChanged"
@@ -30,10 +37,9 @@
                            max="@maxSelectableDate"
                            class="stitch-date-picker"
                            @ref="dateInputRef" />
-
                 </div>
 
-                <button class="calendar-toggle-btn" @onclick:stopPropagation @onclick="ToggleCustomCalendar">
+                <button class="calendar-toggle-btn ms-2" @onclick:stopPropagation @onclick="ToggleCustomCalendar">
                     <i class="fa fa-calendar"></i>
                 </button>
 
@@ -78,13 +84,29 @@
                 }
             </div>
 
+            <div class="d-flex align-items-center justify-content-between ms-3 me-3 paginatiion-buttons">
+    <!-- Previous Button with Font Awesome icon and text on the same line -->
+    <button @onclick="PreviousPage" class="btn btn-secondary btn-sm" disabled="@(!CanGoToPreviousPage)">
+        <i class="fa fa-chevron-left me-2"></i>Previous
+    </button>
+    
+    <!-- Page Number -->
+    <span class="mx-2" style="white-space: nowrap;">Page @currentPage</span>
+    
+    <!-- Next Button with Font Awesome icon and text on the same line -->
+    <button @onclick="NextPage" class="btn btn-secondary btn-sm" disabled="@(!CanGoToNextPage)">
+        <i class="fa fa-chevron-right me-2"></i>Next
+    </button>
+</div>
+
+
+
+            @* 4. Usage Type Dropdown (Pushed to the right) *@
             @if (userRole == "Admin" || userRole == "superadmin")
             {
-                <div class="toolbar-section ms-auto">
-                    <label class="label">Usage Type</label>
+                <div class="toolbar-section ms-auto d-flex align-items-center">
                     <div class="tooltip-container">
                         <select id="usage-type-select" class="stitch-user-select ms-2" value="@usageType">
-                          
                             <option value="all">All</option>
                             <option value="manual">Manual</option>
                             <option value="automatic">Automatic</option>
@@ -94,7 +116,23 @@
                 </div>
             }
 
+            @* 5. Refresh Button *@
+            <div class="d-flex align-items-center">
+                <button class="stitch-refresh-btn"
+                        @onclick="OnRefreshClicked"
+                        disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <i class="fas fa-spinner fa-spin me-2"></i> <span>Loading...</span>
+                    }
+                    else
+                    {
+                        <i class="fas fa-sync-alt me-2"></i> <span>Refresh</span>
+                    }
+                </button>
+            </div>
         </div>
+        @* --- END: ALIGNED CARD HEADER --- *@
 
         @if (isLoading)
         {
@@ -136,11 +174,13 @@
                     </div>
                 }
             </div>
-            <div class="d-flex justify-content-center mt-4">
-                <button @onclick="PreviousPage" class="btn btn-secondary" disabled="@(!CanGoToPreviousPage)">Previous</button>
-                <span class="mx-3">Page @currentPage</span>
-                <button @onclick="NextPage" class="btn btn-secondary" disabled="@(!CanGoToNextPage)">Next</button>
-            </div>
+            @* NOTE: The bottom pagination block is REMOVED to prevent duplication. *@@*
+        <div class="d-flex justify-content-center mt-4">
+        <button @onclick="PreviousPage" class="btn btn-secondary" disabled="@(!CanGoToPreviousPage)">Previous</button>
+        <span class="mx-3">Page @currentPage</span>
+        <button @onclick="NextPage" class="btn btn-secondary" disabled="@(!CanGoToNextPage)">Next</button>
+        </div>
+        *@
         }
         else
         {
@@ -152,6 +192,7 @@
 @code {
     [Parameter]
     public DateTime? Date { get; set; }
+    @using System.Timers
 
     private List<Screenshots> screenshots;
     private List<DateTime> availableDates = new List<DateTime>();
@@ -173,6 +214,7 @@
     private List<DateTime> calendarDays = new List<DateTime>();
     private ElementReference dateInputRef;
 
+    private System.Timers.Timer activityTimer;
     private DotNetObjectReference<ScreenshotsPage> objRef;
 
     private bool isSelect2UsageTypeInitialized = false;
@@ -227,8 +269,19 @@
         {
             Console.WriteLine("User not authenticated.");
         }
-    }
 
+        // --- TIMER INITIALIZATION AND START ---
+        // This runs the HandleMinuteTick method every 60 seconds (1 minute).
+        activityTimer = new System.Timers.Timer(60000);
+        activityTimer.Elapsed += HandleMinuteTick;
+        activityTimer.AutoReset = true;
+        activityTimer.Enabled = true;
+        // --------------------------------------
+    }
+    private async Task OnRefreshClicked()
+    {
+        await LoadScreenshotsAsync(usageType);
+    }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -276,6 +329,15 @@
     public void Dispose()
     {
         objRef?.Dispose();
+
+        // --- TIMER DISPOSE LOGIC ADDED ---
+        if (activityTimer != null)
+        {
+            activityTimer.Elapsed -= HandleMinuteTick; // Unsubscribe
+            activityTimer.Stop();
+            activityTimer.Dispose();
+        }
+        // ---------------------------------
     }
 
     private void GenerateCalendarDays()
@@ -329,11 +391,12 @@
             await LoadScreenshotsAsync(usageType);
         }
     }
-
+    // In ScreenshotsPage.razor @code block
     private void NavigateToDetailsPage(int screenshotId)
     {
-        // Append both the date and the current usageType to the query string
-        NavigationManager.NavigateTo($"/screenshot-details/{screenshotId}?date={selectedDate:yyyy-MM-dd}&usageType={usageType}");
+        // The variable 'userId' here holds the ID of the user whose screenshots are displayed.
+        // We must pass this as 'viewedUserId' for the details page to know whose data to fetch.
+        NavigationManager.NavigateTo($"/screenshot-details/{screenshotId}?date={selectedDate:yyyy-MM-dd}&usageType={usageType}&viewedUserId={userId}"); // <--- ADD THIS
     }
 
     private void NavigateHome() => NavigationManager.NavigateTo("/users");
@@ -416,6 +479,15 @@
         {
             Console.WriteLine("Failed to delete screenshot.");
         }
+    }
+
+    private void HandleMinuteTick(object sender, ElapsedEventArgs e)
+    {
+
+        var (keyboardClicks, mouseClicks) = KeyboardMouseService.GetAndResetClicks();
+
+        Console.WriteLine($"Minute Tick: Logging activity for user {userId}. Keyboard: {keyboardClicks}, Mouse: {mouseClicks}");
+
     }
 
     private string ConvertToIST(DateTime captureTime)

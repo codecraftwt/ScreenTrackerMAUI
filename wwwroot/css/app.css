@@ -85,3 +85,15 @@ h1:focus {
         padding-left: env(safe-area-inset-left);
     }
 }
+
+
+:root {
+    --color-primary: #0e141b;
+    --color-secondary: #272d34;
+    --color-text-color: white;
+    --color-text-color-dark: black;
+    --color-firt-card: linear-gradient(#694dd7, #582baa, #592aa9);
+    --color-second-card: linear-gradient(#912bb9, #8c1cb4, #9b47c2);
+    --color-pink-shade: #E1C8E6;
+}
+

@@ -1,4 +1,4 @@
-﻿@page "/users"
+﻿ @page "/users"
 @layout MainLayout
 @inject UserService UserService
 @inject IJSRuntime JSRuntime
@@ -47,7 +47,7 @@
 
                     @if (users != null && users.Count > 0)
                     {
-                        <div class="toolbar-section">
+                        <div class="toolbar-section toolbar-section-select-user">
                             <label class="label">Select User</label>
                             <div class="tooltip-container">
                                 <select id="user-select" @onchange="OnSelectedUserChanged" class="stitch-user-select ms-2" value="@selectedUsername">
@@ -82,7 +82,7 @@
                 @if (userId > 0)
                 {
                     <div class="toolbar-section">
-                        <label class="label">Usage Type</label>
+                        <label class="label label-usage-type">Usage Type</label>
                         <div class="tooltip-container">
                             <select id="usage-type-select" @onchange="OnUsageTypeChanged" class="stitch-user-select ms-2" value="@selectedUsageType">
                                 <option value="all">All</option>
@@ -100,62 +100,74 @@
     @if (userId != null && userId > 0)
     {
         <div class="stitch-container">
-            <div class="toolbar-section">
-                <div class="tooltip-container">
-                    <input type="date"
-                           @onchange="OnDateChanged"
-                           value="@selectedDate.ToString("yyyy-MM-dd")"
-                           max="@maxSelectableDate"
-                           class="stitch-date-picker" />
-                    <span class="tooltip-text">Select a Date</span>
-                </div>
+            <div class="toolbar-container grid-toolbar">
 
-                <div class="toolbar-section">
-                    <label class="label">Auto Refresh</label>
-                    <div class="tooltip-container">
+                <div class="toolbar-left toolbar-AutoRefresh">
+                    <div class="tooltip-container mr-4">
+                        <input type="date"
+                               @onchange="OnDateChanged"
+                               value="@selectedDate.ToString("yyyy-MM-dd")"
+                               max="@maxSelectableDate"
+                               class="stitch-date-picker" />
+                        <span class="tooltip-text">Select a Date</span>
+                    </div>
+
+                    <div class="tooltip-container-Auto-Refresh">
+                        <label class="label mr-2 label-Auto-Refresh">Auto Refresh</label>
                         <select class="stitch-dropdown" @onchange="OnIntervalChanged" value="@selectedInterval">
                             <option value="0">Off</option>
                             <option value="10">10s</option>
                             <option value="20">20s</option>
                             <option value="30">30s</option>
                         </select>
-                        <span class="tooltip-text">Interval to refresh</span>
+                        <span class="tooltip-text tooltip-text-Auto-Refresh">Interval to refresh</span>
                     </div>
                 </div>
 
-                <div class="toolbar-section">
-                    <div class="tooltip-container">
-                        <button class="stitch-refresh-btn" @onclick="OnRefreshClicked">Refresh</button>
-                        <span class="tooltip-text">Refresh page</span>
+                <div class="toolbar-center">
+                    <div class="toolbar-section toolbar-section-tracker">
+                        <label class="label">Tracking Status</label>
+                        <div class="tooltip-container">
+                            <button class="tracking-toggle @(isOn ? "tracking-on" : "tracking-off")"
+                                    @onclick="OnToggleStateClicked"
+                                    aria-label="Toggle tracking state">
+                                @if (isOn)
+                                {
+                                    <span class="tracking-indicator tracking-active"></span>
+                                    <span class="tracking-text">ON</span>
+                                }
+                                else
+                                {
+                                    <span class="tracking-indicator"></span>
+                                    <span class="tracking-text">OFF</span>
+                                }
+                            </button>
+                            <span class="tooltip-text">Toggle tracking state</span>
+                        </div>
                     </div>
                 </div>
-                <div class="toolbar-section">
-                    <label class="label">Tracking Status</label>
-                    <div class="tooltip-container">
-                        <button class="tracking-toggle @(isOn ? "tracking-on" : "tracking-off")"
-                                @onclick="OnToggleStateClicked"
-                                aria-label="Toggle tracking state">
-                            @if (isOn)
-                            {
-                                <span class="tracking-indicator tracking-active"></span>
-                                <span class="tracking-text">ON</span>
-                            }
-                            else
-                            {
-                                <span class="tracking-indicator"></span>
-                                <span class="tracking-text">OFF</span>
-                            }
-                        </button>
-                        <span class="tooltip-text">Toggle tracking state</span>
-                    </div>
-                </div>
-                <div class="toolbar-actions">
-                    <div class="tooltip-container">
-                        <button class="stitch-refresh-btn" @onclick="OnViewScreenshotsClicked">Screen</button>
-                        <span class="tooltip-text">Screenshots</span>
+
+                <div class="toolbar-right">
+                    <div class="btn-group" role="group" aria-label="Toolbar Actions">
+                        <div class="tooltip-container mr-2">
+                            <button class="stitch-refresh-btn btn btn-primary" style="background-color:#912bb9; border-radius: 8px;" @onclick="OnRefreshClicked">
+                                <i class="fas fa-sync-alt me-2"></i> Refresh
+                            </button>
+                            <span class="tooltip-text">Refresh page</span>
+                        </div>
+                        <div class="tooltip-container">
+                            <button class="stitch-refresh-btn btn btn-primary" style="background-color:#592cab; border-radius: 8px;" @onclick="OnViewScreenshotsClicked">
+                                <i class="bi bi-camera"></i> Screen
+                            </button>
+                            <span class="tooltip-text">Screenshots</span>
+                        </div>
                     </div>
                 </div>
             </div>
+
+
+
+
 
             <div class="chart-container">
                 @if (isChartLoading)
@@ -172,30 +184,110 @@
                 else
                 {
                     <canvas id="barChart" class="stitch-chart"></canvas>
+
                 }
-                <div class="stitch-info">
-                    <h4>Activity for @selectedDate.ToString("dd-MM-yyyy")</h4>
-                    <div class="info-row">
-                        <span>Login At: <strong>@LoginTime</strong></span>
+                <div class="dashboard-grid-container">
+
+                    <div class="login-card-item">
+                        <div class="dashboard-card login-card h-100">
+                            <div class="card-header">
+                                <span class="card-icon"><i class="fas fa-sign-in-alt"></i></span>
+                                <span class="card-title">Login At</span>
+                                <span class="card-options">...</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="main-value">@LoginTime</div>
+                                <div class="sub-text">Time of Day</div>
+                            </div>
+                        </div>
                     </div>
-                    @if (isAfkDataLoading)
-                    {
-                        <div class="placeholder-glow my-2"><span class="placeholder col-6"></span></div>
-                        <div class="placeholder-glow my-2"><span class="placeholder col-7"></span></div>
-                        <div class="placeholder-glow my-2"><span class="placeholder col-5"></span></div>
-                    }
-                    else
-                    {
-                        <div class="info-row">
-                            <span>Ideal Time: <strong>@FormatDuration(totalAfkMinutes)</strong></span>
-                        </div>
-                        <div class="info-row">
-                            <span>Active Time:<strong>@FormatDuration(totalTimeInMinutes - totalAfkMinutes)</strong></span>
-                        </div>
-                        <div class="info-row">
-                            <span>Total Time : <strong>@FormatDuration(totalTimeInMinutes)</strong></span>
-                        </div>
-                    }
+
+                    <div class="stats-grid-container">
+                        @if (isAfkDataLoading)
+                        {
+                            <div class="stat-card-item">
+                                <div class="dashboard-card">
+                                </div>
+                            </div>
+                            <div class="stat-card-item">
+                                <div class="dashboard-card">
+                                </div>
+                            </div>
+                            <div class="stat-card-item">
+                                <div class="dashboard-card">
+                                </div>
+                            </div>
+                            <div class="stat-card-item">
+                                <div class="dashboard-card">
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="stat-card-item">
+                                <div class="dashboard-card dashboard-card-voilet">
+                                    <div class="card-header">
+                                        <span class="card-icon"><i class="fas fa-hourglass-half"></i></span>
+                                        <span class="card-title">Ideal Time</span>
+                                        <span class="card-options">...</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="main-value">@FormatDuration(totalAfkMinutes)</div>
+                                        <div class="sub-text">Time Away from Keyboard</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="stat-card-item">
+                                <div class="dashboard-card active-card dashboard-card-pink-voilet">
+                                    <div class="card-header">
+                                        <span class="card-icon"><i class="fas fa-running"></i></span>
+                                        <span class="card-title">Active Time</span>
+                                        <span class="card-options">...</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="main-value">@FormatDuration(totalTimeInMinutes - totalAfkMinutes)</div>
+                                        <div class="sub-text">Time On Task</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="stat-card-item">
+                                <div class="dashboard-card dashboard-card-voilet">
+                                    <div class="card-header">
+                                        <span class="card-icon"><i class="fas fa-clock"></i></span>
+                                        <span class="card-title">Total Time</span>
+                                        <span class="card-options">...</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="main-value">@FormatDuration(totalTimeInMinutes)</div>
+                                        <div class="sub-text">Total Shift Duration</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="stat-card-item">
+                                <div class="dashboard-card dashboard-card-pink-voilet">
+                                    <div class="card-header">
+                                        <span class="card-icon"><i class="fas fa-sign-in-alt"></i></span>
+                                        <span class="card-title">Check-in Time</span>
+                                        <span class="card-options">...</span>
+                                    </div>
+                                    <div class="card-body">
+                                        @if (string.IsNullOrEmpty(CheckinTime))
+                                        {
+                                            <div class="main-value">0h 0m 0s</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="main-value">@CheckinTime</div>
+                                        }
+                                        <div class="sub-text">Time of Day</div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
                 </div>
             </div>
 
@@ -227,20 +319,41 @@
                                     var percent = (app.durationInMinutes / totalAppTime) * 100;
                                     <div class="stitch-bar" @onclick="() => OnAppClick(app.appName)">
                                         <div style="width:@percent%;background-color:@GetDynamicColor(app.appName);height:100%;"></div>
-                                        <span class="label">@app.appName</span>
-                                        <span class="time">@FormatDuration(app.durationInMinutes)</span>
+                                        <div class="progress-bar-fill" style="width:@percent%;background-color:@GetDynamicColor(app.appName);"></div>
+
+                                        @* NEW: Use bar-content wrapper for better icon alignment *@
+                                        <div class="bar-content">
+                                            <span class="label app-label-content">
+                                                @* NEW: Icon display using the helper method *@
+                                                <i class="@GetAppIconClass(app.appName) app-icon"></i>
+                                                @app.appName
+                                            </span>
+                                            <span class="time">@FormatDuration(app.durationInMinutes)</span>
+                                        </div>
                                     </div>
                                 }
                                 <div class="stitch-button-row">
                                     @if (moreAppUsageAvailable)
                                     {
-                                        <button class="stitch-btn" @onclick="LoadMoreAppUsage">Show More</button>
+                                        <button class="stitch-btn" @onclick="LoadMoreAppUsage">
+                                     @*          <i class="fas fa-plus"></i> Show More *@
+                                     @*         <i class="fas fa-arrow-down"></i> Show More
+                                            <i class="fas fa-chevron-down"></i> Show More *@
+                                            <i class="fas fa-plus-circle"></i> Show More
+                                                @*   <i class="fas fa-expand"></i> Show More *@
+                                        </button>
                                     }
                                     @if (currentAppUsagePage > 1)
                                     {
-                                        <button class="stitch-btn" @onclick="ShowLessAppUsage">Show Less</button>
+                                        <button class="stitch-btn" @onclick="ShowLessAppUsage">
+                                      @*         <i class="fas fa-minus"></i> Show Less *@
+                                       @*       <i class="fas fa-arrow-up"></i> Show Less *@
+                                            @*   <i class="fas fa-arrow-up"></i> Show Less *@
+                                            <i class="fas fa-minus-circle"></i> Show Less
+                                        </button>
                                     }
                                 </div>
+
                             }
                             else
                             {
@@ -255,23 +368,29 @@
                                 @if (appTitleList != null && appTitleList.Any())
                                 {
                                     var totalTitleTime = appTitleList.Sum(t => t.durationInMinutes);
-                                    foreach (var title in appTitleList)
-                                    {
-                                        var percent = (title.durationInMinutes / totalTitleTime) * 100;
-                                        <div class="stitch-bar">
-                                            <div style="width:@percent%;background-color:@GetDynamicColor(title.title);height:100%;"></div>
-                                            <span class="label" data-tooltip="@title.title">@title.title</span>
-                                            <span class="time">@FormatDuration(title.durationInMinutes)</span>
-                                        </div>
-                                    }
+                                    <div class="title-list-container">
+                                        @foreach (var title in appTitleList)
+                                        {
+                                            var percent = (title.durationInMinutes / totalTitleTime) * 100;
+                                            <div class="stitch-bar">
+                                                <div style="width:@percent%;background-color:@GetDynamicColor(title.title);height:100%;"></div>
+                                                <span class="label" data-tooltip="@title.title">@title.title</span>
+                                                <span class="time">@FormatDuration(title.durationInMinutes)</span>
+                                            </div>
+                                        }
+                                    </div>
                                     <div class="stitch-button-row">
                                         @if (appTitleList.Count >= titlePageSize && moreTitlesAvailable)
                                         {
-                                            <button class="stitch-btn" @onclick="LoadMoreTitles">Show More</button>
+                                            <button class="stitch-btn" @onclick="LoadMoreTitles">
+                                                <i class="fas fa-plus-circle"></i>
+                                                Show More
+                                            </button>
+                                          
                                         }
                                         @if (currentTitlePage > 1)
                                         {
-                                            <button class="stitch-btn" @onclick="ShowLessTitles">Show Less</button>
+                                            <button class="stitch-btn" @onclick="ShowLessTitles"> <i class="fas fa-minus-circle"></i> Show Less</button>
                                         }
                                     </div>
                                 }
@@ -313,86 +432,7 @@
                         }
                     </div>
                 }
-                else
-                {
-                    <div class="stitch-summary-grid">
-                        <section class="stitch-card">
-                            <h4>Top Applications</h4>
-                            @if (isAppUsageLoading)
-                            {
-                                <div class="card p-3 placeholder-glow">
-                                    <h4 class="placeholder-glow"><span class="placeholder col-8"></span></h4>
-                                    <div class="placeholder-glow my-2"><span class="placeholder col-10"></span></div>
-                                    <div class="placeholder-glow my-2"><span class="placeholder col-12"></span></div>
-                                    <div class="placeholder-glow my-2"><span class="placeholder col-9"></span></div>
-                                </div>
-                            }
-                            else if (appUsageList != null && appUsageList.Any())
-                            {
-                                var totalAppTime = appUsageList.Sum(a => a.durationInMinutes);
-                                foreach (var app in appUsageList)
-                                {
-                                    var percent = (app.durationInMinutes / totalAppTime) * 100;
-                                    <div class="stitch-bar" @onclick="() => OnAppClick(app.appName)">
-                                        <div style="width:@percent%;background-color:@GetDynamicColor(app.appName);height:100%;"></div>
-                                        <span class="label">@app.appName</span>
-                                        <span class="time">@FormatDuration(app.durationInMinutes)</span>
-                                    </div>
-                                }
-                                <div class="stitch-button-row">
-                                    @if (moreAppUsageAvailable)
-                                    {
-                                        <button class="stitch-btn" @onclick="LoadMoreAppUsage">Show More</button>
-                                    }
-                                    @if (currentAppUsagePage > 1)
-                                    {
-                                        <button class="stitch-btn" @onclick="ShowLessAppUsage">Show Less</button>
-                                    }
-                                </div>
-                            }
-                            else
-                            {
-                                <p>No applications to display.</p>
-                            }
-                        </section>
-
-                        @if (!string.IsNullOrEmpty(selectedAppName))
-                        {
-                            <section class="stitch-card">
-                                <h4>Top Window Titles "@selectedAppName"</h4>
-                                @if (appTitleList != null && appTitleList.Any())
-                                {
-                                    var totalTitleTime = appTitleList.Sum(t => t.durationInMinutes);
-                                    foreach (var title in appTitleList)
-                                    {
-                                        var percent = (title.durationInMinutes / totalTitleTime) * 100;
-                                        <div class="stitch-bar">
-                                            <div style="width:@percent%;background-color:@GetDynamicColor(title.title);height:100%;"></div>
-                                            <span class="label" data-tooltip="@title.title">@title.title</span>
-                                            <span class="time">@FormatDuration(title.durationInMinutes)</span>
-                                        </div>
-                                    }
-                                    <div class="stitch-button-row">
-                                        @if (appTitleList.Count >= titlePageSize && moreTitlesAvailable)
-                                        {
-                                            <button class="stitch-btn" @onclick="LoadMoreTitles">Show More</button>
-                                        }
-                                        @if (currentTitlePage > 1)
-                                        {
-                                            <button class="stitch-btn" @onclick="ShowLessTitles">Show Less</button>
-                                        }
-                                    </div>
-                                }
-                                else
-                                {
-                                    <p>No window titles available for this date.</p>
-                                }
-                            </section>
-
-                        }
-                    </div>
-                }
-
+         
             </div>
         </div>
     }
@@ -432,7 +472,10 @@
     private string UserName;
 
     private int userId;
-    private double totalTimeInMinutes => appUsageList?.Sum(a => a.durationInMinutes) ?? 0;
+    // private double totalTimeInMinutes => appUsageList?.Sum(a => a.durationInMinutes) ?? 0;
+    private double totalTimeInMinutes;
+
+
 
     private int totalAppUsageRecords;
     private int totalAppTitleRecords;
@@ -444,6 +487,7 @@
     private string selectedAppName;
     private const int takePerPage = 5;
     private string? LoginTime;
+    private string? CheckinTime;
 
     private List<Screenshots> screenshots = new();
     private bool showScreenshots = false;
@@ -483,6 +527,12 @@
     private bool isChartLoading = true;
     private bool isAppUsageLoading = true;
     private bool isAfkDataLoading = true;
+
+    // private List<string> labels = new List<string>();
+    private List<double> totalData = new List<double>();
+    private List<double> afkData = new List<double>();
+    private List<double> activeData = new List<double>();
+    private bool chartDataReady = false;
 
     [JSInvokable]
     public async Task OnSelect2Changed(string elementId, string value)
@@ -531,8 +581,11 @@
                 await Task.WhenAll(
                     LoadDataAsync(userId),
                     LoadAppUsageData(),
-                    LoadAfkDataAsync(userId)
+                    LoadAfkDataAsync(userId),
+                    LoadCheckinTime(userId)
+
                 );
+                      
                 await UpdateChart();
             }
             else
@@ -560,8 +613,37 @@
             await LoadAppUsageData();
             await LoadAfkDataAsync(userId);
             await UpdateChart();
+            await LoadCheckinTime(userId);
         }
         StateHasChanged();
+    }
+
+    private string GetAppIconClass(string appName)
+    {
+        // Use a simple mapping, case-insensitive, on common process/app names
+        var normalizedName = appName.ToLowerInvariant();
+
+        if (normalizedName.Contains("chrome")) return "fab fa-chrome";
+        if (normalizedName.Contains("edge")) return "fab fa-edge";
+        if (normalizedName.Contains("firefox")) return "fab fa-firefox";
+        if (normalizedName.Contains("teams")) return "fas fa-users";
+        if (normalizedName.Contains("outlook")) return "fas fa-envelope-open-text";
+        if (normalizedName.Contains("word") || normalizedName.Contains("excel") || normalizedName.Contains("powerpoint")) return "fab fa-microsoft";
+        if (normalizedName.Contains("visual studio")) return "fas fa-code";
+        if (normalizedName.Contains("code") || normalizedName.Contains("vscode")) return "fas fa-terminal";
+        if (normalizedName.Contains("slack")) return "fab fa-slack";
+        if (normalizedName.Contains("zoom")) return "fas fa-video";
+        if (normalizedName.Contains("reader") || normalizedName.Contains("pdf")) return "fas fa-file-pdf";
+        if (normalizedName.Contains("spotify") || normalizedName.Contains("music")) return "fab fa-spotify";
+        if (normalizedName.Contains("settings")) return "fas fa-cogs";
+        if (normalizedName.Contains("file explorer") || normalizedName.Contains("explorer")) return "fas fa-folder-open";
+        if (normalizedName.Contains("snipping tool") || normalizedName.Contains("snip")) return "fas fa-cut";
+        if (normalizedName.Contains("anydesk")) return "fas fa-link";
+        if (normalizedName.Contains("photos")) return "fas fa-image";
+        if (normalizedName.Contains("ultraviewer")) return "fas fa-satellite-dish";
+        if (normalizedName.Contains("notepad")) return "fas fa-file-alt";
+
+        return "fas fa-desktop";
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -584,12 +666,14 @@
 
             if (userId > 0)
             {
+                // UpdateChart() calls LoadDataAsync, which sets chartDataReady = true
                 await UpdateChart();
             }
         }
 
         var dotNetRef = DotNetObjectReference.Create(this);
 
+        // Select2 Initialization (Existing Logic)
         if (admins != null && admins.Any() && !isSelect2AdminInitialized)
         {
             try
@@ -631,7 +715,7 @@
             }
         }
 
-        // 👇 FIX: Only run Select2 initialization if the Usage Type dropdown is visible (userId > 0)
+        // Fix: Only run Select2 initialization if the Usage Type dropdown is visible (userId > 0)
         // and has not been initialized yet.
         if (userId > 0 && !isSelect2UsageTypeInitialized)
         {
@@ -647,6 +731,28 @@
                 Console.WriteLine($"Error initializing Usage Type Select2: {ex.Message}");
             }
         }
+
+        // 🎯 CHART RENDERING FIX: This is the critical block that was missing
+        // to fix the chart timing issue on data loads.
+        if (chartDataReady && labels.Any())
+        {
+            // Reset the flag immediately to prevent repeated calls
+            chartDataReady = false;
+
+            try
+            {
+                // Call the NEW JavaScript function name with all four lists
+                await JSRuntime.InvokeVoidAsync("renderGroupedBarChart",
+                                                labels,
+                                                totalData,
+                                                afkData,
+                                                activeData);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error rendering chart: {ex.Message}");
+            }
+        }
     }
     private async Task OnUsageTypeChanged(ChangeEventArgs e)
     {
@@ -660,6 +766,7 @@
         await LoadDataAsync(userId);
         await LoadAppUsageData();
         await LoadAfkDataAsync(userId);
+       await LoadCheckinTime(userId);
         await UpdateChart();
 
         StateHasChanged();
@@ -816,6 +923,7 @@
             await LoadDataAsync(this.userId);
             await LoadAppUsageData();
             await LoadAfkDataAsync(this.userId);
+             await LoadCheckinTime(userId);
             await UpdateChart();
 
         }
@@ -842,6 +950,7 @@
                 await LoadDataAsync(this.userId);
                 await LoadAppUsageData();
                 await LoadAfkDataAsync(this.userId);
+                await LoadCheckinTime(userId);
                 await UpdateChart();
             }
         }
@@ -862,6 +971,28 @@
         }
     }
 
+    private async Task LoadCheckinTime(int userId)
+    {
+        try
+        {
+            var startTracker = await UserService.GetTodaysStartTrackerAsync(userId);
+
+            if (startTracker.HasValue)
+            {
+          
+                CheckinTime = startTracker.Value.ToLocalTime().ToString("hh:mm tt");
+            }
+            else
+            {
+                CheckinTime = "No entry today";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading check-in time: {ex}");
+            LoginTime = "Error loading time";
+        }
+    }
 
 
 
@@ -1091,25 +1222,38 @@
         StateHasChanged();
         try
         {
-            // MODIFICATION: Pass both selectedUsageType and the userRole
             var appUsageData = await UserService.GetAppUsageDataAsync(id, selectedUsageType, userRole);
+            var aggregateResponse = await UserService.GetDailyTrackerAggregateAsync(userId, selectedDate, selectedUsageType);
 
+            totalTimeInMinutes = aggregateResponse.TotalDurationMinutes;
             var appTitleListResult = await UserService.GetAppTitleByDateAsync(selectedDate, id);
             appTitleList = appTitleListResult;
+
+            // Prepare all three data lists using the numerical properties
             labels = appUsageData.Select(x => x.date).ToList();
-            data = appUsageData.Select(x => x.totalDurationInMinutes).ToList();
+            totalData = appUsageData.Select(x => x.totalDurationInMinutes).ToList();
+
+            // **IMPORTANT:** Using the helper properties that return numerical minutes
+            afkData = appUsageData.Select(x => x.AfkDurationInMinutes).ToList();
+            activeData = appUsageData.Select(x => x.ActiveDurationInMinutes).ToList();
+
+            // Set the flag to indicate data is ready for charting
+            chartDataReady = true;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error fetching data: {ex.Message}");
             labels.Clear();
-            data.Clear();
-            appUsageList = null;
+            totalData.Clear();
+            afkData.Clear();
+            activeData.Clear();
+            // data.Clear(); // <-- Removed old single data variable
+            // appUsageList = null; // Assuming appUsageList is a list of AppUsageData
         }
         finally
         {
             isChartLoading = false;
-            StateHasChanged();
+            StateHasChanged(); // This triggers OnAfterRenderAsync
         }
     }
     private async Task OnSelectedUserChanged(ChangeEventArgs e)
@@ -1128,7 +1272,8 @@
             await Task.WhenAll(
                 LoadDataAsync(userId),
                 LoadAppUsageData(),
-                LoadAfkDataAsync(userId)
+                LoadAfkDataAsync(userId),
+                LoadCheckinTime(userId)
             );
             await UpdateChart();
         }
@@ -1277,6 +1422,7 @@
         await LoadDataAsync(userId);
         await LoadAppUsageData();
         await LoadAfkDataAsync(userId);
+        await LoadCheckinTime(userId);
         await UpdateChart();
     }
 
@@ -1285,6 +1431,7 @@
         await LoadDataAsync(userId);
         await LoadAppUsageData();
         await LoadAfkDataAsync(userId);
+        await LoadCheckinTime(userId);
         await UpdateChart();
     }
 

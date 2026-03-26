@@ -16,8 +16,9 @@ namespace ScreenTracker1.Services
         private System.Timers.Timer _timer;
         private DateTime? _afkStartTime;
         private bool _isAfk;
-        //private const int AfkThresholdSeconds = 60;
-        private const int AfkThresholdSeconds = 1800; 
+        //private const int AfkThresholdSeconds = 600;
+        private const int AfkThresholdSeconds = 1200; 
+
 
 
         [StructLayout(LayoutKind.Sequential)]
@@ -52,7 +53,8 @@ namespace ScreenTracker1.Services
 
             if (idleTime >= AfkThresholdSeconds && !_isAfk)
             {
-                _afkStartTime = DateTime.UtcNow;
+                //_afkStartTime = DateTime.UtcNow;
+                _afkStartTime = DateTime.UtcNow.AddSeconds(-idleTime);
                 _isAfk = true;
                 Console.WriteLine($"[AFK Start] {_afkStartTime}");
             }
@@ -70,7 +72,8 @@ namespace ScreenTracker1.Services
                     StartMode = _startMode 
                 };
 
-                PostAfkLogAsync(afkLog);
+                //PostAfkLogAsync(afkLog);
+                Task.Run(() => PostAfkLogAsync(afkLog));
 
                 _isAfk = false;
                 _afkStartTime = null;
@@ -130,7 +133,8 @@ namespace ScreenTracker1.Services
                         Duration = duration,
                         StartMode = _startMode 
                     };
-                    PostAfkLogAsync(afkLog);
+                    //PostAfkLogAsync(afkLog);
+                    Task.Run(() => PostAfkLogAsync(afkLog));
                 }
             }
         }

@@ -1,38 +1,57 @@
-﻿.stitch-header {
+﻿@import url('app.css');
+.stitch-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: #f8f9fa; 
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 31px;
+    background-color: var(--color-secondary);
+    padding: 15px;
+    font-weight: bold;
+    border-bottom: 1px solid #444;
+    align-items: flex-start;
+    display: flex;
+    flex-direction: column;
+    height: 97%;
+    align-content: flex-start;
+   
+    width: 100%;
+    margin: 0;
 }
 
 .header-content {
     display: flex;
-    align-items: center;
+    flex-direction:column;
+    align-items: flex-start;
     gap: 20px;
 }
 
 .stitch-heading {
     margin: 0;
     font-size: 1.25rem;
-    color: #333;
+    color: white;
 }
 
 .nav-link {
     text-decoration: none;
-    color: #007bff;
+    /*    color: #007bff;*/
+    color: var(--color-text-color) !important;
     font-weight: bold;
     padding: 5px 10px;
     border-radius: 5px;
     transition: background-color 0.2s;
 }
 
-    .nav-link:hover {
+/*    .nav-link:hover {
         background-color: #e9ecef;
-    }
+    }*/
 
 .tooltip-container {
-    position: relative;
+/*    position: relative;*/
+    display: flex;
+    justify-content: space-between;
+    flex-direction: column-reverse;
+    gap: 17px;
 }
 
 .user-menu-button {
@@ -40,17 +59,18 @@
     border: none;
     cursor: pointer;
     font-size: 1.5rem;
-    color: #555;
+    color: white;
 }
 
 .user-menu-dropdown {
-    position: absolute;
+    position: static;
     top: 100%;
     right: 0;
     list-style: none;
     padding: 10px;
     margin: 5px 0 0;
-    background-color: #fff;
+    background-color: var(--color-secondary);
+ 
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     border-radius: 5px;
     z-index: 1000;
@@ -82,10 +102,150 @@
         .nav-submenu li:hover {
             background-color: #f0f0f0;
         }
-.nav-link.active {
-    background-color: #e9ecef;
+
+/*.nav-link.active {
+    border-left: 5px solid #9c27b0;
+   
+    padding-left: 15px;
+}*/
+
+a:hover {
+    text-decoration: none !important;
 }
 
-a:hover{
-    text-decoration:none !important;
+.tooltip-text-user {
+    margin-left: 20px;
+    margin-bottom: -10px;
+}
+
+.select2-data-12-he69 {
+    height: 100vh;
+    overflow: hidden;
+}
+.page {
+    display: flex;
+    width: 100%;
+    gap: 10px;
+    padding: 10px;
+/*    overflow: hidden;*/
+}
+
+#select2-data-10-xh0l {
+    display: flex;
+    width: 85%;
+    height: 98vh;
+    overflow: scroll;
+}
+.content px-4
+{
+    padding:0 !important;
+}
+
+body{
+    height:100vh;
+    overflow:hidden;
+
+}
+
+main {
+    height: 100vh;
+    overflow: scroll;
+    width:85%;
+}
+
+/* --- Main Grid Container (.dashboard-grid-container) --- */
+.dashboard-grid-container {
+    /* Set up the grid layout */
+    display: grid;
+    /* Define a single column by default (for mobile/small screens) */
+    grid-template-columns: 1fr;
+    /* Define the gap between items */
+    gap: 1.5rem; /* Equivalent to common Bootstrap spacing (e.g., g-3) */
+}
+
+/* Media query for medium-sized screens and up (md breakpoint) */
+@media (min-width: 768px) {
+    .dashboard-grid-container {
+        /* On medium screens, create two columns of equal size (1fr each) */
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* --- Nested Stats Grid Container (.stats-grid-container) --- */
+/* This container holds the four smaller statistic cards */
+.stats-grid-container {
+    /* Set up a nested grid layout */
+    display: grid;
+    /* Define two columns of equal size for its children on all screen sizes */
+    grid-template-columns: 1fr 1fr;
+    /* Define the gap between its children */
+    gap: 1.5rem; /* Consistent spacing */
+    /* Handle the vertical spacing for the second row on small screens */
+    /* This replaces the mt-3 and mt-md-0 logic */
+}
+
+
+.stats-grid-container {
+    row-gap: 1.5rem;
+}
+
+    /* Custom class handling the margin that was in the original HTML: 
+   mt-3 on small, mt-md-0 on medium */
+    .stats-grid-container .mt-3 {
+        margin-top: 1rem; /* Example mt-3 size */
+    }
+
+@media (min-width: 768px) {
+    .stats-grid-container .mt-md-0 {
+        margin-top: 0 !important;
+    }
+}
+
+
+/* --- Card Item Sizing (The original 'h-100' for the login card) --- */
+/* Ensure the login card item takes up the full height of its cell */
+.dashboard-card.h-100 {
+    height: 100%;
+}
+
+/* --- Main Grid Container (.dashboard-grid-container) --- */
+.dashboard-grid-container {
+    /* Set up the grid layout */
+    display: grid;
+    /* Define a single column by default (for mobile/small screens) */
+    grid-template-columns: 1fr;
+    /* Define the gap between items */
+    gap: 1.5rem;
+}
+
+/* Media query for medium-sized screens and up (md breakpoint) */
+@media (min-width: 768px) {
+    .dashboard-grid-container {
+        /* *** PRIMARY CHANGE HERE *** */
+        /* On medium screens, create two columns with a 2:3 ratio (approx 40% / 60%) */
+        grid-template-columns: 2fr 3fr;
+    }
+}
+
+/* --- Nested Stats Grid Container (.stats-grid-container) --- */
+/* This container holds the four smaller statistic cards */
+.stats-grid-container {
+    /* Set up a nested grid layout */
+    display: grid;
+    /* Define two columns of equal size for its children on all screen sizes */
+    grid-template-columns: 1fr 1fr;
+    /* Define the gap between its children. Using 'gap' handles both rows and columns. */
+    gap: 1.5rem;
+    width: 100vh;
+}
+
+/* * REMOVED: Redundant row-gap and custom margin logic 
+* The single 'gap: 1.5rem;' in .stats-grid-container handles all spacing correctly.
+*/
+
+
+/* --- Card Item Sizing (The original 'h-100' for the login card) --- */
+/* Ensure the login card item takes up the full height of its cell */
+.dashboard-card.h-100 {
+    height: 100%;
 }

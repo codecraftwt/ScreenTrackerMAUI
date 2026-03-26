@@ -60,10 +60,10 @@
                 <table class="users-table" @key="CurrentPage">
                     <thead>
                         <tr>
-                            <th class="text-center">Username</th>
-                            <th class="text-center">Delete Authorization</th>
-                            <th class="text-center">Active Status</th>
-                            <th class="text-center">Delete</th>
+                            <th class="text-center table-headers">Username</th>
+                            <th class="text-center table-headers">Delete Authorization</th>
+                            <th class="text-center table-headers">Active Status</th>
+                            <th class="text-center table-headers">Delete</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -72,20 +72,20 @@
                             <tr class="user-row">
                                 <td class="user-info">
                                     <div class="user-avatar">@user.username[0].ToString().ToUpper()</div>
-                                    <span class="username">@user.username</span>
+                                    <span class="username span-color">@user.username</span>
                                 </td>
                                 <td class="permission-cell">
                                     <label class="toggle-switch">
                                         <input type="checkbox" checked="@user.isSelected"
                                                @onchange="e => UpdateUserDeleteAuth(user, e)" />
-                                        <span class="toggle-slider"></span>
+                                        <span class="toggle-slider span-color"></span>
                                     </label>
                                 </td>
                                 <td class="permission-cell">
                                     <label class="toggle-switch">
                                         <input type="checkbox" checked="@user.isActive"
                                                @onchange="e => UpdateUserActiveStatus(user, e)" />
-                                        <span class="toggle-slider"></span>
+                                        <span class="toggle-slider span-color"></span>
                                     </label>
                                 </td>
                                 <td>

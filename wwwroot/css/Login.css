@@ -1,4 +1,5 @@
-﻿
+﻿@import url('app.css');
+
 .login-container {
     display: flex;
     justify-content: center; 
@@ -51,7 +52,8 @@
 .form-container {
     width: 100%;
     max-width: 500px;
-    background: #f9f9f9;
+/*    background: #f9f9f9;*/
+background-color:var(--color-secondary);
     padding: 30px;
     border-radius: 12px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -132,4 +134,9 @@ a {
 .label-input
 {
     margin-bottom:12px;
+}
+
+.text-center
+{
+    color:var(--color-text-color);
 }
