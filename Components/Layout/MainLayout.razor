@@ -30,3 +30,26 @@
         </article>
     </main>
 </div>
+ @* <style>
+     .page {
+         background: linear-gradient(117deg, #E0B1CB, #231942);
+     }
+ </style> *@
+@* <script>
+    [JSInvokable]
+    public static async Task TriggerManualCapture()
+    {
+        // Find the running instance of the Activity Tracker Service
+        var trackerService = ActivityTrackerService.Instance;
+
+        if (trackerService != null) {
+            // 1. Call the logic you wanted to execute.
+            await trackerService.CaptureAndSendAsync();
+        }
+        else {
+            // Handle case where the service hasn't started yet.
+            Console.WriteLine("Error: ActivityTrackerService instance not found to trigger manual capture.");
+        }
+    }
+
+</script> *@

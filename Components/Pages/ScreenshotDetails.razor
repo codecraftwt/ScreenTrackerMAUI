@@ -31,11 +31,6 @@
             color: rgba(255, 255, 255, 0.3) !important;
             cursor: not-allowed;
         }
-
-  
-
-
-
 </style>
 
 @if (!string.IsNullOrEmpty(errorMessage))
@@ -101,7 +96,7 @@ else
 
             <div class="col-md-3">
                 <div class="card mb-3">
-                    <div class="card-header">
+                    <div class="card-header card-header-background">
                         <h5 class="card-title mb-0">Screenshot Details</h5>
                     </div>
                     <div class="card-body">
@@ -112,16 +107,14 @@ else
                 </div>
 
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header card-header-background">
                         <h5 class="card-title mb-0">Activity Details</h5>
                     </div>
                     <div class="card-body p-0">
                         @if (minuteActivity?.Any() == true)
                         {
                             <div class="activity-scroll" style="max-height: 400px; overflow-y: auto;">
-                                <table
-                                    class="table table-sm mb-0 table-striped"
-                                >
+                                <table class="table table-sm mb-0">
                                     <thead class="sticky-top">
                                         <tr>
                                             <th>Time</th>
@@ -156,15 +149,22 @@ else
 @code {
     [Parameter] public int ImageId { get; set; }
     [Parameter][SupplyParameterFromQuery] public DateTime? Date { get; set; }
+    [Parameter][SupplyParameterFromQuery] public string UsageType { get; set; } = "all";
 
     private Screenshots screenshots;
     private Dictionary<string, MinuteActivity> minuteActivity;
     private string errorMessage;
-    private int userId;
+    private int userId; // This variable stores the Logged-in User's ID (Admin's ID)
     private string token;
 
     private bool hasNextScreenshot;
     private bool hasPreviousScreenshot;
+
+    // FIX 1: Change 'loggedInUserId' to 'userId' in the TargetUserId property
+    // This property correctly determines if we should view the SELECTED user (App.SelectedUserId)
+    // or the LOGGED-IN Admin (userId).
+    private int TargetUserId => App.SelectedUserId != 0 ? App.SelectedUserId : userId;
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -177,10 +177,22 @@ else
                 var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
                 if (int.TryParse(userIdClaim, out int id))
                 {
-                    userId = id;
+                    userId = id; // userId is correctly set here (Admin's ID)
                 }
             }
         }
+
+        // FIX 2: Remove the redundant 'targetId' calculation block.
+        // The TargetUserId property now handles this automatically.
+        // int targetId = 0;
+        // if (App.SelectedUserId != 0)
+        // {
+        //     targetId = App.SelectedUserId;
+        // }
+        // else
+        // {
+        //     targetId = userId;
+        // }
 
         await LoadImageDataAsync();
         await CheckForRelativeScreenshotsAsync();
@@ -190,6 +202,7 @@ else
     {
         try
         {
+            
             screenshots = await KeyboardMouseService.GetImageActivityDataAsync(ImageId);
 
             if (screenshots == null)
@@ -225,10 +238,11 @@ else
 
         try
         {
-            var nextCheck = await UserService.GetRelativeScreenshotAsync(userId, screenshots.id, screenshots.captureTime, "previous");
+            // FIX: Uses TargetUserId which correctly holds the SELECTED user's ID
+            var nextCheck = await UserService.GetRelativeScreenshotAsync(TargetUserId, screenshots.id, screenshots.captureTime, "previous", UsageType);
             hasNextScreenshot = nextCheck != null;
 
-            var previousCheck = await UserService.GetRelativeScreenshotAsync(userId, screenshots.id, screenshots.captureTime, "next");
+            var previousCheck = await UserService.GetRelativeScreenshotAsync(TargetUserId, screenshots.id, screenshots.captureTime, "next", UsageType);
             hasPreviousScreenshot = previousCheck != null;
         }
         catch (Exception ex)
@@ -248,8 +262,10 @@ else
         }
 
         var apiDirection = direction == "next" ? "previous" : "next";
+
+        // FIX: Uses TargetUserId which correctly holds the SELECTED user's ID
         var relativeScreenshot = await UserService.GetRelativeScreenshotAsync(
-            userId, screenshots.id, screenshots.captureTime, apiDirection);
+            TargetUserId, screenshots.id, screenshots.captureTime, apiDirection, UsageType);
 
         if (relativeScreenshot != null)
         {
@@ -260,7 +276,10 @@ else
 
             errorMessage = null;
 
-            NavigationManager.NavigateTo($"/screenshot-details/{ImageId}?date={Date:yyyy-MM-dd}", false);
+            // FIX: Navigation does not need 'viewedUserId' if using App.SelectedUserId,
+            // but it must include all other required parameters.
+            var dateParam = Date.HasValue ? Date.Value.ToString("yyyy-MM-dd") : null;
+            NavigationManager.NavigateTo($"/screenshot-details/{ImageId}?date={dateParam}&usageType={UsageType}", false);
         }
         else
         {
@@ -276,12 +295,12 @@ else
         }
     }
 
-    // 🆕 Navigate back with the saved date
     private void BackToScreenshots()
     {
-        // Use the date parameter from the URL to navigate back to the correct date view
         var dateParam = Date.HasValue ? Date.Value.ToString("yyyy-MM-dd") : null;
-        NavigationManager.NavigateTo($"/screenshots/{dateParam}");
+        // FIX: If we are using App.SelectedUserId, the main screenshot list page
+        // will automatically load the selected user's data.
+        NavigationManager.NavigateTo($"/screenshots/{dateParam}?usageType={UsageType}");
     }
 
     private string FormatTimestamp(DateTime? timestamp) => timestamp?.ToLocalTime().ToString("h:mm:ss tt") ?? "N/A";

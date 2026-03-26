@@ -1,6 +1,6 @@
-﻿.report-container {
-    max-width: 900px;
-    margin: auto;
+﻿@import url('app.css');
+
+.report-container {
     padding: 1rem;
     margin-top: 22px;
     font-family: 'Comfortaa';
@@ -53,14 +53,17 @@
     font-size: 1.1rem;
     font-weight: 600;
     margin-bottom: 1rem;
-    color: #111827;
+/*    color: #111827;*/
+color:var(--color-text-color);
 }
 
 .filters {
-    background: #f9fafb;
+    /*    background: #f9fafb;*/
+    background-color: #E1C8E6;
     padding: 0.8rem;
     border-radius: 0.4rem;
     margin-bottom: 1rem;
+    color:var(--color-text-color-dark);
 }
 
 .filters-row {
@@ -85,6 +88,7 @@
     border: none;
     font-size: 0.8rem;
     cursor: pointer;
+    gap:7px;
 }
 
     .btn-load:hover {
@@ -106,6 +110,7 @@
 .tracker-table {
     width: 100%;
     border-collapse: collapse;
+    color: var(--color-text-color);
 }
 
     .tracker-table th {
@@ -140,3 +145,30 @@ body {
 }
 
 
+.stitch-user-selectreport {
+    width: 100%;
+    max-width: 200px;
+    padding: 0.75rem 1rem;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    background-color: #F8FAFC;
+    color: #1E293B;
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+    transition: all 0.2s ease;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1em;
+    margin-bottom: 0px;
+
+    margin-left: 585px;
+}
+/*.label{
+    color:var(--color-text-color-dark);
+}*/
+.labels-colors
+{
+    color:var(--color-text-color-dark);
+}

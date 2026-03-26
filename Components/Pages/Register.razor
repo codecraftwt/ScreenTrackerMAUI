@@ -5,8 +5,7 @@
 @inject NavigationManager NavigationManager
 @using ScreenTracker1.Services
 @inject RegisterService RegisterService
-@layout ScreenTracker1.Components.Layout.NoNavLayout
-
+@* @layout ScreenTracker1.Components.Layout.NoNavLayout *@
 
 @using System.IdentityModel.Tokens.Jwt;
 
@@ -23,37 +22,40 @@
 
             <div class="input-grid">
                 <div class="input-group">
-                    <label>User Name</label>
+                    <label>User Name <span class="required">*</span></label>
                     <InputText @bind-Value="registerModel.username" class="input-field" placeholder="Enter your username" />
+                    <ValidationMessage For="@(() => registerModel.username)" />
                 </div>
-
                 <div class="input-group">
-                    <label>First Name</label>
+                    <label>First Name <span class="required">*</span></label>
                     <InputText @bind-Value="registerModel.firstName" class="input-field" placeholder="Enter your first name" />
+                    <ValidationMessage For="@(() => registerModel.firstName)" />
                 </div>
             </div>
 
             <div class="input-grid">
                 <div class="input-group">
-                    <label>Last Name</label>
+                    <label>Last Name <span class="required">*</span></label>
                     <InputText @bind-Value="registerModel.lastName" class="input-field" placeholder="Enter your last name" />
+                    <ValidationMessage For="@(() => registerModel.lastName)" />
                 </div>
-
                 <div class="input-group">
-                    <label>Email</label>
+                    <label>Email <span class="required">*</span></label>
                     <InputText @bind-Value="registerModel.email" type="email" class="input-field" placeholder="Enter your email" />
+                    <ValidationMessage For="@(() => registerModel.email)" />
                 </div>
             </div>
 
             <div class="input-grid">
                 <div class="input-group">
-                    <label>Password</label>
+                    <label>Password <span class="required">*</span></label>
                     <InputText @bind-Value="registerModel.Password" type="password" class="input-field" placeholder="Create a password" />
+                    <ValidationMessage For="@(() => registerModel.Password)" />
                 </div>
-
                 <div class="input-group">
-                    <label>Confirm Password</label>
+                    <label>Confirm Password <span class="required">*</span></label>
                     <InputText @bind-Value="registerModel.ConfirmPassword" type="password" class="input-field" placeholder="Confirm your password" />
+                    <ValidationMessage For="@(() => registerModel.ConfirmPassword)" />
                 </div>
             </div>
 
@@ -62,10 +64,10 @@
                     <label>Role</label>
                     <InputText @bind-Value="registerModel.role" class="input-field" readonly />
                 </div>
-
                 <div class="input-group">
-                    <label>Phone Number (Optional)</label>
+                    <label>Phone Number</label>
                     <InputText @bind-Value="registerModel.phoneNumber" class="input-field" placeholder="Enter your phone number" />
+                    <ValidationMessage For="@(() => registerModel.phoneNumber)" />
                 </div>
             </div>
 
@@ -99,6 +101,11 @@
     private int userId = 0;
     private string UserName;
 
+    // Updated Regular Expressions for Validation
+    private const string EmailRegex = @"^([a-zA-Z0-9_\-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([a-zA-Z0-9\-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$";
+    private const string PhoneNumberRegex = @"^(\+\d{1,2}\s?)?(\(?\d{3}\)?[\s.-]?)?\d{3}[\s.-]?\d{4}$"; // Updated regex
+    private const string NameRegex = @"^[a-zA-Z]+(([',. -][a-zA-Z ])?[a-zA-Z]*)*$";  // Regex for name validation (first and last name)
+
     protected override async Task OnInitializedAsync()
     {
         token = Preferences.Get("authToken", null);
@@ -123,7 +130,6 @@
                 {
                     this.userId = loggedInUserId;
                     registerModel.IsCreatedBy = loggedInUserId;
-
                 }
                 if (!isSuperAdmin)
                 {
@@ -157,6 +163,24 @@
     {
         try
         {
+            if (!System.Text.RegularExpressions.Regex.IsMatch(registerModel.firstName, NameRegex) || !System.Text.RegularExpressions.Regex.IsMatch(registerModel.lastName, NameRegex))
+            {
+                message = "Invalid name format.";
+                return;
+            }
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(registerModel.phoneNumber, PhoneNumberRegex))
+            {
+                message = "Invalid phone number format.";
+                return;
+            }
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(registerModel.email, EmailRegex))
+            {
+                message = "Invalid email format.";
+                return;
+            }
+
             var result = await RegisterService.RegisterAsync(registerModel);
 
             if (result == "Registration successful")

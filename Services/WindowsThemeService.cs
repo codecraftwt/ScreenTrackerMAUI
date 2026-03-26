@@ -21,14 +21,10 @@ namespace ScreenTracker1.Services
             {
                 var uiSettings = new Windows.UI.ViewManagement.UISettings();
                 var color = uiSettings.GetColorValue(Windows.UI.ViewManagement.UIColorType.Background);
-
-                // Simple calculation to determine if background is dark
-                // Dark themes have lower RGB values (max 255*3 = 765)
                 return (color.R + color.G + color.B) < 382;
             }
             catch
             {
-                // Fallback if Windows-specific API fails
                 return Application.Current.RequestedTheme == AppTheme.Dark;
             }
 #else

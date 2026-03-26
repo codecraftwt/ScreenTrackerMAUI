@@ -1,10 +1,9 @@
 ﻿using ScreenTracker1.DTOS;
 using System;
-using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace ScreenTracker1.Services
@@ -13,10 +12,14 @@ namespace ScreenTracker1.Services
     {
         private readonly HttpClient _httpClient;
         private int _userId;
+        private string _startMode; 
         private System.Timers.Timer _timer;
         private DateTime? _afkStartTime;
         private bool _isAfk;
-        private const int AfkThresholdSeconds = 60;
+        //private const int AfkThresholdSeconds = 600;
+        private const int AfkThresholdSeconds = 1200; 
+
+
 
         [StructLayout(LayoutKind.Sequential)]
         struct LASTINPUTINFO
@@ -34,17 +37,10 @@ namespace ScreenTracker1.Services
             _httpClient.BaseAddress = new Uri($"{App.URL}");
         }
 
-
-        public AfkTrackerService(HttpClient httpClient, string token)
-        {
-            _httpClient = httpClient;
-            _httpClient.BaseAddress = new Uri($"{App.URL}");
-
-        }
-
-        public void Start(int userID)
+        public void Start(int userID, string startMode)
         {
             _userId = userID;
+            _startMode = startMode;
             _timer = new System.Timers.Timer(10000);
             _timer.Elapsed += CheckAfkStatus;
             _timer.AutoReset = true;
@@ -57,8 +53,8 @@ namespace ScreenTracker1.Services
 
             if (idleTime >= AfkThresholdSeconds && !_isAfk)
             {
-             
-                _afkStartTime = DateTime.UtcNow;
+                //_afkStartTime = DateTime.UtcNow;
+                _afkStartTime = DateTime.UtcNow.AddSeconds(-idleTime);
                 _isAfk = true;
                 Console.WriteLine($"[AFK Start] {_afkStartTime}");
             }
@@ -72,10 +68,12 @@ namespace ScreenTracker1.Services
                     UserId = _userId,
                     AfkStartTime = _afkStartTime.Value,
                     AfkEndTime = afkEndTime,
-                    Duration = duration
+                    Duration = duration,
+                    StartMode = _startMode 
                 };
 
-                PostAfkLogAsync(afkLog);
+                //PostAfkLogAsync(afkLog);
+                Task.Run(() => PostAfkLogAsync(afkLog));
 
                 _isAfk = false;
                 _afkStartTime = null;
@@ -95,6 +93,7 @@ namespace ScreenTracker1.Services
 
         private async Task PostAfkLogAsync(AfkLogDto afkLog)
         {
+          
             try
             {
                 var response = await _httpClient.PostAsJsonAsync("AfkLogs", afkLog);
@@ -114,7 +113,6 @@ namespace ScreenTracker1.Services
             _timer?.Dispose();
         }
 
-
         public void Stop()
         {
             if (_timer != null)
@@ -122,7 +120,7 @@ namespace ScreenTracker1.Services
                 _timer.Stop();
                 _timer.Dispose();
                 _timer = null;
-        
+
                 if (_isAfk && _afkStartTime.HasValue)
                 {
                     var afkEndTime = DateTime.UtcNow;
@@ -132,12 +130,13 @@ namespace ScreenTracker1.Services
                         UserId = _userId,
                         AfkStartTime = _afkStartTime.Value,
                         AfkEndTime = afkEndTime,
-                        Duration = duration
+                        Duration = duration,
+                        StartMode = _startMode 
                     };
-                    PostAfkLogAsync(afkLog);
+                    //PostAfkLogAsync(afkLog);
+                    Task.Run(() => PostAfkLogAsync(afkLog));
                 }
             }
         }
-
     }
 }

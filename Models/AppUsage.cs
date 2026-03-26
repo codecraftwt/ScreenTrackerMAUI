@@ -15,6 +15,7 @@ namespace ScreenTracker1.Models
         public double durationInMinutes { get; set; }
 
         public int userId { get; set; }
+        public string StartMode { get; set; }
 
     }
 
@@ -23,6 +24,8 @@ namespace ScreenTracker1.Models
         public string AppName { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime? EndTime { get; set; }
+
+        public string StartMode { get; set; }
     }
 
     public class AppTitleModel

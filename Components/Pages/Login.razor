@@ -11,6 +11,7 @@
 @inject AfkTrackerService afkTrackerService
 @inject LoginService LoginService
 @inject UserService UserService
+@inject AppUsageTracker appUsageTrackerService
 @layout ScreenTracker1.Components.Layout.NoNavLayout
 
 <div class="login-container">
@@ -28,12 +29,12 @@
                 <ValidationSummary />
 
                 <div class="form-group">
-                    <label>UserName</label>
+                    <label class="label-input">UserName</label>
                     <InputText @bind-Value="loginModel.username" type="text" class="input" />
                 </div>
 
                 <div class="form-group">
-                    <label>Password</label>
+                    <label class="label-input">Password</label>
                     <InputText @bind-Value="loginModel.password" type="password" class="input" />
                 </div>
 
@@ -71,22 +72,30 @@
             await themeModule.DisposeAsync();
         }
     }
-
     private async Task HandleLogin()
     {
         try
         {
             var result = await LoginService.LoginAsync(loginModel);
 
-            if (string.IsNullOrEmpty(result) || result.Contains("Invalid credentials") || result.Contains("Error"))
+            if (string.IsNullOrEmpty(result) || result.Contains("Error"))
             {
-                message = "Login failed: " + result;
+                await App.Current.MainPage.DisplayAlert("Login Failed", "An unexpected error occurred during login.", "OK");
+                return;
+            }
+
+            if (result == "You have not Authority to login")
+            {
+                await App.Current.MainPage.DisplayAlert("Login Failed", "You have not Authority to login", "OK");
+                return;
+            }
+            else if (result == "Invalid credentials")
+            {
+                await App.Current.MainPage.DisplayAlert("Login Failed", "Invalid credentials", "OK");
                 return;
             }
 
             string token = result;
-            message = "Login successful!";
-
             Preferences.Set("authToken", token);
             await SecureStorage.SetAsync("auth_token", token);
 
@@ -104,23 +113,65 @@
                 }
             }
 
-            // var dailyTrackerResult = await UserService.StartDailyTrackerAsync();
+            StartAll("automatic");
             string navigationUrl = "/users";
-
-            // if (dailyTrackerResult != null && dailyTrackerResult.StartTracker != null)
-            // {
-            //     string startTimeString = dailyTrackerResult.StartTracker.Value.ToString("o");
-            //     navigationUrl = $"/users?startTime={Uri.EscapeDataString(startTimeString)}";
-            // }
-
             NavigationManager.NavigateTo(navigationUrl);
         }
         catch (Exception ex)
         {
-            message = $"An unexpected error occurred during login: {ex.Message}";
+            await App.Current.MainPage.DisplayAlert("Error", $"An unexpected error occurred during login: {ex.Message}", "OK");
             Console.WriteLine(ex);
         }
     }
+    private async Task StartAll(string startMode = "automatic")
+    {
+        try
+        {
+            appUsageTrackerService.Start(startMode);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error starting appUsageTrackerService: {ex.Message}");
+        }
+
+        try
+        {
+            desktopAutoCaptureService.Start(startMode);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error starting desktopAutoCaptureService: {ex.Message}");
+        }
+
+        try
+        {
+            afkTrackerService.Start(uid, startMode);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error starting afkTrackerService: {ex.Message}");
+        }
+
+        try
+        {
+            var dailyTracker = await UserService.StartDailyTrackerAsync(startMode);
+            if (dailyTracker != null)
+            {
+                Console.WriteLine("Daily Tracker started successfully.");
+            }
+            else
+            {
+                Console.WriteLine("Error starting Daily Tracker.");
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine($"Error starting Daily Tracker: {ex.Message}");
+        }
+    }
+
+
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -131,7 +182,7 @@
             var handler = new JwtSecurityTokenHandler();
             try
             {
-                var jwt = handler.ReadJwtToken(token);
+                var jwt = handler.  ReadJwtToken(token);
 
                 if (jwt.ValidTo > DateTime.UtcNow)
                 {
@@ -140,9 +191,9 @@
                     return;
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                // Handle invalid token
+                Console.WriteLine(e);
             }
         }
     }

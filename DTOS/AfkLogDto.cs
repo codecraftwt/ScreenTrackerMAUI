@@ -12,6 +12,10 @@ namespace ScreenTracker1.DTOS
         public DateTime AfkStartTime { get; set; }
         public DateTime AfkEndTime { get; set; }
         public TimeSpan Duration { get; set; }
+        public string StartMode { get; set; }
+
+
+
 
     }
 }

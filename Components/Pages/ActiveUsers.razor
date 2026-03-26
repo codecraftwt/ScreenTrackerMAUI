@@ -1,8 +1,10 @@
 ﻿@page "/active-users"
 @inject UserService UserService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime  // For working with LocalStorage or SessionStorage
 @using ScreenTracker1.Models
 @using System.Linq
+@using System.IdentityModel.Tokens.Jwt
 @using ScreenTracker1.Services
 
 @if (activeUsers == null)
@@ -37,23 +39,66 @@ else
 
 @code {
     private List<User>? activeUsers;
+    private int? CurrentAdminId { get; set; } 
 
     protected override async Task OnInitializedAsync()
     {
+        var token = Preferences.Get("authToken", null);
+
+        if (string.IsNullOrEmpty(token))
+        {
+            // Handle the case when the token is not found or is expired
+            Console.WriteLine("Token not found or expired");
+            return;
+        }
+
+        // Decode the token to extract the user ID
         try
         {
-            activeUsers = await UserService.GetActiveUsersAsync();
+            CurrentAdminId = GetUserIdFromToken(token);  // Extract the user ID from the token
+
+            if (CurrentAdminId.HasValue)
+            {
+                // Fetch active users using the extracted user ID
+                activeUsers = await UserService.GetActiveUsersAsync(CurrentAdminId);
+            }
+            else
+            {
+                Console.WriteLine("User ID not found in the token.");
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error fetching active users: {ex.Message}");
+            Console.WriteLine($"Error decoding token: {ex.Message}");
             activeUsers = new List<User>();
+        }
+    }
+
+    private int? GetUserIdFromToken(string token)
+    {
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var jsonToken = handler.ReadToken(token) as JwtSecurityToken;
+
+            // Extract user ID from the correct claim type (nameidentifier)
+            var userIdClaim = jsonToken?.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier");
+            if (userIdClaim != null)
+            {
+                return int.Parse(userIdClaim.Value); // Assuming the user ID is an integer
+            }
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error extracting user ID from token: {ex.Message}");
+            return null;
         }
     }
 
     private async Task OnCardClickAsync(int userId)
     {
-        // Navigate to UserReport page, passing the user ID
+        // Navigate to user report page
         NavigationManager.NavigateTo($"/userreport/{userId}");
     }
 }

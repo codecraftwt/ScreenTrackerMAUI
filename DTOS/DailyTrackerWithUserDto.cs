@@ -11,5 +11,6 @@ namespace ScreenTracker1.DTOS
     {
         public DailyTracker Tracker { get; set; }
         public User User { get; set; }
+
     }
 }

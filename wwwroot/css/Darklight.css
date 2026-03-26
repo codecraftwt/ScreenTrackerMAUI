@@ -4,7 +4,7 @@
     --bg-tertiary: #3d3d3d;
     --text-primary: #ffffff;
     --text-secondary: #cccccc;
-    --border-color: white; /* The requested change */
+    --border-color: white; 
     --card-bg: #2d2d2d;
     --header-bg: #1f1f1f;
     --accent-color: #4a7aff;
@@ -74,7 +74,6 @@
     }
 
     .dark-theme .tooltip-container {
-      /*  background-color: var(--bg-secondary);*/
         border-color: white;
     }
 
@@ -202,12 +201,8 @@
         color: white !important;
     }
 
-
-
-/* This is the new rule you wanted to add */
 .dark-theme {
     --border-color: white;
-    /*   background-color: #3b4f7a;*/
     background-color: dimgrey;
 }
 
@@ -312,9 +307,6 @@
         color: var(--text-secondary);
     }
 
- 
-
-    /* ScreenshotDetails page specific dark theme styles */
     .dark-theme .table {
         background-color: var(--card-bg);
         color: var(--text-primary);
@@ -432,14 +424,14 @@
         }
 
     .dark-theme .block {
-        width: 10px; /* Make blocks smaller */
+        width: 10px; 
         height: 7px;
         background-color: lightgray;
         border-radius: 2px;
     }
 
         .dark-theme .block.active {
-            background-color: #28A745; /* Use a more distinct green color */
+            background-color: #28A745; 
         }
 
     .dark-theme .calendar-month {
@@ -567,7 +559,6 @@
         color: var(--text-primary);
     }
 
-    /* Report.razor specific dark theme styles */
     .dark-theme .report-container {
         background-color: var(--bg-primary);
         color: var(--text-primary);
@@ -652,10 +643,8 @@
         background-color:black;
     }
 
-
-    /* Dark theme specific pagination styles */
     .dark-theme .pagination {
-        background-color: black; /* Set the pagination background to black */
+        background-color: black; 
         color: var(--text-primary);
         border: 1px solid var(--border-color);
         border-radius: 0.25rem;
@@ -670,26 +659,25 @@
         }
 
             .dark-theme .pagination li a {
-                 color: white; /* Set page numbers text color to white */
+                 color: white; 
                 text-decoration: none;
                 padding: 0.4rem 0.8rem;
                 border-radius: 0.25rem;
-              /*  color: var(--accent-color);*/
                 background-color: var(--bg-tertiary);
             }
 
                 .dark-theme .pagination li a:hover {
-                    background-color: var(--bg-tertiary); /* Keep hover background color */
-                    color: var(--accent-color); /* Change hover text color to accent color */
+                    background-color: var(--bg-tertiary); 
+                    color: var(--accent-color); 
                 }
 
         .dark-theme .pagination .active a {
-            background-color: var(--accent-color); /* Active page background in accent color */
-            color: white; /* Active page number text color remains white */
+            background-color: var(--accent-color); 
+            color: white; 
         }
 
         .dark-theme .pagination .disabled a {
-            color: var(--text-secondary); /* Disabled page numbers with a secondary text color */
+            color: var(--text-secondary); 
             background-color: var(--bg-secondary);
             cursor: not-allowed;
         }
@@ -703,3 +691,65 @@
             border-top-right-radius: 0.25rem;
             border-bottom-right-radius: 0.25rem;
         }
+    .dark-theme .select2-container--default .select2-selection--single {
+        background-color: black;
+        border: 1px solid #aaa;
+        border-radius: 4px;
+    }
+
+    .dark-theme .select2-selection select2-selection--single {
+        color: white
+    }
+
+    .dark-theme .select2-results__options {
+        background-color: black;
+        color:white;
+    }
+
+    .dark-theme .select2-search .select2-search--dropdown  {
+        background-color: black;
+    }
+
+    .dark-theme .select2-search__field {
+        color: white;
+        background-color: black;
+    }
+    .dark-theme .select2-selection__rendered
+    {
+        color:white;
+    }
+
+    .dark-theme .select2-container--default .select2-selection--single .select2-selection__rendered
+    {
+        color:white;
+    }
+    .dark-theme .select2-container--open .select2-dropdown--below {
+        background-color: black
+    }
+
+    .dark-theme .user-info p, .dark-theme .user-header h4 {
+        color: white;
+    }
+.dark-theme .user-card {
+    background-color: black;
+}
+
+    .dark-theme .search-input {
+        background-color:black;
+        color:white;
+    }
+
+    .dark-theme .username {
+        color: white;
+    }
+    .dark-theme .users-table-container
+    {
+        background-color:black;
+    }
+    .dark-theme .user-management-card {
+        background-color: black;
+    }
+    .dark-theme .text-center {
+        background-color: black;
+        color: white;
+    }

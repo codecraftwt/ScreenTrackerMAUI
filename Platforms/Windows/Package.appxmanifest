@@ -4,9 +4,10 @@
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  IgnorableNamespaces="uap rescap uap5">
 
-  <Identity Name="maui-package-name-placeholder" Publisher="CN=Admin" Version="0.0.16.0" />
+  <Identity Name="maui-package-name-placeholder" Publisher="CN=Admin" Version="0.0.19.0" />
 
   <mp:PhoneIdentity PhoneProductId="4A2285F3-6655-4380-880E-A4D2B91C58D3" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -36,6 +37,11 @@
         <uap:DefaultTile Square71x71Logo="$placeholder$.png" Wide310x150Logo="$placeholder$.png" Square310x310Logo="$placeholder$.png" />
         <uap:SplashScreen Image="$placeholder$.png" />
       </uap:VisualElements>
+      <Extensions>
+        <uap5:Extension Category="windows.startupTask">
+          <uap5:StartupTask TaskId="ScreenTrackerStartupId" Enabled="true" DisplayName="Screen Tracker" />
+        </uap5:Extension>
+      </Extensions>
     </Application>
   </Applications>
 
