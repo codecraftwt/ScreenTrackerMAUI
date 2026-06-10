@@ -280,3 +280,41 @@ color:var(--color-text-color);
 .dark-theme .required {
     color: #ff6e6e;
 }
+
+
+/* Container to hold input and button */
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+    /* Adjust the input field padding */
+    .password-wrapper .input-field {
+        width: 100%;
+        padding-right: 40px; /* Space for the icon */
+    }
+
+/* Style for the toggle button */
+.toggle-button {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+    .toggle-button:hover {
+        color: #333;
+    }
+
+    /* Ensure icons have a consistent size */
+    .toggle-button i {
+        font-size: 1.1rem;
+    }

@@ -107,7 +107,7 @@ namespace ScreenTracker1.Services
             public DateTime StartTime { get; set; }
             public DateTime EndTime { get; set; }
 
-            public TimeSpan Duration => StartTime - EndTime;
+            public TimeSpan Duration => EndTime - StartTime;
         }
     }
 }

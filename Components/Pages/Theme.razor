@@ -9,19 +9,26 @@
         <div class="theme-controls-row">
             <div class="theme-dropdown-wrapper">
                 <select class="theme-dropdown" @onchange="OnThemeChanged">
-                    <option value="system">System</option>
-                    <option value="dark">Dark</option>
-                    <option value="light">Light</option>
+                    <option value="system" selected="@(selectedTheme == "system")">🖥️ System Default</option>
+                    <option value="dark" selected="@(selectedTheme == "dark")">🌙 Dark Mode</option>
+                    <option value="light" selected="@(selectedTheme == "light")">☀️ Light Mode</option>
                 </select>
             </div>
 
-            <button class="theme-toggle-btn" @onclick="ToggleTheme">
+            <button class="theme-toggle-btn" @onclick="ToggleTheme" title="@(isDarkTheme ? "Switch to Light Theme" : "Switch to Dark Theme")">
                 <i class="fas @themeIcon"></i>
             </button>
         </div>
+
+        <div class="theme-indicator">
+            <i class="fas @(isDarkTheme ? "fa-moon" : "fa-sun")"></i>
+            <span>@(isDarkTheme ? "Dark Theme Active" : "Light Theme Active")</span>
+        </div>
     </div>
 
-    <button class="theme-back-btn" @onclick="BackToHome">Back to Home</button>
+    <button class="theme-back-btn" @onclick="BackToHome">
+        <i class="fas fa-arrow-left"></i> Back to Home
+    </button>
 </div>
 
 @code {
@@ -29,52 +36,59 @@
     private bool isDarkTheme;
     private string selectedTheme = "system";
     private IJSObjectReference? themeModule;
-    private string currentTheme = "Unknown";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             themeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/theme.js");
-            isDarkTheme = await themeModule.InvokeAsync<bool>("getSystemTheme");
-            await ApplyTheme();
+            
+            // Load saved theme preference
+            var savedTheme = await themeModule.InvokeAsync<string>("getSavedThemePreference");
+            if (!string.IsNullOrEmpty(savedTheme))
+            {
+                selectedTheme = savedTheme;
+            }
+            
+            // Apply the current theme
+            isDarkTheme = await themeModule.InvokeAsync<bool>("getSavedTheme");
+            await UpdateThemeIcon();
             StateHasChanged();
         }
     }
 
     private async Task OnThemeChanged(ChangeEventArgs e)
     {
-        selectedTheme = e.Value.ToString();
-        switch (selectedTheme)
+        if (e.Value != null)
         {
-            case "system":
-                isDarkTheme = await themeModule.InvokeAsync<bool>("getSystemTheme");
-                break;
-            case "dark":
-                isDarkTheme = true;
-                break;
-            case "light":
-                isDarkTheme = false;
-                break;
+            selectedTheme = e.Value.ToString();
+            
+            // Save and apply the theme
+            if (themeModule != null)
+            {
+                await themeModule.InvokeVoidAsync("saveThemePreference", selectedTheme);
+                isDarkTheme = await themeModule.InvokeAsync<bool>("getSavedTheme");
+                await UpdateThemeIcon();
+            }
         }
-        await ApplyTheme();
     }
 
     private async Task ToggleTheme()
     {
-        isDarkTheme = !isDarkTheme;
-        await ApplyTheme();
-    }
-
-    private async Task ApplyTheme()
-    {
         if (themeModule != null)
         {
-            await themeModule.InvokeVoidAsync("setTheme", isDarkTheme);
+            await themeModule.InvokeVoidAsync("toggleTheme");
+            isDarkTheme = !isDarkTheme;
+            
+            // Update selected theme based on toggled state
+            selectedTheme = isDarkTheme ? "dark" : "light";
+            await UpdateThemeIcon();
         }
+    }
 
+    private async Task UpdateThemeIcon()
+    {
         themeIcon = isDarkTheme ? "fa-moon" : "fa-sun";
-        currentTheme = isDarkTheme ? "Dark Theme" : "Light Theme";
     }
 
     private void BackToHome()

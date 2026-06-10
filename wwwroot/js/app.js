@@ -22,3 +22,13 @@
     }, 50);
 };
 
+window.setSelect2Value = function (elementId, value) {
+    var element = $(`#${elementId}`);
+    if (element.length) {
+        element.val(value).trigger('change');
+        console.log('Select2 value set for:', elementId, 'to:', value);
+    } else {
+        console.error('Element not found for Select2:', elementId);
+    }
+};
+

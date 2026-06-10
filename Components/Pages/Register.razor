@@ -1,10 +1,15 @@
 ﻿@page "/register"
+@page "/register/{adminId:int}"
+@page "/register/edit/{userId:int}"
+@page "/register/edit/{userId:int}/{adminId:int}"
 @using ScreenTracker1.Models
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Forms
 @inject NavigationManager NavigationManager
 @using ScreenTracker1.Services
 @inject RegisterService RegisterService
+@inject UserService UserService
+@inject IJSRuntime JSRuntime
 @* @layout ScreenTracker1.Components.Layout.NoNavLayout *@
 
 @using System.IdentityModel.Tokens.Jwt;
@@ -12,18 +17,20 @@
 <div class="register-container">
     <div class="form-card">
         <div class="form-header">
-            <h2>Create Account</h2>
-            <p>Get started with your account</p>
+            <h2>@(isEditMode ? "Edit User" : "Create Account")</h2>
+            <p>@(isEditMode ? "Update user information" : "Get started with your account")</p>
         </div>
 
-        <EditForm Model="@registerModel" OnValidSubmit="@HandleSubmit">
-            <DataAnnotationsValidator />
+        <EditForm Model="@registerModel" OnSubmit="@HandleSubmit">
             <ValidationSummary />
 
             <div class="input-grid">
                 <div class="input-group">
                     <label>User Name <span class="required">*</span></label>
-                    <InputText @bind-Value="registerModel.username" class="input-field" placeholder="Enter your username" />
+                    <InputText @bind-Value="registerModel.username"
+                               class="input-field"
+                               placeholder="Enter your username"
+                               readonly="@isEditMode" />
                     <ValidationMessage For="@(() => registerModel.username)" />
                 </div>
                 <div class="input-group">
@@ -47,14 +54,39 @@
             </div>
 
             <div class="input-grid">
+                <!-- Password Field -->
                 <div class="input-group">
-                    <label>Password <span class="required">*</span></label>
-                    <InputText @bind-Value="registerModel.Password" type="password" class="input-field" placeholder="Create a password" />
+                    <label>Password @if (!isEditMode)
+                        {
+                            <span class="required">*</span>
+                        }</label>
+                    <div class="password-wrapper">
+                        <InputText @bind-Value="registerModel.Password"
+                                   type="@passwordInputType"
+                                   class="input-field"
+                                   placeholder="@(isEditMode ? "Leave blank" : "Create password")" />
+                        <button type="button" class="toggle-button" @onclick="TogglePasswordVisibility">
+                            <i class="@(showPassword ? "fas fa-eye-slash" : "fas fa-eye")"></i>
+                        </button>
+                    </div>
                     <ValidationMessage For="@(() => registerModel.Password)" />
                 </div>
+
+                <!-- Confirm Password Field -->
                 <div class="input-group">
-                    <label>Confirm Password <span class="required">*</span></label>
-                    <InputText @bind-Value="registerModel.ConfirmPassword" type="password" class="input-field" placeholder="Confirm your password" />
+                    <label>Confirm Password @if (!isEditMode)
+                        {
+                            <span class="required">*</span>
+                        }</label>
+                    <div class="password-wrapper">
+                        <InputText @bind-Value="registerModel.ConfirmPassword"
+                                   type="@confirmPasswordInputType"
+                                   class="input-field"
+                                   placeholder="@(isEditMode ? "Confirm new" : "Confirm password")" />
+                        <button type="button" class="toggle-button" @onclick="ToggleConfirmPasswordVisibility">
+                            <i class="@(showConfirmPassword ? "fas fa-eye-slash" : "fas fa-eye")"></i>
+                        </button>
+                    </div>
                     <ValidationMessage For="@(() => registerModel.ConfirmPassword)" />
                 </div>
             </div>
@@ -65,15 +97,16 @@
                     <InputText @bind-Value="registerModel.role" class="input-field" readonly />
                 </div>
                 <div class="input-group">
-                    <label>Phone Number</label>
+                    <label>Phone Number <span class="optional">(Optional)</span></label>
+
                     <InputText @bind-Value="registerModel.phoneNumber" class="input-field" placeholder="Enter your phone number" />
                     <ValidationMessage For="@(() => registerModel.phoneNumber)" />
                 </div>
             </div>
 
             <div class="button-group">
-                <button type="submit" class="btn primary">Register</button>
-                <button type="button" class="btn secondary" @onclick="NavigateToLogin">Cancel</button>
+                <button type="submit" class="btn primary">@(isEditMode ? "Update" : "Register")</button>
+                <button type="button" class="btn secondary" @onclick="NavigateBack">Cancel</button>
                 <button type="button" class="btn outline" @onclick="HandleReset">Reset</button>
             </div>
         </EditForm>
@@ -98,13 +131,43 @@
     private bool isSuperAdmin = false;
     private string token;
     private bool isAdmin = false;
-    private int userId = 0;
+    private int loggedInUserId = 0;
     private string UserName;
+    private bool isEditMode = false;
+    private int? editUserId = null;
+    private bool showPassword = false;
+    private bool showConfirmPassword = false;
+    private string passwordInputType => showPassword ? "text" : "password";
+    private string confirmPasswordInputType => showConfirmPassword ? "text" : "password";
+
+ 
+    [Parameter]
+    public int? adminId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "adminId")]
+    public int? queryAdminId { get; set; }
+    
+    [Parameter]
+    public int? userId { get; set; }
+
+    private int? EffectiveAdminId => adminId ?? queryAdminId;
 
     // Updated Regular Expressions for Validation
     private const string EmailRegex = @"^([a-zA-Z0-9_\-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([a-zA-Z0-9\-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$";
-    private const string PhoneNumberRegex = @"^(\+\d{1,2}\s?)?(\(?\d{3}\)?[\s.-]?)?\d{3}[\s.-]?\d{4}$"; // Updated regex
+    private const string PhoneNumberRegex = @"^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$"; // Updated regex
     private const string NameRegex = @"^[a-zA-Z]+(([',. -][a-zA-Z ])?[a-zA-Z]*)*$";  // Regex for name validation (first and last name)
+    private const string PasswordRegex = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$"; // Min 6 chars, uppercase, lowercase, number, special char
+
+    private void TogglePasswordVisibility()
+    {
+        showPassword = !showPassword;
+    }
+
+    private void ToggleConfirmPasswordVisibility()
+    {
+        showConfirmPassword = !showConfirmPassword;
+    }
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -126,18 +189,9 @@
 
                 var userIdClaim = jwtToken?.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
 
-                if (int.TryParse(userIdClaim, out int loggedInUserId))
+                if (int.TryParse(userIdClaim, out int parsedUserId))
                 {
-                    this.userId = loggedInUserId;
-                    registerModel.IsCreatedBy = loggedInUserId;
-                }
-                if (!isSuperAdmin)
-                {
-                    registerModel.role = "User";
-                }
-                else
-                {
-                    registerModel.role = "Admin";
+                    this.loggedInUserId = parsedUserId;
                 }
             }
         }
@@ -146,47 +200,261 @@
             Console.WriteLine("User not authenticated.");
             NavigationManager.NavigateTo("/login");
         }
+
+        // Check if this is edit mode
+        if (userId.HasValue)
+        {
+            isEditMode = true;
+            editUserId = userId.Value;
+            await LoadUserForEdit(editUserId.Value);
+        }
+        else
+        {
+            // Register mode - set default values
+            var creatorAdminId = EffectiveAdminId ?? loggedInUserId;
+            registerModel.IsCreatedBy = creatorAdminId;
+            registerModel.manualTrackingAuthBy = creatorAdminId;
+            registerModel.autoTrackingAuthBy = creatorAdminId;
+            
+            if (!isSuperAdmin)
+            {
+                registerModel.role = "User";
+            }
+            else
+            {
+                registerModel.role = "Admin";
+            }
+        }
+
+        // Store the current page as the previous page before navigation
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "previousPage", NavigationManager.Uri);
+    }
+
+    private async Task LoadUserForEdit(int id)
+    {
+        try
+        {
+            var user = await UserService.GetUserByIdAsync(id);
+            if (user != null)
+            {
+                registerModel.username = user.username;
+                registerModel.firstName = user.firstName;
+                registerModel.lastName = user.lastName;
+                registerModel.email = user.email;
+                registerModel.phoneNumber = user.phoneNumber;
+                registerModel.role = user.role;
+                registerModel.Password = string.Empty; // Don't load password
+                registerModel.ConfirmPassword = string.Empty;
+                registerModel.IsCreatedBy = user.IsCreatedBy;
+                registerModel.manualTrackingAuthBy = user.manualTrackingAuthBy;
+                registerModel.autoTrackingAuthBy = user.autoTrackingAuthBy;
+                registerModel.isManualTrackingEnabled = user.isManualTrackingEnabled;
+                registerModel.isAutoTrackingEnabled = user.isAutoTrackingEnabled;
+            }
+            else
+            {
+                message = "User not found.";
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"Error loading user: {ex.Message}";
+        }
     }
 
     private async Task NavigateToLogin()
     {
-        NavigationManager.NavigateTo("/users");
+        // Navigate based on user role and adminId
+        if (EffectiveAdminId.HasValue)
+        {
+            // If adminId is present (from AdminUsers page), navigate to admin-users page
+            NavigationManager.NavigateTo($"/admin-users/{EffectiveAdminId.Value}");
+        }
+        else if (isSuperAdmin)
+        {
+            // If superadmin without specific adminId, navigate to admin-list
+            NavigationManager.NavigateTo("/admin-list");
+        }
+        else if (isAdmin)
+        {
+            // If regular admin, navigate to their own admin-users page using their loggedInUserId
+            NavigationManager.NavigateTo($"/admin-users/{loggedInUserId}");
+        }
+        else
+        {
+            // Default fallback for regular users
+            NavigationManager.NavigateTo("/users");
+        }
+    }
+
+    private async Task NavigateBack()
+    {
+        await NavigateToLogin();
     }
 
     private void HandleReset()
     {
-        registerModel = new RegisterModel();
-        message = string.Empty;
+        if (isEditMode)
+        {
+            // In edit mode, reload the user data
+            if (editUserId.HasValue)
+            {
+                LoadUserForEdit(editUserId.Value);
+            }
+        }
+        else
+        {
+            // Save the role and adminId before resetting
+            var currentRole = registerModel.role;
+            var currentIsCreatedBy = registerModel.IsCreatedBy;
+            var currentManualTrackingAuthBy = registerModel.manualTrackingAuthBy;
+            var currentAutoTrackingAuthBy = registerModel.autoTrackingAuthBy;
+            
+            registerModel = new RegisterModel();
+            message = string.Empty;
+            
+            // Restore the role and auth fields
+            registerModel.role = currentRole;
+            registerModel.IsCreatedBy = currentIsCreatedBy;
+            registerModel.manualTrackingAuthBy = currentManualTrackingAuthBy;
+            registerModel.autoTrackingAuthBy = currentAutoTrackingAuthBy;
+        }
     }
 
     private async Task HandleSubmit()
     {
         try
         {
+           
+            registerModel.phoneNumber = string.IsNullOrWhiteSpace(registerModel.phoneNumber)
+                        ? string.Empty
+                        : registerModel.phoneNumber.Trim();
+
             if (!System.Text.RegularExpressions.Regex.IsMatch(registerModel.firstName, NameRegex) || !System.Text.RegularExpressions.Regex.IsMatch(registerModel.lastName, NameRegex))
             {
                 message = "Invalid name format.";
                 return;
             }
 
-            if (!System.Text.RegularExpressions.Regex.IsMatch(registerModel.phoneNumber, PhoneNumberRegex))
+            // Validate phone number format (if provided)
+            if (!string.IsNullOrEmpty(registerModel.phoneNumber) && !System.Text.RegularExpressions.Regex.IsMatch(registerModel.phoneNumber, PhoneNumberRegex))
             {
                 message = "Invalid phone number format.";
                 return;
             }
 
+            // Normalize email (trim + lowercase)
+            registerModel.email = registerModel.email.Trim().ToLowerInvariant();
+
+            // Validate email format
             if (!System.Text.RegularExpressions.Regex.IsMatch(registerModel.email, EmailRegex))
             {
                 message = "Invalid email format.";
                 return;
             }
 
-            var result = await RegisterService.RegisterAsync(registerModel);
+            // Password validation
+            if (!isEditMode)
+            {
+                // Register mode: Password is always required
+                if (string.IsNullOrEmpty(registerModel.Password))
+                {
+                    message = "Password is required.";
+                    return;
+                }
 
-            if (result == "Registration successful")
+                // Validate password strength
+                if (!System.Text.RegularExpressions.Regex.IsMatch(registerModel.Password, PasswordRegex))
+                {
+                    message = "Password must be at least 6 characters and contain uppercase, lowercase, number, and special character.";
+                    return;
+                }
+
+                // Validate password match
+                if (registerModel.Password != registerModel.ConfirmPassword)
+                {
+                    message = "Passwords do not match.";
+                    return;
+                }
+            }
+            else
+            {
+                // Edit mode: Only validate if user is trying to change password
+                if (!string.IsNullOrEmpty(registerModel.Password) || !string.IsNullOrEmpty(registerModel.ConfirmPassword))
+                {
+                    // User wants to change password - validate it
+                    if (string.IsNullOrEmpty(registerModel.Password))
+                    {
+                        message = "Password is required.";
+                        return;
+                    }
+
+                    // Validate password strength
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(registerModel.Password, PasswordRegex))
+                    {
+                        message = "Password must be at least 6 characters and contain uppercase, lowercase, number, and special character.";
+                        return;
+                    }
+
+                    // Validate password match
+                    if (registerModel.Password != registerModel.ConfirmPassword)
+                    {
+                        message = "Passwords do not match.";
+                        return;
+                    }
+                }
+                // If both fields are empty in edit mode, skip password validation (keep existing password)
+            }
+
+            string result;
+            if (isEditMode && editUserId.HasValue)
+            {
+                // Update existing user
+                var user = new User
+                {
+                    id = editUserId.Value,
+                    username = registerModel.username,
+                    firstName = registerModel.firstName,
+                    lastName = registerModel.lastName,
+                    email = registerModel.email,
+                    phoneNumber = registerModel.phoneNumber,
+                    role = registerModel.role,
+                    password = registerModel.Password, // Will be empty if not changing
+                    IsCreatedBy = registerModel.IsCreatedBy,
+                    isManualTrackingEnabled = registerModel.isManualTrackingEnabled,
+                    manualTrackingAuthBy = registerModel.manualTrackingAuthBy,
+                    isAutoTrackingEnabled = registerModel.isAutoTrackingEnabled,
+                    autoTrackingAuthBy = registerModel.autoTrackingAuthBy
+                };
+
+                var success = await UserService.UpdateUserAsync(user, loggedInUserId);
+                result = success ? "User updated successfully" : "Failed to update user";
+            }
+            else
+            {
+                // Register new user
+                result = await RegisterService.RegisterAsync(registerModel);
+            }
+
+            if (result == "Registration successful" || result == "User updated successfully")
             {
                 message = result;
-                NavigationManager.NavigateTo("/login");
+                StateHasChanged();
+                await Task.Delay(1500);
+
+                // Logic to navigate based on role
+                if (isAdmin)
+                {
+                    // Navigate to their specific admin-users page
+                    // Use adminId if available, otherwise fallback to loggedInUserId
+                    int idToNavigate = EffectiveAdminId ?? loggedInUserId;
+                    NavigationManager.NavigateTo($"/admin-users/{idToNavigate}");
+                }
+                else
+                {
+                    // Navigate to the general admin list
+                    NavigationManager.NavigateTo("/admin-list");
+                }
             }
             else
             {

@@ -1,0 +1,561 @@
+@page "/admin-users/{adminId:int}"
+@using ScreenTracker1.Components.Layout
+@layout MainLayout
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@using ScreenTracker1.Models
+@using ScreenTracker1.Services
+@using System.IdentityModel.Tokens.Jwt
+
+<div class="admin-users-container">
+    <div class="right-panel">
+        <div class="form-container">
+            <div class="page-header">
+                <button class="btn-back" @onclick="async () => await GoBack()">
+                    <i class="bi bi-arrow-left"></i> Back
+                </button>
+                <div class="header-title">
+                    <h2 class="text-center mb-4"><i class="bi bi-people"></i> Users of @(adminInfo?.username ?? "Admin")</h2>
+                    <p class="subtitle text-center">All users created by this admin</p>
+                </div>
+            </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner"></div>
+            <p>Loading users...</p>
+        </div>
+    }
+    else if (!hasPermission)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            You don't have permission to view this page.
+        </div>
+    }
+    else
+    {
+        <div class="admin-actions">
+            <button class="btn-add-user" @onclick="NavigateToAddUser">
+                <i class="bi bi-plus-circle"></i> Add User
+            </button>
+        </div>
+
+        @if (users == null || !users.Any())
+        {
+            <div class="empty-state">
+                <i class="bi bi-person-x"></i>
+                <p>No users found for this admin.</p>
+                <p class="sub-text">This admin hasn't created any users yet.</p>
+            </div>
+        }
+        else
+        {
+
+        <div class="admin-info-card">
+            <div class="admin-avatar-large">
+                @(string.IsNullOrEmpty(adminInfo?.firstName) ? "A" : adminInfo.firstName[0].ToString().ToUpper())
+                @(string.IsNullOrEmpty(adminInfo?.lastName) ? "" : adminInfo.lastName[0].ToString().ToUpper())
+            </div>
+            <div class="admin-details">
+                <h4>@(adminInfo?.firstName ?? "") @(adminInfo?.lastName ?? "")</h4>
+                <p><i class="bi bi-person"></i> @adminInfo?.username</p>
+                <p><i class="bi bi-envelope"></i> @adminInfo?.email</p>
+                <p><i class="bi bi-telephone"></i> @adminInfo?.phoneNumber</p>
+            </div>
+            <div class="admin-stats">
+                <div class="stat-box">
+                    <span class="stat-number">@users.Count</span>
+                    <span class="stat-label">Total Users</span>
+                </div>
+                <div class="stat-box active">
+                    <span class="stat-number">@users.Count(u => u.isActive == true)</span>
+                    <span class="stat-label">Active</span>
+                </div>
+                <div class="stat-box inactive">
+                    <span class="stat-number">@users.Count(u => u.isActive != true)</span>
+                    <span class="stat-label">Inactive</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Tracking</th>
+                        <th>Created Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in CurrentPageUsers)
+                    {
+                        <tr>
+                            <td>
+                                <div class="user-info">
+                                     <div class="user-avatar-small">
+                                         @(string.IsNullOrEmpty(user.firstName) ? "U" : user.firstName[0].ToString().ToUpper())
+                                         @(string.IsNullOrEmpty(user.lastName) ? "" : user.lastName[0].ToString().ToUpper())
+                                     </div>
+                                    <span class="user-name">@(user.firstName ?? "") @(user.lastName ?? "")</span>
+                                </div>
+                            </td>
+                            <td>@user.username</td>
+                            <td>@user.email</td>
+                            <td>@user.phoneNumber</td>
+                            <td>
+                                <span class="status-badge @(user.isActive == true ? "active" : "inactive")">
+                                    @(user.isActive == true ? "Active" : "Inactive")
+                                </span>
+                            </td>
+                            <td>
+                                <div class="tracking-indicators">
+                                    @if (user.isManualTrackingEnabled == true)
+                                    {
+                                        <span class="tracking-badge manual" title="Manual Tracking Enabled">
+                                            <i class="bi bi-hand-index-thumb"></i>
+                                        </span>
+                                    }
+                                    @if (user.isAutoTrackingEnabled == true)
+                                    {
+                                        <span class="tracking-badge auto" title="Auto Tracking Enabled">
+                                            <i class="bi bi-play-circle"></i>
+                                        </span>
+                                    }
+                                </div>
+                            </td>
+                            <td>@user.createdAt.ToString("MMM dd, yyyy")</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-icon" @onclick="() => ViewScreenshots(user.id)" title="View Screenshots">
+                                        <i class="bi bi-images"></i>
+                                    </button>
+                                    <button class="btn-icon" @onclick="() => ViewUserReport(user.id)" title="View Report">
+                                        <i class="bi bi-gear"></i>
+                                    </button>
+                                    <button class="btn-icon" @onclick="() => EditUser(user.id)" title="Edit User">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    @if (user.role?.Equals("User", StringComparison.OrdinalIgnoreCase) == true)
+                                    {
+                                        <button class="btn-icon" @onclick="() => PromoteToAdmin(user.id)" title="Make Admin">
+                                            <i class="bi bi-person-check"></i>
+                                        </button>
+                                    }
+                                    <button class="btn-icon btn-delete" @onclick="() => DeleteUser(user.id)" title="Delete User">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (TotalPages > 1)
+        {
+            <div class="pagination-container">
+                <nav>
+                    <ul class="pagination">
+                        <li class="page-item @(CurrentPage == 1 ? "disabled" : "")">
+                            <a class="page-link" href="#" @onclick="PreviousPage" @onclick:preventDefault aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+
+                        @foreach (var pageNumber in GetPageNumbers())
+                        {
+                            @if (pageNumber == -1)
+                            {
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#">...</a>
+                                </li>
+                            }
+                            else
+                            {
+                                <li class="page-item @(pageNumber == CurrentPage ? "active" : "")">
+                                    <a class="page-link" href="#" @onclick="() => ChangePage(pageNumber)" @onclick:preventDefault>
+                                        @pageNumber
+                                    </a>
+                                </li>
+                            }
+                        }
+
+                        <li class="page-item @(CurrentPage == TotalPages ? "disabled" : "")">
+                            <a class="page-link" href="#" @onclick="NextPage" @onclick:preventDefault aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        }
+        }
+    }
+</div>
+</div>
+</div>
+
+@code {
+    [Parameter]
+    public int adminId { get; set; }
+
+    private User? adminInfo;
+    private List<User>? users;
+    private bool isLoading = true;
+    private bool hasPermission = false;
+    private int currentUserId;
+    private int effectiveAdminId;
+    private string? userRole;
+
+    // Helper class for SweetAlert result
+    public class SweetAlertResult
+    {
+        public string Value { get; set; }
+    }
+
+    // Pagination variables
+    private int CurrentPage = 1;
+    private int PageSize = 5;
+    private int PaginationDisplaySize = 5;
+
+    private List<User> CurrentPageUsers => users?
+        .Skip((CurrentPage - 1) * PageSize)
+        .Take(PageSize)
+        .ToList() ?? new List<User>();
+
+    private int TotalPages => (int)Math.Ceiling((double)(users?.Count ?? 0) / PageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserData();
+        
+        if (hasPermission)
+        {
+            await LoadAdminInfo();
+            await LoadUsers();
+        }
+        
+        isLoading = false;
+    }
+
+    private async Task LoadUserData()
+    {
+        effectiveAdminId = adminId;
+        var token = Preferences.Get("authToken", null);
+
+        if (!string.IsNullOrEmpty(token))
+        {
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+                var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+
+                if (jwtToken != null)
+                {
+                    var userIdClaim = jwtToken.Claims
+                        .FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+                    
+                    if (int.TryParse(userIdClaim, out int userId))
+                    {
+                        currentUserId = userId;
+                    }
+
+                    userRole = jwtToken.Claims
+                        .FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
+                    
+                    // Only superadmin can view, or the admin themselves
+                    var isSuperAdmin = userRole?.Equals("superadmin", StringComparison.OrdinalIgnoreCase) == true;
+                    var isSameAdmin = currentUserId == adminId;
+                    
+                    hasPermission = isSuperAdmin || isSameAdmin;
+
+                    if (isSameAdmin && userRole?.Equals("admin", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        var currentUser = await UserService.GetUserByIdAsync(currentUserId);
+                        if (currentUser?.isAdminAuthority == true && currentUser.adminAuthorityBy.HasValue && currentUser.adminAuthorityBy.Value > 0)
+                        {
+                            effectiveAdminId = currentUser.adminAuthorityBy.Value;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error decoding token: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task LoadAdminInfo()
+    {
+        try
+        {
+            var allUsers = await UserService.GetAllUsersAsync();
+            adminInfo = allUsers?.FirstOrDefault(u => u.id == effectiveAdminId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading admin info: {ex.Message}");
+        }
+    }
+
+    private async Task LoadUsers()
+    {
+        try
+        {
+    //         var adminUsers = await UserService.GetAllUsersByAdminAsync(effectiveAdminId, userRole ?? "admin");
+    //         users = adminUsers?
+    //             .Where(u => u.role?.Equals("User", StringComparison.OrdinalIgnoreCase) == true 
+    //                      && u.id != effectiveAdminId)
+    //             .ToList();
+
+
+
+    //              .Where(u => u.id != effectiveAdminId &&
+
+    // (u.role?.Equals("User", StringComparison.OrdinalIgnoreCase) == true ||
+
+    // (u.role?.Equals("Admin", StringComparison.OrdinalIgnoreCase) == true &&
+
+    // u.isAdminAuthority &&
+
+    // +u.adminAuthorityBy == effectiveAdminId)))
+
+    //              .ToList();
+
+
+
+            var adminUsers = await UserService.GetAllUsersByAdminAsyncforsetting(effectiveAdminId, userRole ?? "admin", "");
+
+
+
+            // Then keep your existing filter but ensure it includes inactive users:
+
+            users = adminUsers?
+
+                .Where(u => u.id != effectiveAdminId &&
+
+                    (u.role?.Equals("User", StringComparison.OrdinalIgnoreCase) == true ||
+
+                     (u.role?.Equals("Admin", StringComparison.OrdinalIgnoreCase) == true &&
+
+                      u.isAdminAuthority &&
+
+                      u.adminAuthorityBy == effectiveAdminId)))
+
+                .ToList();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            // Reset to first page when loading new data
+            CurrentPage = 1;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading users: {ex.Message}");
+            users = new List<User>();
+        }
+    }
+
+    private async Task GoBack()
+    {
+        // Regular admins don't have access to admin-list, go back to previous page
+        if (userRole?.Equals("superadmin", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            NavigationManager.NavigateTo("/admin-list");
+        }
+        else
+        {
+            // Use browser history back for regular admins
+            await JSRuntime.InvokeVoidAsync("history.back");
+        }
+    }
+
+    private void ViewUserReport(int userId)
+    {
+        // Navigate to settings page to view/edit this user's privileges
+        NavigationManager.NavigateTo($"/settings?userId={userId}");
+    }
+
+    private void ViewScreenshots(int userId)
+    {
+        // Navigate to screenshots page with today's date and the selected userId
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+        NavigationManager.NavigateTo($"/screenshots/{today}?viewedUserId={userId}");
+    }
+
+    private void NavigateToAddUser()
+    {
+        // Navigate to register page with adminId to create user under this admin
+        NavigationManager.NavigateTo($"/register?adminId={effectiveAdminId}");
+    }
+
+    private void EditUser(int userId)
+    {
+        // Navigate to register page in edit mode with userId and adminId
+        NavigationManager.NavigateTo($"/register/edit/{userId}/{effectiveAdminId}");
+    }
+
+    private async Task PromoteToAdmin(int userId)
+    {
+        var user = users?.FirstOrDefault(u => u.id == userId);
+        if (user == null) return;
+
+        var result = await JSRuntime.InvokeAsync<string>("eval",
+            "Swal.fire({" +
+            "title: 'Make Admin?'," +
+            "text: 'Give admin authority to " + user.username + "?'," +
+            "icon: 'question'," +
+            "showCancelButton: true," +
+            "confirmButtonColor: '#198754'," +
+            "cancelButtonColor: '#6c757d'," +
+            "confirmButtonText: 'Yes, make admin'," +
+            "cancelButtonText: 'Cancel'" +
+            "}).then(result => result.isConfirmed ? 'confirmed' : 'cancelled')"
+        );
+
+        if (result == "confirmed")
+        {
+            var success = await UserService.PromoteUserToAdminAsync(userId, currentUserId);
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("eval", "Swal.fire('Updated!', 'User has been promoted to admin.', 'success')");
+                await LoadUsers();
+                StateHasChanged();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("eval", "Swal.fire('Error!', 'Failed to promote user. Please try again.', 'error')");
+            }
+        }
+    }
+
+    private async Task DeleteUser(int userId)
+    {
+        // Find the user to get their username for confirmation message
+        var user = users?.FirstOrDefault(u => u.id == userId);
+        if (user == null) return;
+
+        // Show SweetAlert confirmation
+        var result = await JSRuntime.InvokeAsync<SweetAlertResult>("eval", 
+            "Swal.fire({" +
+            "title: 'Delete User?'," +
+            "text: 'Are you sure you want to delete user " + user.username + "?'," +
+            "icon: 'warning'," +
+            "showCancelButton: true," +
+            "confirmButtonColor: '#d33'," +
+            "cancelButtonColor: '#6c757d'," +
+            "confirmButtonText: 'Yes, delete it!'," +
+            "cancelButtonText: 'Cancel'" +
+            "}).then(result => result.isConfirmed ? 'confirmed' : 'cancelled')"
+        );
+
+        if (result.Value == "confirmed")
+        {
+            var success = await UserService.DeleteUserAsync(userId);
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("eval", "Swal.fire('Deleted!', 'User has been deleted successfully.', 'success')");
+                await LoadUsers();
+                StateHasChanged();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("eval", "Swal.fire('Error!', 'Failed to delete user. Please try again.', 'error')");
+            }
+        }
+    }
+
+    // Pagination methods
+    private void ChangePage(int page)
+    {
+        if (page > 0 && page <= TotalPages)
+        {
+            CurrentPage = page;
+        }
+    }
+
+    private void PreviousPage()
+    {
+        if (CurrentPage > 1)
+        {
+            CurrentPage--;
+        }
+    }
+
+    private void NextPage()
+    {
+        if (CurrentPage < TotalPages)
+        {
+            CurrentPage++;
+        }
+    }
+
+    private IEnumerable<int> GetPageNumbers()
+    {
+        var pages = new List<int>();
+        int startPage = Math.Max(1, CurrentPage - (int)Math.Floor(PaginationDisplaySize / 2.0));
+        int endPage = Math.Min(TotalPages, startPage + PaginationDisplaySize - 1);
+
+        if (endPage - startPage + 1 < PaginationDisplaySize)
+        {
+            startPage = Math.Max(1, endPage - PaginationDisplaySize + 1);
+        }
+
+        for (int i = startPage; i <= endPage; i++)
+        {
+            pages.Add(i);
+        }
+
+        // Add ellipsis if needed
+        if (startPage > 1)
+        {
+            pages.Insert(0, -1); // -1 represents ellipsis
+        }
+
+        if (endPage < TotalPages)
+        {
+            pages.Add(-1); // -1 represents ellipsis
+        }
+
+        return pages;
+    }
+}

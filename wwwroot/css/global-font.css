@@ -1,0 +1,20 @@
+:root {
+    --bs-font-sans-serif: "Poppins", sans-serif;
+    --bs-body-font-family: "Poppins", sans-serif;
+}
+
+html,
+body,
+button,
+input,
+textarea,
+select,
+option {
+    font-family: "Poppins", sans-serif !important;
+    font-weight: 500 !important;
+}
+
+body *:not(.fa):not(.fas):not(.far):not(.fab):not(.fa-solid):not(.fa-regular):not(.fa-brands):not(.bi):not([class^="bi-"]):not([class*=" bi-"]):not(.material-icons):not(.material-icons-outlined):not(.material-icons-round):not(.mud-icon-root):not(.rzi) {
+    font-family: "Poppins", sans-serif !important;
+    font-weight: 500 !important;
+}

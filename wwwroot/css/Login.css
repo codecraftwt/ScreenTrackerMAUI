@@ -2,141 +2,322 @@
 
 .login-container {
     display: flex;
-    justify-content: center; 
-    align-items: center; 
-    height: 100vh;
-    overflow: hidden;
-}
-
-.right-panel {
-    flex: 1;
- 
-    display: flex;
-    align-items: center;
     justify-content: center;
-    padding: 40px 20px;
-    overflow-y: auto;
-}
-
-
-.img-wrapper {
-    text-align: left;
-}
-
-.logo-img {
-    max-width: 170px;
-    height: auto;
-}
-
-.hero-banner {
-    display: flex;
     align-items: center;
-    justify-content: center;
-    flex-grow: 1;
-    text-align: center;
+    min-height: 100vh;
+    background-color: #f5f5f5;
     padding: 20px;
 }
 
-.banner-text h5 {
-    font-size: 24px;
-    font-weight: bold;
-}
-
-.banner-text p {
-    font-size: 16px;
-    margin-top: 10px;
-}
-
-
-
-.form-container {
-    width: 100%;
-    max-width: 500px;
-/*    background: #f9f9f9;*/
-background-color:var(--color-secondary);
-    padding: 30px;
+.login-card {
+    background: white;
     border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    padding: 40px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-icon {
+    width: 60px;
+    height: 60px;
+    background: #4285f4;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+}
+
+.login-icon i {
+    font-size: 28px;
+    color: white;
+}
+
+.login-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 8px 0;
+}
+
+.login-subtitle {
+    font-size: 14px;
+    color: #666;
+    margin: 0;
 }
 
 .form-group {
-    margin-bottom: 16px;
+    margin-bottom: 20px;
 }
 
-label {
-    font-weight: 600;
-    margin-bottom: 6px;
+.form-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
     color: #333;
+    margin-bottom: 6px;
 }
 
-.input {
-    padding: 10px;
-    font-size: 15px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
+.form-input {
     width: 100%;
+    padding: 12px 16px;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fff;
+    transition: border-color 0.2s;
 }
 
-a {
-    color: blue;
+.form-input:focus {
+    outline: none;
+    border-color: #4285f4;
+    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.1);
 }
 
+.password-group {
+    position: relative;
+}
+
+    .password-group .form-input {
+        padding-right: 45px;
+        position: relative;
+        z-index: 1;
+    }
+
+.toggle-password {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #999;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    visibility: visible;
+    opacity: 1;
+    /*    z-index: 10;*/
+    z-index: 2;
+}
+
+.toggle-password i {
+    display: inline-block;
+}
+
+.form-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.checkbox-container input {
+    width: 16px;
+    height: 16px;
+}
+
+.checkbox-label {
+    font-size: 14px;
+    color: #555;
+    margin: 0;
+}
+
+.forgot-link {
+    font-size: 14px;
+    color: #4285f4;
+    text-decoration: none;
+}
+
+.forgot-link:hover {
+    text-decoration: underline;
+}
+
+/* Update the Sign In button to match the Google button style */
 .submit-btn {
     width: 100%;
-    background-color: #2978a0;
-    color: white;
-    font-size: 16px;
+    background: white; /* Changed from blue to white */
+    color: #333; /* Changed text to dark grey */
+    font-size: 14px;
+    font-weight: 500;
     padding: 12px;
-    border: none;
+    border: 1px solid #ddd; /* Added border like Google btn */
     border-radius: 6px;
+    margin-bottom: 20px;
     cursor: pointer;
-    margin-top: 20px;
+    transition: background 0.2s;
 }
 
-    .submit-btn:hover {
-        background-color: #155d7a;
+.submit-btn:not(:disabled):hover {
+    background: #4285f4;
+    color: white;
+    border-color: #4285f4;
+}
+
+.submit-btn:disabled {
+    background: #f0f0f0;
+    color: #a0a0a0;
+    cursor: not-allowed;
+    border-color: #eee;
+}
+
+/* Dark Theme Adjustments to keep it consistent */
+.dark-theme .submit-btn {
+    background: var(--color-secondary);
+    color: var(--color-text-color);
+    border-color: var(--color-border);
+}
+
+    .dark-theme .submit-btn:not(:disabled):hover {
+        background: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
     }
+
+.dark-theme .submit-btn:disabled {
+    background: #2d2d2d;
+    color: #777;
+    cursor: not-allowed;
+    border-color: #444;
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+}
+
+.divider-line {
+    flex: 1;
+    height: 1px;
+    background: #ddd;
+}
+
+.divider-text {
+    padding: 0 16px;
+    font-size: 14px;
+    color: #888;
+}
+
+.google-btn {
+    width: 100%;
+    background: white;
+    color: #333;
+    font-size: 14px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/*.google-btn:hover {
+    background: #f5f5f5;
+}
+*/
+.google-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.login-footer {
+    text-align: center;
+    margin-top: 24px;
+}
+
+.footer-text {
+    font-size: 14px;
+    color: #666;
+}
+
+.footer-link {
+    color: #4285f4;
+    text-decoration: none;
+}
+
+.form-hint {
+    text-align: center;
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 16px;
+}
 
 .message {
     text-align: center;
     margin-top: 15px;
-    color: green;
+    color: #28a745;
 }
 
-
-.dark-theme .right-panel {
-    background-color: var(--bg-primary);
+.error-message {
+    color: #dc3545;
+    text-align: center;
+    margin-top: 10px;
 }
 
-.dark-theme .form-container {
-    background: var(--bg-secondary);
-    box-shadow: 0 2px 10px var(--shadow-color);
+.dark-theme .login-container {
+    background-color: var(--color-background);
 }
 
-.dark-theme .input {
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
-    border-color: var(--border-color);
+.dark-theme .login-card {
+    background: var(--color-secondary);
 }
 
-.dark-theme label {
-    color: var(--text-primary);
+.dark-theme .login-title,
+.dark-theme .form-label,
+.dark-theme .checkbox-label {
+    color: var(--color-text-color);
 }
 
-.dark-theme a {
-    color: var(--accent-color);
+.dark-theme .form-input {
+    background: var(--color-input-bg);
+    border-color: var(--color-border);
+    color: var(--color-text-color);
 }
 
-.dark-theme h2, .dark-theme h5 {
-    color: var(--text-primary);
+.dark-theme .form-input:focus {
+    border-color: #5a9dff;
+    box-shadow: 0 0 0 2px rgba(90, 157, 255, 0.2);
 }
 
-.label-input
-{
-    margin-bottom:12px;
+.dark-theme .forgot-link,
+.dark-theme .footer-link {
+    color: #5a9dff;
 }
 
-.text-center
-{
-    color:var(--color-text-color);
+.dark-theme .divider-line {
+    background: var(--color-border);
+}
+
+/* Hides the default reveal button in Chrome, Edge, and Safari */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none;
+}
+
+/* For some older versions of Webkit/Blink if applicable */
+input::-webkit-contacts-auto-fill-button,
+input::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
 }

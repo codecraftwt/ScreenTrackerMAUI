@@ -79,7 +79,7 @@ namespace ScreenTracker1
             builder.Services.AddSingleton<AfkTrackerService>();
             builder.Services.AddScoped<AppStateService>();
             builder.Services.AddSingleton<AppUsageTracker>();
-            builder.Services.AddScoped<UserStateService>();
+            builder.Services.AddSingleton<UserStateService>();
             builder.Services.AddScoped<CurrentThemeService>();
 
 #if WINDOWS
@@ -89,7 +89,8 @@ namespace ScreenTracker1
             builder.Services.AddSingleton<ImageService>();
             builder.Services.AddSingleton<SystemThemeService>();
             builder.Services.AddSingleton<SharedStateService>();
-            builder.Services.AddScoped<UserSelectionStateService>();
+            builder.Services.AddSingleton<UserSelectionStateService>();
+            builder.Services.AddSingleton<IWebAuthenticator>(WebAuthenticator.Default);
 #endif
 
             builder.Services.AddScoped(sp => new HttpClient

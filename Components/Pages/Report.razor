@@ -12,7 +12,13 @@
 
 <div class="report-container">
     <div class="card">
-        <h2 class="title">Daily Tracker History</h2>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <button class="btn-back" @onclick="GoBack" title="Go Back">
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
+            <h2 class="title mb-0">Daily Tracker History</h2>
+            <div></div>
+        </div>
 
         <div class="filters">
                @* <label>Date Range</label> *@
@@ -23,8 +29,33 @@
 
                 @if (UserRole?.ToLower() == "admin" || UserRole?.ToLower() == "superadmin")
                 {
-                    <label class="labels-colors">Search</label>
-                    <input type="text" @bind="SearchString" class="search-input" placeholder="Search users..." />
+                    @if (UserRole?.ToLower() == "superadmin")
+                    {
+                        <label class="labels-colors">Select Admin</label>
+                        <select id="admin-dropdown" @onchange="OnAdminChanged" class="stitch-user-selectreport ms-2">
+                            <option value="0">All Admins</option>
+                            @foreach (var admin in AllAdmins)
+                            {
+                                <option value="@admin.id" selected="@(SelectedAdminId == admin.id)">@(admin.firstName + " " + admin.lastName)</option>
+                            }
+                        </select>
+                    }
+
+                    <label class="labels-colors">Select User</label>
+                    <select id="user-dropdown" @bind="SelectedUserId" class="stitch-user-selectreport ms-2">
+                        @if (SelectedAdminId == 0 && UserRole?.ToLower() == "superadmin")
+                        {
+                            <option value="0">Select an admin first</option>
+                        }
+                        else
+                        {
+                            <option value="0">All Users</option>
+                            @foreach (var user in AllUsers)
+                            {
+                                <option value="@user.id">@(user.firstName + " " + user.lastName) @(user.role?.ToLower() == "admin" ? "(Admin)" : "")</option>
+                            }
+                        }
+                    </select>
 
                     <label class="labels-colors">Usage Type</label>
                     <select id="usage-type-dropdown" @bind="selectedUsageType" class="stitch-user-selectreport ms-2">
@@ -53,8 +84,7 @@
                     <thead>
                         <tr>
                             <th>Date</th>
-                            <th>First Name</th>
-                            <th>Last Name</th>
+                            <th>Name</th>
                             <th>Start Time</th>
                             <th>End Time</th>
                             <th>Type</th>
@@ -69,8 +99,7 @@
 
                             <tr>
                                 <td>@TimeZoneInfo.ConvertTimeFromUtc(tracker.Date, tz).ToString("MMM dd, yyyy")</td>
-                                <td>@trackerDto.User?.firstName</td>
-                                <td>@trackerDto.User?.lastName</td>
+                                <td>@(trackerDto.User?.firstName + " " + trackerDto.User?.lastName)</td>
                                 <td>
                                     @(tracker.StartTracker.HasValue
                                         ? TimeZoneInfo.ConvertTimeFromUtc(tracker.StartTracker.Value, tz).ToString("hh:mm tt")
@@ -88,7 +117,11 @@
                                     @if (tracker.StartTracker.HasValue && tracker.EndTracker.HasValue)
                                     {
                                         var duration = tracker.EndTracker.Value - tracker.StartTracker.Value;
-                                        <span>@(duration.TotalMinutes >= 0 ? FormatDuration(duration) : "-")</span>
+                                        <span @onclick="() => NavigateToScreenshots(trackerDto.User?.id ?? 0, tracker.Date, tracker.StartTracker.Value, tracker.EndTracker.Value)" 
+                                              style="cursor: pointer; text-decoration: underline;" 
+                                              title="View screenshots for this time period">
+                                            @(duration.TotalMinutes >= 0 ? FormatDuration(duration) : "-")
+                                        </span>
                                     }
                                     else
                                     {
@@ -147,11 +180,14 @@
 @code {
     [Parameter] public int UserId { get; set; }
 
-    private DateTime FromDate { get; set; } = DateTime.Now.Date.AddDays(-7);
+    private DateTime FromDate { get; set; } = DateTime.Now.Date.AddDays(-30); // Show last 30 days by default
     private DateTime ToDate { get; set; } = DateTime.Now.Date;
     private List<DailyTrackerWithUserDto> Trackers { get; set; } = new();
     private string? UserRole;
-    private string SearchString { get; set; } = string.Empty;
+    private int SelectedUserId { get; set; } = 0;
+    private int SelectedAdminId { get; set; } = 0;
+    private List<User> AllUsers { get; set; } = new();
+    private List<User> AllAdmins { get; set; } = new();
     private int loggedInUserId;
     private int CurrentPage { get; set; } = 1;
     private int PageSize { get; set; } = 10;
@@ -162,15 +198,53 @@
     [SupplyParameterFromQuery]
     public string UsageType { get; set; } = "all";
     private string selectedUsageType = "all";
+    private bool isSelect2UserInitialized = false;
+    private bool isSelect2AdminInitialized = false;
+    private bool isSelect2UsageTypeInitialized = false;
 
     private void NavigateToHome() => NavigationManager.NavigateTo("/active-users");
 
+    private async void GoBack()
+    {
+        // Use JavaScript to go back to the previous page in browser history
+        await JSRuntime.InvokeVoidAsync("history.back");
+    }
+
+    private void NavigateToScreenshots(int userId, DateTime date, DateTime startTime, DateTime endTime)
+    {
+        var tz = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+
+        // 1. Ensure we are working with IST
+        var istDate = TimeZoneInfo.ConvertTimeFromUtc(date, tz);
+        var istStartTime = TimeZoneInfo.ConvertTimeFromUtc(startTime, tz);
+        var istEndTime = TimeZoneInfo.ConvertTimeFromUtc(endTime, tz);
+
+        // 2. Format: yyyy-MM-dd and HH:mm
+        var dateStr = istDate.ToString("yyyy-MM-dd");
+        var startTimeStr = istStartTime.ToString("HH:mm"); // Results in "15:50"
+        var endTimeStr = istEndTime.ToString("HH:mm");   // Results in "15:51"
+
+        // 3. Use lowercase 'viewedUserId' to match AdminUsers.razor pattern
+        NavigationManager.NavigateTo($"/screenshots/{dateStr}?viewedUserId={userId}&startTime={startTimeStr}&endTime={endTimeStr}");
+    }
+
     protected override async Task OnInitializedAsync()
     {
-   
         selectedUsageType = UsageType ?? "all";
 
         await LoadUserDataAndRoleAsync();
+        
+        // Load admins first for superadmin
+        if (UserRole?.ToLower() == "superadmin")
+        {
+            await LoadAllAdmins();
+        }
+        else if (UserRole?.ToLower() == "admin")
+        {
+            // For admin, load their users directly
+            await LoadUsersForAdmin(loggedInUserId);
+        }
+        
         await LoadHistory(1);
     }
 
@@ -193,38 +267,190 @@
         }
     }
 
+    // private async Task LoadHistory(int pageNumber = 1)
+    // {
+    //     try
+    //     {
+    //         CurrentPage = pageNumber;
+
+    //         if (UserRole?.ToLower() == "admin" || UserRole?.ToLower() == "superadmin")
+    //         {
+    //             For all users, pass null. For specific user, pass their ID as adminId
+    //             var adminIdToPass = SelectedUserId == 0 ? (int?)null : SelectedUserId;
+                
+    //             Debug logging
+    //             Console.WriteLine($"LoadHistory called - SelectedUserId: {SelectedUserId}, adminIdToPass: {adminIdToPass}");
+                
+    //             var pagedResult = await UserService.GetAllUsersReportAsync(
+    //                 FromDate,
+    //                 ToDate,
+    //                 string.Empty, No search string needed anymore
+    //                 adminIdToPass,
+    //                 CurrentPage,
+    //                 PageSize,
+    //                 selectedUsageType);
+
+    //             Console.WriteLine($"API returned {pagedResult.Items.Count} items out of {pagedResult.TotalCount} total");
+
+    //             Trackers = pagedResult.Items;
+    //             TotalRecords = pagedResult.TotalCount;
+    //         }
+    //         else
+    //         {
+    //             var pagedResult = await UserService.GetTodayDailyTrackerAsync(
+    //                 loggedInUserId,
+    //                 FromDate,
+    //                 ToDate,
+    //                 string.Empty,
+    //                 CurrentPage,
+    //                 PageSize,
+    //                 selectedUsageType);
+
+    //             Trackers = pagedResult.Items;
+    //             TotalRecords = pagedResult.TotalCount;
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Console.WriteLine($"Error loading history: {ex.Message}");
+    //         Trackers = new List<DailyTrackerWithUserDto>();
+    //         TotalRecords = 0;
+    //     }
+    // }
+
     private async Task LoadHistory(int pageNumber = 1)
     {
         try
         {
             CurrentPage = pageNumber;
+            // Show loading state while fetching
+            Trackers = null;
+            StateHasChanged();
 
             if (UserRole?.ToLower() == "admin" || UserRole?.ToLower() == "superadmin")
             {
-                var pagedResult = await UserService.GetAllUsersReportAsync(
-                    FromDate,
-                    ToDate,
-                    SearchString,
-                    loggedInUserId,
-                    CurrentPage,
-                    PageSize,
-                    selectedUsageType);
+                
+                // Determine which API to call based on the case
+                if (UserRole?.ToLower() == "superadmin")
+                {
+                    // Case 1: All Admins selected (SelectedAdminId=0, SelectedUserId=0)
+                    if (SelectedAdminId == 0 && SelectedUserId == 0)
+                    {
+                        
+                        // Fetch all data without admin filter
+                        var pagedResult = await UserService.GetAllUsersReportAsync(
+                            FromDate.Date,
+                            ToDate.Date.AddDays(1).AddTicks(-1),
+                            string.Empty,
+                            null, // No admin filter - get all
+                            1, // Get first page
+                            1000, // Large page size to get all records
+                            selectedUsageType);
 
-                Trackers = pagedResult.Items;
-                TotalRecords = pagedResult.TotalCount;
+                        // Filter to show only admin users' data
+                        var adminIds = AllAdmins.Select(a => a.id).ToHashSet();
+                        var adminOnlyTrackers = pagedResult.Items?
+                            .Where(t => t.User != null && adminIds.Contains(t.User.id))
+                            .ToList() ?? new List<DailyTrackerWithUserDto>();
+                        
+                        // Apply client-side pagination
+                        TotalRecords = adminOnlyTrackers.Count();
+                        Trackers = adminOnlyTrackers
+                            .Skip((CurrentPage - 1) * PageSize)
+                            .Take(PageSize)
+                            .ToList();
+                    }
+                    // Case 2: Specific Admin + All Users (SelectedAdminId>0, SelectedUserId=0)
+                    else if (SelectedAdminId > 0 && SelectedUserId == 0)
+                    {
+                        // Console.WriteLine($"[DEBUG] Case 2: Admin {SelectedAdminId} + All Users - Calling GetAllUsersReportAsync with adminId={SelectedAdminId}");
+                        var pagedResult = await UserService.GetAllUsersReportAsync(
+                            FromDate.Date,
+                            ToDate.Date.AddDays(1).AddTicks(-1),
+                            string.Empty,
+                            SelectedAdminId, // Filter by this admin
+                            CurrentPage,
+                            PageSize,
+                            selectedUsageType);
+
+                        Trackers = pagedResult.Items ?? new List<DailyTrackerWithUserDto>();
+                        TotalRecords = pagedResult.TotalCount;
+                    }
+                    // Case 3 or 4: Specific User selected (SelectedUserId>0)
+                    else if (SelectedUserId > 0)
+                    {
+                        var selectedUser = AllUsers.FirstOrDefault(u => u.id == SelectedUserId);
+                        bool isUserAdmin = selectedUser?.role?.ToLower() == "admin";
+                        
+                        // Use GetTodayDailyTrackerAsync for specific user (whether admin or regular user)
+                        var pagedResult = await UserService.GetTodayDailyTrackerAsync(
+                            SelectedUserId, // Specific userId
+                            FromDate.Date,
+                            ToDate.Date.AddDays(1).AddTicks(-1),
+                            string.Empty,
+                            CurrentPage,
+                            PageSize,
+                            selectedUsageType);
+
+                        Trackers = pagedResult.Items ?? new List<DailyTrackerWithUserDto>();
+                        TotalRecords = pagedResult.TotalCount;
+                    }
+                }
+                else // Admin role
+                {
+                    // For admin role:
+                    // Case 2: All Users (SelectedUserId=0) - Show all users under this admin
+                    // Case 3: Admin selects themselves (SelectedUserId == loggedInUserId)
+                    // Case 4: Admin selects a specific user (SelectedUserId > 0)
+                    
+                    if (SelectedUserId == 0)
+                    {
+                        // Case 2: Show all users under this admin
+                        var pagedResult = await UserService.GetAllUsersReportAsync(
+                            FromDate.Date,
+                            ToDate.Date.AddDays(1).AddTicks(-1),
+                            string.Empty,
+                            loggedInUserId, // This admin's ID
+                            CurrentPage,
+                            PageSize,
+                            selectedUsageType);
+
+                        Trackers = pagedResult.Items ?? new List<DailyTrackerWithUserDto>();
+                        TotalRecords = pagedResult.TotalCount;
+                    }
+                    else
+                    {
+                        // Case 3 or 4: Specific user selected
+                        var selectedUser = AllUsers.FirstOrDefault(u => u.id == SelectedUserId);
+                        bool isAdminThemselves = SelectedUserId == loggedInUserId;
+                        
+                        // Use GetTodayDailyTrackerAsync for specific user
+                        var pagedResult = await UserService.GetTodayDailyTrackerAsync(
+                            SelectedUserId,
+                            FromDate.Date,
+                            ToDate.Date.AddDays(1).AddTicks(-1),
+                            string.Empty,
+                            CurrentPage,
+                            PageSize,
+                            selectedUsageType);
+
+                        Trackers = pagedResult.Items ?? new List<DailyTrackerWithUserDto>();
+                        TotalRecords = pagedResult.TotalCount;
+                    }
+                }
             }
             else
             {
                 var pagedResult = await UserService.GetTodayDailyTrackerAsync(
                     loggedInUserId,
-                    FromDate,
-                    ToDate,
-                    SearchString,
+                    FromDate.Date,
+                    ToDate.Date.AddDays(1).AddTicks(-1),
+                    string.Empty,
                     CurrentPage,
                     PageSize,
                     selectedUsageType);
 
-                Trackers = pagedResult.Items;
+                Trackers = pagedResult.Items ?? new List<DailyTrackerWithUserDto>();
                 TotalRecords = pagedResult.TotalCount;
             }
         }
@@ -234,7 +460,12 @@
             Trackers = new List<DailyTrackerWithUserDto>();
             TotalRecords = 0;
         }
+        finally
+        {
+            StateHasChanged();
+        }
     }
+
 
     private IEnumerable<int> GetPageNumbers()
     {
@@ -300,21 +531,185 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (!firstRender) return;
+        
+        var dotNetRef = DotNetObjectReference.Create(this);
+        
+        // Wait a bit for DOM to be ready
+        await Task.Delay(100);
+        
+        // Initialize Admin Select2 dropdown first (for superadmin)
+        if (UserRole?.ToLower() == "superadmin" && !isSelect2AdminInitialized && AllAdmins != null && AllAdmins.Any())
         {
-            await JSRuntime.InvokeVoidAsync("initializeSelect2", "usage-type-dropdown", DotNetObjectReference.Create(this));
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("initializeSelect2", "admin-dropdown", dotNetRef);
+                isSelect2AdminInitialized = true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing Admin Select2: {ex.Message}");
+            }
+        }
+
+        // Initialize User Select2 dropdown when users are loaded
+        if (!isSelect2UserInitialized && AllUsers != null && AllUsers.Any())
+        {
+            try
+            {
+                await Task.Delay(50); // Small delay to ensure DOM is ready
+                await JSRuntime.InvokeVoidAsync("initializeSelect2", "user-dropdown", dotNetRef);
+                isSelect2UserInitialized = true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing User Select2: {ex.Message}");
+            }
+        }
+
+        // Initialize Usage Type Select2 dropdown
+        if (!isSelect2UsageTypeInitialized)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("initializeSelect2", "usage-type-dropdown", dotNetRef);
+                isSelect2UsageTypeInitialized = true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing Usage Type Select2: {ex.Message}");
+            }
         }
     }
 
+    private async Task LoadAllAdmins()
+    {
+        try
+        {
+            if (UserRole?.ToLower() == "superadmin")
+            {
+                // Get all admins (excluding superadmins)
+                var allUsers = await UserService.GetAllUsersAsync();
+                AllAdmins = allUsers?.Where(u => u.role?.ToLower() == "admin").ToList() ?? new List<User>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading admins: {ex.Message}");
+            AllAdmins = new List<User>();
+        }
+    }
+
+    private async Task LoadUsersForAdmin(int adminId)
+    {
+        try
+        {
+            // Load users for the selected admin
+            var users = await UserService.GetAllUsersByAdminAsync(adminId, "admin") ?? new List<User>();
+            
+            // Get the admin's own details to include them in the dropdown (for Case 3)
+            var adminDetails = await UserService.GetUserByIdAsync(adminId);
+            
+            if (adminDetails != null)
+            {
+                // Check if admin is already in the users list
+                bool adminExists = users.Any(u => u.id == adminId);
+                
+                if (!adminExists)
+                {
+                    // Admin not in list, add them
+                    var combinedList = new List<User> { adminDetails };
+                    combinedList.AddRange(users);
+                    AllUsers = combinedList;
+                }
+                else
+                {
+                    // Admin already in list, just use the users list
+                    AllUsers = users;
+                }
+            }
+            else
+            {
+                AllUsers = users;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading users for admin: {ex.Message}");
+            AllUsers = new List<User>();
+        }
+    }
+
+    private async Task OnAdminChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int adminId))
+        {
+            SelectedAdminId = adminId;
+            SelectedUserId = 0; // Reset user selection
+            AllUsers = new List<User>(); // Clear users
+            isSelect2UserInitialized = false; // Reset Select2 flag
+
+            // Load users for selected admin (only if a specific admin is selected)
+            if (adminId > 0)
+            {
+                await LoadUsersForAdmin(adminId);
+            }
+
+            StateHasChanged();
+        }
+    }
+
+
+
     [JSInvokable]
-    public Task OnSelect2Changed(string elementId, string value)
+    public async Task OnSelect2Changed(string elementId, string value)
     {
         if (elementId == "usage-type-dropdown")
         {
             selectedUsageType = value;
-            LoadHistory(1);  
+            await LoadHistory(1);  
+            StateHasChanged(); // Force UI update
         }
+        else if (elementId == "admin-dropdown")
+        {
+            if (int.TryParse(value, out int adminId))
+            {
+                SelectedAdminId = adminId;
+                SelectedUserId = 0; // Reset user selection
+                AllUsers = new List<User>(); // Clear users
+                isSelect2UserInitialized = false; // Reset Select2 flag
 
-        return Task.CompletedTask;
+                // Load users for selected admin
+                if (adminId > 0)
+                {
+                    await LoadUsersForAdmin(adminId);
+                }
+
+                await LoadHistory(1);
+                StateHasChanged();
+                
+                // Reinitialize Select2 for user dropdown after DOM update
+                await Task.Delay(100);
+                try
+                {
+                    var dotNetRef = DotNetObjectReference.Create(this);
+                    await JSRuntime.InvokeVoidAsync("initializeSelect2", "user-dropdown", dotNetRef);
+                    isSelect2UserInitialized = true;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error reinitializing User Select2: {ex.Message}");
+                }
+            }
+        }
+        else if (elementId == "user-dropdown")
+        {
+            if (int.TryParse(value, out int userId))
+            {
+                SelectedUserId = userId;
+                await LoadHistory(1);  
+                StateHasChanged(); // Force UI update
+            }
+        }
     }
 }

@@ -1,6 +1,14 @@
 ﻿
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: var(--color-background);
+    color: var(--color-text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body {
+    background-color: var(--color-background);
+    color: var(--color-text-color);
 }
 
 a, .btn-link {
@@ -88,12 +96,48 @@ h1:focus {
 
 
 :root {
-    --color-primary: #0e141b;
-    --color-secondary: #272d34;
-    --color-text-color: white;
-    --color-text-color-dark: black;
-    --color-firt-card: linear-gradient(#694dd7, #582baa, #592aa9);
-    --color-second-card: linear-gradient(#912bb9, #8c1cb4, #9b47c2);
-    --color-pink-shade: #E1C8E6;
+    /* Light Theme Variables */
+    --color-primary: #ffffff;
+    --color-secondary: #f8f9fa;
+    --color-text-color: #212529;
+    --color-text-color-dark: #495057;
+    --color-firt-card: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --color-second-card: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --color-fourth: rgba(255, 255, 255, 0.2);
+    --color-card-text: #ffffff;
+    --color-card-icon: #ffffff;
+    --color-pink-shade: #e9ecef;
+    --color-accent: #6366f1;
+    --color-accent-hover: #4f46e5;
+    --color-border: #dee2e6;
+    --color-background: #ffffff;
+    --color-surface: #f8f9fa;
+    --color-shadow: rgba(0, 0, 0, 0.1);
+    --color-input-bg: #ffffff;
+    --color-button-bg: #f8f9fa;
+    --color-button-hover: #e9ecef;
+}
+
+body.dark-theme {
+    /* Dark Theme Variables - Black Dashboard Premium Theme */
+    --color-primary: #171941;
+    --color-secondary: #1e1e2f;
+    --color-text-color: #ffffff;
+    --color-text-color-dark: #a0a0a0;
+    --color-firt-card: linear-gradient(135deg, #e14eca 0%, #ba54f5 100%);
+    --color-second-card: linear-gradient(135deg, #00f2c3 0%, #0098f0 100%);
+    --color-fourth: rgba(0, 0, 0, 0.2);
+    --color-card-text: #ffffff;
+    --color-card-icon: #ffffff;
+    --color-pink-shade: #27293d;
+    --color-accent: #e14eca;
+    --color-accent-hover: #f48efb;
+    --color-border: rgba(255, 255, 255, 0.1);
+    --color-background: #171941;
+    --color-surface: #1e1e2f;
+    --color-shadow: rgba(0, 0, 0, 0.5);
+    --color-input-bg: #27293d;
+    --color-button-bg: #27293d;
+    --color-button-hover: rgba(225, 78, 202, 0.2);
 }
 

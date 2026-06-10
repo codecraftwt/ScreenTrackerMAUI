@@ -40,7 +40,10 @@
         }
         else if (!Trackers.Any())
         {
-            <div class="no-data">No tracker data available for the selected range.</div>
+            <div class="no-data-container" style="text-align:center; padding: 20px;">
+                <div class="no-data">No tracker data found.</div>
+                <small class="text-muted">Note: Sessions shorter than 10 minutes are not recorded in this report.</small>
+            </div>
         }
         else
         {
@@ -82,7 +85,11 @@
                                     @if (tracker.StartTracker.HasValue && tracker.EndTracker.HasValue)
                                     {
                                         var duration = tracker.EndTracker.Value - tracker.StartTracker.Value;
-                                        <span>@(duration.TotalMinutes >= 0 ? FormatDuration(duration) : "-")</span>
+                                        <span @onclick="() => NavigateToScreenshots(trackerDto.User?.id ?? 0, tracker.Date, tracker.StartTracker.Value, tracker.EndTracker.Value)"
+                                              style="cursor: pointer; text-decoration: underline;"
+                                              title="View screenshots for this time period">
+                                            @(duration.TotalMinutes >= 0 ? FormatDuration(duration) : "-")
+                                        </span>
                                     }
                                     else
                                     {
@@ -160,6 +167,24 @@
 
         private void NavigateToHome() => NavigationManager.NavigateTo("/active-users");
 
+        private void NavigateToScreenshots(int userId, DateTime date, DateTime startTime, DateTime endTime)
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+
+            // 1. Ensure we are working with IST
+            var istDate = TimeZoneInfo.ConvertTimeFromUtc(date, tz);
+            var istStartTime = TimeZoneInfo.ConvertTimeFromUtc(startTime, tz);
+            var istEndTime = TimeZoneInfo.ConvertTimeFromUtc(endTime, tz);
+
+            // 2. Format: yyyy-MM-dd and HH:mm
+            var dateStr = istDate.ToString("yyyy-MM-dd");
+            var startTimeStr = istStartTime.ToString("HH:mm"); // Results in "15:50"
+            var endTimeStr = istEndTime.ToString("HH:mm");   // Results in "15:51"
+
+            // 3. Use lowercase keys in the URL to match the API parameters
+            NavigationManager.NavigateTo($"/screenshots/{dateStr}?ViewedUserId={userId}&startTime={startTimeStr}&endTime={endTimeStr}");
+        }
+
         protected override async Task OnInitializedAsync()
         {
             // Keep this to load the logged-in user's role/ID, which is important for authorization
@@ -189,18 +214,41 @@
             }
         }
 
+        // private async Task LoadHistory(int pageNumber = 1)
+        // {
+        //     try
+        //     {
+        //         CurrentPage = pageNumber;
+
+        //         // *** CRITICAL CHANGE HERE: Use the UserId parameter instead of loggedInUserId ***
+        //         var pagedResult = await UserService.GetTodayDailyTrackerAsync(
+        //             UserId, FromDate, ToDate, SearchString, CurrentPage, PageSize);
+
+        //         Trackers = pagedResult.Items;
+        //         TotalRecords = pagedResult.TotalCount;
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Console.WriteLine($"Error loading history: {ex.Message}");
+        //         Trackers = new List<DailyTrackerWithUserDto>();
+        //         TotalRecords = 0;
+        //     }
+        // }
+
         private async Task LoadHistory(int pageNumber = 1)
         {
             try
             {
                 CurrentPage = pageNumber;
+                Trackers = null; // Triggers the "Loading..." UI state
+                StateHasChanged();
 
-                // *** CRITICAL CHANGE HERE: Use the UserId parameter instead of loggedInUserId ***
                 var pagedResult = await UserService.GetTodayDailyTrackerAsync(
                     UserId, FromDate, ToDate, SearchString, CurrentPage, PageSize);
 
-                Trackers = pagedResult.Items;
-                TotalRecords = pagedResult.TotalCount;
+                // Ensure we don't assign a null to the list
+                Trackers = pagedResult?.Items ?? new List<DailyTrackerWithUserDto>();
+                TotalRecords = pagedResult?.TotalCount ?? 0;
             }
             catch (Exception ex)
             {
@@ -208,7 +256,13 @@
                 Trackers = new List<DailyTrackerWithUserDto>();
                 TotalRecords = 0;
             }
+            finally
+            {
+                StateHasChanged(); // Refresh UI after data arrives
+            }
         }
+
+
 
         private async Task NextPage()
         {
@@ -253,12 +307,25 @@
             return $"{hours} hrs {minutes} mins";
         }
 
+        // private TimeSpan GetTotalDuration()
+        // {
+        //     return Trackers
+        //         .Where(t => t.Tracker.StartTracker.HasValue && t.Tracker.EndTracker.HasValue &&
+        //                     (t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value).TotalMinutes >= 0)
+        //         .Aggregate(TimeSpan.Zero, (sum, t) => sum + (t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value));
+        // }
         private TimeSpan GetTotalDuration()
         {
+            // Add a null check for Trackers
+            if (Trackers == null || !Trackers.Any()) return TimeSpan.Zero;
+
             return Trackers
-                .Where(t => t.Tracker.StartTracker.HasValue && t.Tracker.EndTracker.HasValue &&
-                            (t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value).TotalMinutes >= 0)
-                .Aggregate(TimeSpan.Zero, (sum, t) => sum + (t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value));
+                .Where(t => t.Tracker.StartTracker.HasValue &&
+                            t.Tracker.EndTracker.HasValue)
+                .Select(t => t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value)
+                // Ensure we only sum up durations that are 10 mins+ (matching backend)
+                .Where(d => d.TotalMinutes >= 10)
+                .Aggregate(TimeSpan.Zero, (sum, d) => sum + d);
         }
     }
 }

@@ -1,0 +1,358 @@
+@page "/admin-list"
+@using ScreenTracker1.Components.Layout
+@layout MainLayout
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@using ScreenTracker1.Models
+@using ScreenTracker1.Services
+@using System.IdentityModel.Tokens.Jwt
+
+<div class="admin-list-container">
+    <div class="page-header">
+        <h2><i class="bi bi-people-fill"></i> Admin List</h2>
+        <p class="subtitle">Admins created by you</p>
+    </div>
+
+    @if (isSuperAdmin)
+    {
+        <div class="add-admin-container">
+            <button class="btn btn-primary add-admin-btn" @onclick="NavigateToRegister">
+                <i class="bi bi-person-plus"></i> Add Admin
+            </button>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner"></div>
+            <p>Loading admins...</p>
+        </div>
+    }
+    else if (!isSuperAdmin)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            You don't have permission to view this page.
+        </div>
+    }
+    else if (admins == null || !admins.Any())
+    {
+        <div class="empty-state">
+            <i class="bi bi-person-x"></i>
+            <p>No admins found.</p>
+            <p class="sub-text">Admins you create will appear here.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Admin</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Created Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var admin in CurrentPageAdmins)
+                    {
+                        <tr>
+                            <td>
+                                <div class="admin-info">
+                                 @*     <div class="admin-avatar">
+                                         @(string.IsNullOrEmpty(admin.firstName) ? "A" : admin.firstName[0].ToString().ToUpper())
+                                         @(string.IsNullOrEmpty(admin.lastName) ? "" : admin.lastName[0].ToString().ToUpper())
+                                     </div> *@
+                                    <span class="admin-name">@(admin.firstName ?? "") @(admin.lastName ?? "")</span>
+                                </div>
+                            </td>
+                            <td>@admin.username</td>
+                            <td>@admin.email</td>
+                            <td>@admin.phoneNumber</td>
+                            <td>
+                                <span class="status-badge @(admin.isActive == true ? "active" : "inactive")">
+                                    @(admin.isActive == true ? "Active" : "Inactive")
+                                </span>
+                            </td>
+                            <td>@admin.createdAt.ToString("MMM dd, yyyy")</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-icon" @onclick="() => EditSetting(admin.id)" title="View Screenshots">
+                                          <i class="bi bi-gear"></i>
+                                    </button>
+                                    <button class="btn-icon" @onclick="() => ViewAdminDetails(admin.id)" title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <button class="btn-icon" @onclick="() => EditAdmin(admin.id)" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn-icon btn-delete" @onclick="() => DeleteAdmin(admin.id)" title="Delete Admin">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (TotalPages > 1)
+        {
+            <div class="pagination-container">
+                <nav>
+                    <ul class="pagination">
+                        <li class="page-item @(CurrentPage == 1 ? "disabled" : "")">
+                            <a class="page-link" href="#" @onclick="PreviousPage" @onclick:preventDefault aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+
+                        @foreach (var pageNumber in GetPageNumbers())
+                        {
+                            @if (pageNumber == -1)
+                            {
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#">...</a>
+                                </li>
+                            }
+                            else
+                            {
+                                <li class="page-item @(pageNumber == CurrentPage ? "active" : "")">
+                                    <a class="page-link" href="#" @onclick="() => ChangePage(pageNumber)" @onclick:preventDefault>
+                                        @pageNumber
+                                    </a>
+                                </li>
+                            }
+                        }
+
+                        <li class="page-item @(CurrentPage == TotalPages ? "disabled" : "")">
+                            <a class="page-link" href="#" @onclick="NextPage" @onclick:preventDefault aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        }
+
+        <div class="summary-bar">
+            <span class="total-count">Total Admins: <strong>@admins.Count</strong></span>
+            <span class="active-count">Active: <strong>@admins.Count(a => a.isActive == true)</strong></span>
+            <span class="inactive-count">Inactive: <strong>@admins.Count(a => a.isActive != true)</strong></span>
+            <span class="page-info">Page @CurrentPage of @TotalPages</span>
+        </div>
+    }
+</div>
+
+@code {
+    private List<User>? admins;
+    private bool isLoading = true;
+    private bool isSuperAdmin = false;
+    private int currentUserId;
+    private string? userRole;
+
+    // Helper class for SweetAlert result
+    public class SweetAlertResult
+    {
+        public string Value { get; set; }
+    }
+
+    // Pagination variables
+    private int CurrentPage = 1;
+    private int PageSize = 5;
+    private int PaginationDisplaySize = 5;
+
+    private List<User> CurrentPageAdmins => admins?
+        .Skip((CurrentPage - 1) * PageSize)
+        .Take(PageSize)
+        .ToList() ?? new List<User>();
+
+    private int TotalPages => (int)Math.Ceiling((double)(admins?.Count ?? 0) / PageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserData();
+        
+        if (isSuperAdmin)
+        {
+            await LoadAdmins();
+        }
+        
+        isLoading = false;
+    }
+
+    private async Task LoadUserData()
+    {
+        var token = Preferences.Get("authToken", null);
+
+        if (!string.IsNullOrEmpty(token))
+        {
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+                var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+
+                if (jwtToken != null)
+                {
+                    var userIdClaim = jwtToken.Claims
+                        .FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+                    
+                    if (int.TryParse(userIdClaim, out int userId))
+                    {
+                        currentUserId = userId;
+                    }
+
+                    userRole = jwtToken.Claims
+                        .FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
+                    
+                    isSuperAdmin = userRole?.Equals("superadmin", StringComparison.OrdinalIgnoreCase) == true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error decoding token: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task LoadAdmins()
+    {
+        try
+        {
+            // Get all users and filter for admins created by current superadmin
+            var allUsers = await UserService.GetAllUsersAsync();
+            admins = allUsers?
+                .Where(u => u.role?.Equals("Admin", StringComparison.OrdinalIgnoreCase) == true
+                         && u.IsCreatedBy == currentUserId)
+                .ToList();
+            
+            // Reset to first page when loading new data
+            CurrentPage = 1;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error loading admins: {ex.Message}");
+            admins = new List<User>();
+        }
+    }
+
+    private void ViewAdminDetails(int adminId)
+    {
+        NavigationManager.NavigateTo($"/admin-users/{adminId}");
+    }
+
+    private void EditAdmin(int adminId)
+    {
+        // Navigate to edit admin page with userId and adminId
+        NavigationManager.NavigateTo($"/register/edit/{adminId}/{currentUserId}");
+    }
+
+    private void EditSetting(int adminId)
+    {
+     NavigationManager.NavigateTo($"/settings?adminId={adminId}&userId={adminId}");
+    }
+
+    private void NavigateToRegister()
+    {
+        NavigationManager.NavigateTo("/register");
+    }
+
+    private async Task DeleteAdmin(int adminId)
+    {
+        // Find the admin to get their username for confirmation message
+        var admin = admins?.FirstOrDefault(a => a.id == adminId);
+        if (admin == null) return;
+
+        // Show SweetAlert confirmation
+        var result = await JSRuntime.InvokeAsync<SweetAlertResult>("eval", 
+            "Swal.fire({" +
+            "title: 'Delete Admin?'," +
+            "text: 'Are you sure you want to delete admin " + admin.username + "? This will also delete all users created by this admin.'," +
+            "icon: 'warning'," +
+            "showCancelButton: true," +
+            "confirmButtonColor: '#d33'," +
+            "cancelButtonColor: '#6c757d'," +
+            "confirmButtonText: 'Yes, delete it!'," +
+            "cancelButtonText: 'Cancel'" +
+            "}).then(result => result.isConfirmed ? 'confirmed' : 'cancelled')"
+        );
+
+        if (result.Value == "confirmed")
+        {
+            var success = await UserService.DeleteUserAsync(adminId);
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("eval", "Swal.fire('Deleted!', 'Admin has been deleted successfully.', 'success')");
+                await LoadAdmins();
+                StateHasChanged();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("eval", "Swal.fire('Error!', 'Failed to delete admin. Please try again.', 'error')");
+            }
+        }
+    }
+
+    // Pagination methods
+    private void ChangePage(int page)
+    {
+        if (page > 0 && page <= TotalPages)
+        {
+            CurrentPage = page;
+        }
+    }
+
+    private void PreviousPage()
+    {
+        if (CurrentPage > 1)
+        {
+            CurrentPage--;
+        }
+    }
+
+    private void NextPage()
+    {
+        if (CurrentPage < TotalPages)
+        {
+            CurrentPage++;
+        }
+    }
+
+    private IEnumerable<int> GetPageNumbers()
+    {
+        var pages = new List<int>();
+        int startPage = Math.Max(1, CurrentPage - (int)Math.Floor(PaginationDisplaySize / 2.0));
+        int endPage = Math.Min(TotalPages, startPage + PaginationDisplaySize - 1);
+
+        if (endPage - startPage + 1 < PaginationDisplaySize)
+        {
+            startPage = Math.Max(1, endPage - PaginationDisplaySize + 1);
+        }
+
+        for (int i = startPage; i <= endPage; i++)
+        {
+            pages.Add(i);
+        }
+
+        // Add ellipsis if needed
+        if (startPage > 1)
+        {
+            pages.Insert(0, -1); // -1 represents ellipsis
+        }
+
+        if (endPage < TotalPages)
+        {
+            pages.Add(-1); // -1 represents ellipsis
+        }
+
+        return pages;
+    }
+}
