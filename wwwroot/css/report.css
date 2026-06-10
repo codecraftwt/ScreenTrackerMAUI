@@ -14,17 +14,27 @@
 }
 
 .back-btn {
-    color: #2563eb;
+    color: var(--color-text-color-dark);
     font-size: 0.9rem;
-    background: none;
-    border: none;
+    background: #E1C8E6;
+    border: 1px solid #d1d5db;
     cursor: pointer;
     display: flex; 
     align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.4rem;
+    transition: all 0.2s ease;
 }
 
     .back-btn:hover {
-        color: #1d4ed8;
+        color: #2563eb;
+        background: #f3f4f6;
+        border-color: #2563eb;
+    }
+
+    .back-btn i {
+        font-size: 0.85rem;
     }
 
 .timezone-info {
@@ -147,7 +157,7 @@ body {
 
 .stitch-user-selectreport {
     width: 100%;
-    max-width: 200px;
+    max-width: 250px;
     padding: 0.75rem 1rem;
     border: 1px solid #E2E8F0;
     border-radius: 8px;
@@ -171,4 +181,70 @@ body {
 .labels-colors
 {
     color:var(--color-text-color-dark);
+}
+
+/* Select2 dropdown styling to match existing dropdowns */
+.select2-container--default .select2-selection--single {
+    width: 100%;
+    max-width: 250px;
+    padding: 0.75rem 1rem;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    background-color: #F8FAFC;
+    color: #1E293B;
+    font-size: 0.95rem;
+    margin-bottom: 0px;
+    transition: all 0.2s ease;
+    height: auto;
+    min-height: 44px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #1E293B;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    padding: 0;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 42px;
+    right: 12px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow b {
+    border-color: #1E293B transparent transparent transparent;
+    border-width: 6px 6px 0 6px;
+}
+
+.select2-container--default.select2-container--open .select2-selection--single .select2-selection__arrow b {
+    border-color: transparent transparent #1E293B transparent;
+    border-width: 0 6px 6px 6px;
+}
+
+.select2-dropdown {
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    background-color: white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.select2-results__option {
+    padding: 0.75rem 1rem;
+    color: #1E293B;
+    font-size: 0.95rem;
+}
+
+.select2-results__option--highlighted {
+    background-color: #E1C8E6;
+    color: var(--color-text-color-dark);
+}
+
+.select2-results__option[aria-selected="true"] {
+    background-color: #2563eb;
+    color: white;
+}
+
+.user-dropdown
+{
+    max-width:500px !important
 }

@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using System.Text;
+using ScreenTracker1.WinUI;
 
 namespace ScreenTracker1.Services
 {
@@ -66,6 +67,27 @@ namespace ScreenTracker1.Services
                 return false;
             }
         }
+
+        public async Task<bool> UpdateUserAsync(User user, int updatedBy)
+        {
+            var url = $"{App.URL}User/update?updatedBy={updatedBy}";
+
+            var request = new HttpRequestMessage(HttpMethod.Put, url);
+            AddAuthorizationHeader(request);
+
+            // No need for 'userForBody'. 
+            // Serializing 'user' directly uses your [JsonPropertyName] attributes.
+            var jsonContent = new StringContent(
+                System.Text.Json.JsonSerializer.Serialize(user),
+                System.Text.Encoding.UTF8,
+                "application/json"
+            );
+
+            request.Content = jsonContent;
+            var response = await _httpClient.SendAsync(request);
+
+            return response.IsSuccessStatusCode;
+        }
         public async Task<bool> UpdateActiveStatusAsync(int userId, int updatedBy, bool isActive)
         {
             try
@@ -95,6 +117,37 @@ namespace ScreenTracker1.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Exception updating active status: {ex.Message}");
+                return false;
+            }
+        }
+
+        public async Task<bool> PromoteUserToAdminAsync(int targetUserId, int authorizedBy)
+        {
+            try
+            {
+                var requestUrl = $"{App.URL}User/promoteToAdmin?targetUserId={targetUserId}&authorizedBy={authorizedBy}";
+
+                var request = new HttpRequestMessage(HttpMethod.Put, requestUrl);
+                AddAuthorizationHeader(request);
+
+                var response = await _httpClient.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return true;
+                }
+
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    HandleUnauthorized();
+                }
+
+                Console.WriteLine($"Error promoting user to admin: {response.StatusCode} - {await response.Content.ReadAsStringAsync()}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception promoting user to admin: {ex.Message}");
                 return false;
             }
         }
@@ -494,44 +547,94 @@ namespace ScreenTracker1.Services
 			}
 		}
 
-		public async Task<List<Screenshots>> GetImagesByDateAsync(int userId, DateTime date, int skip = 1, int take = 6, string usageType = "all")
-		{
-			try
-			{
-				string formattedDate = date.ToString("yyyy-MM-dd");
-				string url = $"{App.URL}Image/by-date?userId={userId}&date={formattedDate}&skip={skip}&take={take}&usageType={usageType}";
+        //public async Task<List<Screenshots>> GetImagesByDateAsync(int userId, DateTime date, int skip = 1, int take = 6, string usageType = "all", string startTime = null, string endTime = null)
+        //{
+        //	try
+        //	{
+        //		string formattedDate = date.ToString("yyyy-MM-dd");
+        //		string url = $"{App.URL}Image/by-date?userId={userId}&date={formattedDate}&skip={skip}&take={take}&usageType={usageType}";
 
-				Console.WriteLine($"Request URL: {url}");
+        //		// Add time filter parameters if provided
+        //		if (!string.IsNullOrEmpty(startTime))
+        //		{
+        //			url += $"&startTime={startTime}";
+        //		}
+        //		if (!string.IsNullOrEmpty(endTime))
+        //		{
+        //			url += $"&endTime={endTime}";
+        //		}
 
-				var request = new HttpRequestMessage(HttpMethod.Get, url);
-				AddAuthorizationHeader(request);
+        //		Console.WriteLine($"Request URL: {url}");
 
-				var response = await _httpClient.SendAsync(request);
+        //		var request = new HttpRequestMessage(HttpMethod.Get, url);
+        //		AddAuthorizationHeader(request);
 
-				if (!response.IsSuccessStatusCode)
-				{
-					Console.WriteLine($"HTTP {response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
-					return new List<Screenshots>();
-				}
+        //		var response = await _httpClient.SendAsync(request);
 
-				var responseString = await response.Content.ReadAsStringAsync();
-				var images = JsonSerializer.Deserialize<List<Screenshots>>(responseString);
+        //		if (!response.IsSuccessStatusCode)
+        //		{
+        //			Console.WriteLine($"HTTP {response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+        //			return new List<Screenshots>();
+        //		}
 
-				return images ?? new List<Screenshots>();
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine($"Error fetching images: {ex.Message}");
-				return new List<Screenshots>();
-			}
-		}
+        //		var responseString = await response.Content.ReadAsStringAsync();
+        //		var images = JsonSerializer.Deserialize<List<Screenshots>>(responseString);
 
-
-
-
+        //		return images ?? new List<Screenshots>();
+        //	}
+        //	catch (Exception ex)
+        //	{
+        //		Console.WriteLine($"Error fetching images: {ex.Message}");
+        //		return new List<Screenshots>();
+        //	}
+        //}
 
 
-		public async Task<bool> DeleteScreenshotAsync(int screenshotId)
+        public async Task<List<Screenshots>> GetImagesByDateAsync(int userId, DateTime date, int skip = 1, int take = 6, string usageType = "all", string startTime = null, string endTime = null)
+        {
+            try
+            {
+                string formattedDate = date.ToString("yyyy-MM-dd");
+                string url = $"{App.URL}Image/by-date?userId={userId}&date={formattedDate}&skip={skip}&take={take}&usageType={usageType}";
+
+                // Add time filter parameters if provided
+                if (!string.IsNullOrEmpty(startTime))
+                {
+                    url += $"&startTime={Uri.EscapeDataString(startTime)}";
+                }
+                if (!string.IsNullOrEmpty(endTime))
+                {
+                    url += $"&endTime={Uri.EscapeDataString(endTime)}";
+                }
+
+                Console.WriteLine($"Request URL: {url}");
+
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                AddAuthorizationHeader(request);
+
+                var response = await _httpClient.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"HTTP {response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+                    return new List<Screenshots>();
+                }
+
+                var responseString = await response.Content.ReadAsStringAsync();
+                var images = JsonSerializer.Deserialize<List<Screenshots>>(responseString, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                return images ?? new List<Screenshots>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching images: {ex.Message}");
+                return new List<Screenshots>();
+            }
+        }
+
+
+
+        public async Task<bool> DeleteScreenshotAsync(int screenshotId)
 		{
 			try
 			{
@@ -626,6 +729,60 @@ namespace ScreenTracker1.Services
 			catch (HttpRequestException ex)
 			{
 				Console.WriteLine($"Error calling updateDeleteAuth API: {ex.Message}");
+				return false;
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+				return false;
+			}
+		}
+
+		public async Task<bool> UpdateManualTrackingAuthAsync(int id, int? manualTrackingAuthBy, bool isManualTrackingEnabled)
+		{
+			try
+			{
+				string requestUrl = $"{App.URL}User/updateManualTrackingAuth?id={id}&manualTrackingAuthBy={manualTrackingAuthBy}&isManualTrackingEnabled={isManualTrackingEnabled}";
+
+				var request = new HttpRequestMessage(HttpMethod.Put, requestUrl);
+
+				AddAuthorizationHeader(request);
+
+				var response = await _httpClient.SendAsync(request);
+				response.EnsureSuccessStatusCode();
+
+				return response.IsSuccessStatusCode;
+			}
+			catch (HttpRequestException ex)
+			{
+				Console.WriteLine($"Error calling updateManualTrackingAuth API: {ex.Message}");
+				return false;
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+				return false;
+			}
+		}
+
+		public async Task<bool> UpdateAutoTrackingAuthAsync(int id, int? autoTrackingAuthBy, bool isAutoTrackingEnabled)
+		{
+			try
+			{
+				string requestUrl = $"{App.URL}User/updateAutoTrackingAuth?id={id}&autoTrackingAuthBy={autoTrackingAuthBy}&isAutoTrackingEnabled={isAutoTrackingEnabled}";
+
+				var request = new HttpRequestMessage(HttpMethod.Put, requestUrl);
+
+				AddAuthorizationHeader(request);
+
+				var response = await _httpClient.SendAsync(request);
+				response.EnsureSuccessStatusCode();
+
+				return response.IsSuccessStatusCode;
+			}
+			catch (HttpRequestException ex)
+			{
+				Console.WriteLine($"Error calling updateAutoTrackingAuth API: {ex.Message}");
 				return false;
 			}
 			catch (Exception ex)
@@ -868,17 +1025,14 @@ namespace ScreenTracker1.Services
 			}
 		}
 
-        // In your UserService class
         public async Task<List<User>> GetActiveUsersAsync(int? adminId = null)
         {
             try
             {
                 var url = $"{App.URL}DailyTracker/ActiveUser";
 
-                // 🚀 CRITICAL CHANGE: Append adminId as a query parameter
                 if (adminId.HasValue)
                 {
-                    // This is how the backend controller expects the data: /ActiveUser?adminId=123
                     url += $"?adminId={adminId.Value}";
                 }
 
@@ -913,13 +1067,83 @@ namespace ScreenTracker1.Services
             }
         }
 
+        public async Task LogoutAsync()
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Post, $"{App.URL}Auth/logout");
+                AddAuthorizationHeader(request);
+                await _httpClient.SendAsync(request);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error calling logout API: {ex.Message}");
+            }
+        }
+
+        public async Task HeartbeatAsync()
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Post, $"{App.URL}Auth/heartbeat");
+                AddAuthorizationHeader(request);
+                await _httpClient.SendAsync(request);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error calling heartbeat API: {ex.Message}");
+            }
+        }
+
+        public async Task<List<User>> GetActiveSessionsAsync(int? adminId = null)
+        {
+            try
+            {
+                var url = $"{App.URL}Auth/active-sessions";
+
+                if (adminId.HasValue)
+                {
+                    url += $"?adminId={adminId.Value}";
+                }
+
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                AddAuthorizationHeader(request);
+
+                var response = await _httpClient.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    if (response.StatusCode == HttpStatusCode.Unauthorized)
+                    {
+                        HandleUnauthorized();
+                    }
+
+                    Console.WriteLine($"HTTP {response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+                    return new List<User>();
+                }
+
+                var responseString = await response.Content.ReadAsStringAsync();
+                var activeUsers = JsonSerializer.Deserialize<List<User>>(responseString, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                return activeUsers ?? new List<User>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching active sessions: {ex.Message}");
+                return new List<User>();
+            }
+        }
+
 
 
         public async Task<PagedResult<DailyTrackerWithUserDto>> GetAllUsersReportAsync(
 	  DateTime fromDate,
 	  DateTime toDate,
 	  string searchString,
-	  int adminId,
+	  int? adminId,
 	  int pageNumber = 1,
 	  int pageSize = 10,
 	  string usageType = "all")
@@ -927,9 +1151,15 @@ namespace ScreenTracker1.Services
 			try
 			{
 				var url = $"{App.URL}DailyTracker/allUsersreport?" +
-						  $"adminId={adminId}&fromDate={fromDate:yyyy-MM-dd}&toDate={toDate:yyyy-MM-dd}" +
+						  $"fromDate={fromDate:yyyy-MM-dd}&toDate={toDate:yyyy-MM-dd}" +
 						  $"&searchString={searchString}&pageNumber={pageNumber}&pageSize={pageSize}" +
 						  $"&usageType={usageType}";
+
+				// Add adminId parameter only if it has a value (for filtering by specific user)
+				if (adminId.HasValue)
+				{
+					url += $"&adminId={adminId.Value}";
+				}
 
 				var request = new HttpRequestMessage(HttpMethod.Get, url);
 				AddAuthorizationHeader(request);

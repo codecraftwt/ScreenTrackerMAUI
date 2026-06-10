@@ -16,6 +16,10 @@
     <div class="header-content">
        
 
+        @* <NavLink href="/dashboard" class="nav-link">
+            <i class="bi bi-calendar3"></i> Calendar
+        </NavLink> *@
+
         <NavLink href="/users" class="nav-link">
             <i class="bi bi-house-door"></i> Dashboard
         </NavLink>
@@ -33,7 +37,48 @@
             <i class="bi bi-bar-chart-line"></i> Reports
         </NavLink>
 
+        @if (!string.IsNullOrEmpty(UserRole))
+        {
+            @if (UserRole.Equals("superadmin", StringComparison.OrdinalIgnoreCase))
+            {
+                <NavLink href="/admin-list" class="nav-link">
+                    <i class="bi bi-people"></i> Admin List
+                </NavLink>
+            }
+            else if (UserRole.Equals("admin", StringComparison.OrdinalIgnoreCase))
+            {
+                <NavLink href="@($"/admin-users/{UserId}")" class="nav-link">
+                    <i class="bi bi-people"></i> User List
+                </NavLink>
+            }
+        }
 
+        @if (!string.IsNullOrEmpty(UserRole) &&
+             (UserRole.Equals("admin", StringComparison.OrdinalIgnoreCase) ||
+              UserRole.Equals("superadmin", StringComparison.OrdinalIgnoreCase)))
+        {
+            <NavLink href="/settings" class="nav-link">
+                <i class="bi bi-gear"></i> Settings
+            </NavLink>
+        }
+@* 
+        @if (!string.IsNullOrEmpty(UserRole))
+        {
+              @if (UserRole.Equals("superadmin", StringComparison.OrdinalIgnoreCase))
+              {
+                  <NavLink href="/register" class="nav-link">
+                      <i class="bi bi-person-plus"></i> Add Admin
+                  </NavLink>
+              }
+              else 
+            if (UserRole.Equals("admin", StringComparison.OrdinalIgnoreCase))
+            {
+                <NavLink href="/register" class="nav-link">
+                    <i class="bi bi-person-plus"></i> Add User
+                </NavLink>
+            }
+        }
+ *@
     </div>
 
 
@@ -49,12 +94,12 @@
                 <li><button class="menu-item-btn" @onclick="ToggleThemePopup">Theme</button></li>
                 <li><NavLink href="/profile" class="menu-item-btn" @onclick="CloseMenu">Profile</NavLink></li>
          
-                @if (UserRole.ToLower() == "admin")
-                {
-                    <li><button class="menu-item-btn" @onclick="NavigateToSettings">Settings</button></li>
-                    <li><button class="menu-item-btn" @onclick="NavigateToRegister">Add User</button></li>
-                }
-
+       @*           @if (UserRole.ToLower() == "admin" || UserRole.ToLower()=="superadmin")
+                 {
+                     <li><button class="menu-item-btn" @onclick="NavigateToSettings">Settings</button></li>
+                     <li><button class="menu-item-btn" @onclick="NavigateToRegister">Add User</button></li>
+                 }
+ *@
 
                 <li><button class="menu-item-btn" @onclick="OnLogoutClicked">Logout</button></li>
 
@@ -76,18 +121,24 @@
                     <label class="theme-label">Theme Mode</label>
                     <div class="theme-controls-row">
                         <div class="theme-dropdown-wrapper">
-                            <select class="theme-dropdown" @onchange="OnThemeChanged" value="@selectedTheme">
-                                <option value="system">System</option>
-                                <option value="dark">Dark</option>
-                                <option value="light">Light</option>
+                            <select class="theme-dropdown" @onchange="OnThemeChanged">
+                                <option value="system" selected="@(selectedTheme == "system")">🖥️ System Default</option>
+                                <option value="dark" selected="@(selectedTheme == "dark")">🌙 Dark Mode</option>
+                                <option value="light" selected="@(selectedTheme == "light")">☀️ Light Mode</option>
                             </select>
                         </div>
-                        <button class="theme-toggle-btn" @onclick="ToggleTheme">
+                        <button class="theme-toggle-btn" @onclick="ToggleTheme" title="@(isDarkTheme ? "Switch to Light" : "Switch to Dark")">
                             <i class="fas @themeIcon"></i>
                         </button>
                     </div>
+                    <div class="theme-indicator">
+                        <i class="fas @(isDarkTheme ? "fa-moon" : "fa-sun")"></i>
+                        <span>@(isDarkTheme ? "Dark Theme Active" : "Light Theme Active")</span>
+                    </div>
                 </div>
-                <button class="theme-back-btn" @onclick="CloseThemePopup">Close</button>
+                <button class="theme-back-btn" @onclick="CloseThemePopup">
+                    <i class="fas fa-times"></i> Close
+                </button>
             </div>
         </div>
     }
@@ -174,20 +225,18 @@
 
     private async Task OnThemeChanged(ChangeEventArgs e)
     {
-        selectedTheme = e.Value?.ToString() ?? "system";
-        switch (selectedTheme)
+        if (e.Value != null)
         {
-            case "system":
-                isDarkTheme = await themeModule.InvokeAsync<bool>("getSystemTheme");
-                break;
-            case "dark":
-                isDarkTheme = true;
-                break;
-            case "light":
-                isDarkTheme = false;
-                break;
+            selectedTheme = e.Value.ToString();
+            
+            if (themeModule != null)
+            {
+                await themeModule.InvokeVoidAsync("saveThemePreference", selectedTheme);
+                isDarkTheme = await themeModule.InvokeAsync<bool>("getSavedTheme");
+                await UpdateThemeIcon();
+                await UpdateChartTheme();
+            }
         }
-        await ApplyTheme();
     }
 
     private async Task OnLogoutClicked()
@@ -201,13 +250,14 @@
             desktopAutoCaptureService.StopTimer();
             afkTrackerService.Stop();
             await UserService.EndDailyTrackerAsync(); // First and only call
+            await UserService.LogoutAsync(); // Notify backend session ended
         // }
 
         // 2. Clear authentication tokens
         SecureStorage.Remove("auth_token");
         Preferences.Set("authToken", null);
 
-        // 3. CLEAR THE USER-SPECIFIC STATE IN THE SERVICE
+        // 3. CLEAR THE USER-SPECIFIC STATE IN THE SERVICE (RESET ON LOGOUT)
         UserStateService.UserId = 0; // Clear the User ID (since it's not nullable, use 0)
         UserStateService.SelectedUsername = null;
         UserStateService.SelectedAdminUsername = null;
@@ -218,6 +268,9 @@
 
         // Clear any application-wide selected ID (if App is a static class/property)
         App.SelectedUserId = 0;
+        App.SelectedUsername = string.Empty;
+        App.SelectedAdminUsername = string.Empty;
+        App.selectedUsageType = "all";
 
         // 4. Update UI and navigate
         StateHasChanged();
@@ -226,29 +279,23 @@
 
     private async Task ToggleTheme()
     {
-        isDarkTheme = !isDarkTheme;
-        await ApplyTheme();
-    }
-
-    // private async Task ApplyTheme()
-    // {
-    //     if (themeModule != null)
-    //     {
-    //         await themeModule.InvokeVoidAsync("setTheme", isDarkTheme);
-    //     }
-    //     themeIcon = isDarkTheme ? "fa-moon" : "fa-sun";
-    // }
-
-
-
-    private async Task ApplyTheme()
-    {
         if (themeModule != null)
         {
-            await themeModule.InvokeVoidAsync("setTheme", isDarkTheme);
+            await themeModule.InvokeVoidAsync("toggleTheme");
+            isDarkTheme = !isDarkTheme;
+            selectedTheme = isDarkTheme ? "dark" : "light";
+            await UpdateThemeIcon();
+            await UpdateChartTheme();
         }
-        themeIcon = isDarkTheme ? "fa-moon" : "fa-sun";
+    }
 
+    private async Task UpdateThemeIcon()
+    {
+        themeIcon = isDarkTheme ? "fa-moon" : "fa-sun";
+    }
+
+    private async Task UpdateChartTheme()
+    {
         await JSRuntime.InvokeVoidAsync("eval", $"if (typeof window.updateChartThemeColor !== 'undefined') {{ window.updateChartThemeColor({isDarkTheme.ToString().ToLower()}); }}");
     }
 
@@ -260,12 +307,18 @@
         if (firstRender)
         {
             themeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/theme.js");
-            isDarkTheme = await themeModule.InvokeAsync<bool>("getSystemTheme");
             localStorageModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/localStorage.js");
-            isOn = await localStorageModule.InvokeAsync<bool>("getIsOnState");
+            
+            // Load saved theme preference
+            var savedTheme = await themeModule.InvokeAsync<string>("getSavedThemePreference");
+            selectedTheme = savedTheme;
+            
+            // Apply the saved theme
+            isDarkTheme = await themeModule.InvokeAsync<bool>("getSavedTheme");
+            await UpdateThemeIcon();
+            
             isOn = false;
             await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
-            await ApplyTheme();
             StateHasChanged();
         }
     }

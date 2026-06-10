@@ -16,6 +16,8 @@
 @inject AppUsageTracker appUsageTrackerService
 @inject UserSelectionStateService UserStateService
 @using NEvaldas.Blazor.Select2
+@using System.Diagnostics
+@using System.Linq
 @* <NavMenu OnLogoutTriggered="PerformLogout" />
 @layout ScreenTracker1.Components.Layout.NoNavLayout *@
 
@@ -36,7 +38,7 @@
                         <div class="tooltip-container">
                             <select id="admin-select" @onchange="OnSelectedAdminChanged" class="stitch-user-select" value="@selectedAdminUsername">
                                 <option value="">Select Admin</option>
-                                @foreach (var admin in admins)
+                                @foreach (var admin in admins?.Where(a => a.role?.ToLower() != "superadmin"))
                                 {
                                     <option value="@admin.username">@admin.username</option>
                                 }
@@ -69,6 +71,7 @@
                         <div class="tooltip-container">
                             <select id="user-select-admin" @onchange="OnSelectedUserChanged" class="stitch-user-select" value="@selectedUsername">
                                 <option value="">Select a user</option>
+
                                 @foreach (var user in users)
                                 {
                                     <option value="@user.username">@user.username</option>
@@ -99,6 +102,19 @@
 
     @if (userId != null && userId > 0)
     {
+        @* Debug: Show userId value - VISIBLE FOR TESTING *@
+        @*   <div style="background:yellow; padding:10px; margin:10px; border:2px solid red;">
+    <strong>DEBUG INFO:</strong><br/>
+    userId = @userId<br/>
+    loggedInUserId = @loggedInUserId<br/>
+    selectedUsername = @selectedUsername<br/>
+    userRole = @userRole<br/>
+    isManualTrackingAllowed = @isManualTrackingAllowed<br/>
+    isAutoTrackingAllowed = @isAutoTrackingAllowed<br/>
+    ShouldShowTrackingButton() = @ShouldShowTrackingButton()<br/>
+    isOn = @isOn
+    </div> *@
+
         <div class="stitch-container">
             <div class="toolbar-container grid-toolbar">
 
@@ -125,26 +141,30 @@
                 </div>
 
                 <div class="toolbar-center">
-                    <div class="toolbar-section toolbar-section-tracker">
-                        <label class="label">Tracking Status</label>
-                        <div class="tooltip-container">
-                            <button class="tracking-toggle @(isOn ? "tracking-on" : "tracking-off")"
-                                    @onclick="OnToggleStateClicked"
-                                    aria-label="Toggle tracking state">
-                                @if (isOn)
-                                {
-                                    <span class="tracking-indicator tracking-active"></span>
-                                    <span class="tracking-text">ON</span>
-                                }
-                                else
-                                {
-                                    <span class="tracking-indicator"></span>
-                                    <span class="tracking-text">OFF</span>
-                                }
-                            </button>
-                            <span class="tooltip-text">Toggle tracking state</span>
+                    @if (ShouldShowTrackingButton())
+                    {
+                        <div class="toolbar-section toolbar-section-tracker">
+                            <label class="label">Tracking Status</label>
+                            <div class="tooltip-container">
+                                <button class="tracking-toggle @(isOn ? "tracking-on" : "tracking-off")"
+                                        @onclick="OnToggleStateClicked"
+                                        disabled="@IsTrackingButtonDisabled()"
+                                        aria-label="Toggle tracking state">
+                                    @if (isOn)
+                                    {
+                                        <span class="tracking-indicator tracking-active"></span>
+                                        <span class="tracking-text">ON</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="tracking-indicator"></span>
+                                        <span class="tracking-text">OFF</span>
+                                    }
+                                </button>
+                                <span class="tooltip-text">@GetTrackingTooltip()</span>
+                            </div>
                         </div>
-                    </div>
+                    }
                 </div>
 
                 <div class="toolbar-right">
@@ -293,7 +313,7 @@
 
             <div class="stitch-tabs">
                 <div class="stitch-tab @(selectedTab == "summary" ? "active" : "")" @onclick='() => SelectTab("summary")'>Summary</div>
-                <div class="stitch-tab @(selectedTab == "window" ? "active" : "")" @onclick='() => SelectTab("window")'>Window</div>
+                 @* <div class="stitch-tab @(selectedTab == "window" ? "active" : "")" @onclick='() => SelectTab("window")'>Window</div> *@
             </div>
 
             <div class="stitch-tab-content">
@@ -324,8 +344,12 @@
                                         @* NEW: Use bar-content wrapper for better icon alignment *@
                                         <div class="bar-content">
                                             <span class="label app-label-content">
-                                                @* NEW: Icon display using the helper method *@
-                                                <i class="@GetAppIconClass(app.appName) app-icon"></i>
+                                                @* CHANGED: Use <img> because GetAppIconClass now returns image data, not a CSS class *@
+                                                <img src="@GetAppIconClass(app.appName)"
+                                                     alt="icon"
+                                                     class="app-icon"
+                                                     style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle; object-fit: contain;" />
+
                                                 @app.appName
                                             </span>
                                             <span class="time">@FormatDuration(app.durationInMinutes)</span>
@@ -336,18 +360,18 @@
                                     @if (moreAppUsageAvailable)
                                     {
                                         <button class="stitch-btn" @onclick="LoadMoreAppUsage">
-                                     @*          <i class="fas fa-plus"></i> Show More *@
-                                     @*         <i class="fas fa-arrow-down"></i> Show More
-                                            <i class="fas fa-chevron-down"></i> Show More *@
+                                            @*          <i class="fas fa-plus"></i> Show More *@
+                                            @*         <i class="fas fa-arrow-down"></i> Show More
+                            <i class="fas fa-chevron-down"></i> Show More *@
                                             <i class="fas fa-plus-circle"></i> Show More
-                                                @*   <i class="fas fa-expand"></i> Show More *@
+                                            @*   <i class="fas fa-expand"></i> Show More *@
                                         </button>
                                     }
                                     @if (currentAppUsagePage > 1)
                                     {
                                         <button class="stitch-btn" @onclick="ShowLessAppUsage">
-                                      @*         <i class="fas fa-minus"></i> Show Less *@
-                                       @*       <i class="fas fa-arrow-up"></i> Show Less *@
+                                            @*         <i class="fas fa-minus"></i> Show Less *@
+                                            @*       <i class="fas fa-arrow-up"></i> Show Less *@
                                             @*   <i class="fas fa-arrow-up"></i> Show Less *@
                                             <i class="fas fa-minus-circle"></i> Show Less
                                         </button>
@@ -369,14 +393,31 @@
                                 {
                                     var totalTitleTime = appTitleList.Sum(t => t.durationInMinutes);
                                     <div class="title-list-container">
+                                        @{
+                                            var titleIndex = 0;
+                                        }
+                                     @*     @foreach (var title in appTitleList)
+                                         {
+                                             var percent = (title.durationInMinutes / totalTitleTime) * 100;
+                                             var isFirst = titleIndex == 0;
+                                             <div class="stitch-bar @(isFirst ? "first-bar" : "")">
+                                                 <div style="width:@percent%;background-color:@GetDynamicColor(title.title);height:100%;"></div>
+                                                 <span class="label" data-tooltip="@title.title">@title.title</span>
+                                                 <span class="time">@FormatDuration(title.durationInMinutes)</span>
+                                             </div>
+                                             titleIndex++;
+                                         } *@
+
                                         @foreach (var title in appTitleList)
                                         {
                                             var percent = (title.durationInMinutes / totalTitleTime) * 100;
-                                            <div class="stitch-bar">
+                                            var isFirst = titleIndex == 0;
+                                            <div class="stitch-bar @(isFirst ? "first-bar" : "")">
                                                 <div style="width:@percent%;background-color:@GetDynamicColor(title.title);height:100%;"></div>
-                                                <span class="label" data-tooltip="@title.title">@title.title</span>
+                                                <span class="label" data-tooltip="@title.title"><span class="label-text">@title.title</span></span>
                                                 <span class="time">@FormatDuration(title.durationInMinutes)</span>
                                             </div>
+                                            titleIndex++;
                                         }
                                     </div>
                                     <div class="stitch-button-row">
@@ -386,7 +427,7 @@
                                                 <i class="fas fa-plus-circle"></i>
                                                 Show More
                                             </button>
-                                          
+
                                         }
                                         @if (currentTitlePage > 1)
                                         {
@@ -432,7 +473,7 @@
                         }
                     </div>
                 }
-         
+
             </div>
         </div>
     }
@@ -493,6 +534,8 @@
     private bool showScreenshots = false;
 
     private bool isOn = false;
+    private bool? isManualTrackingAllowed = false;
+    private bool? isAutoTrackingAllowed = false;
 
     private double totalAfkMinutes;
 
@@ -585,7 +628,7 @@
                     LoadCheckinTime(userId)
 
                 );
-                      
+
                 await UpdateChart();
             }
             else
@@ -618,32 +661,110 @@
         StateHasChanged();
     }
 
+    // private string GetAppIconClass(string appName)
+    // {
+      
+    //     var normalizedName = appName.ToLowerInvariant();
+    //     if (normalizedName.Contains("calculator")) return "fas fa-calculator";
+    //     if (normalizedName.Contains("weather")) return "fas fa-cloud-sun";
+    //     if (normalizedName.Contains("settings")) return "fas fa-cog";
+    //     if (normalizedName.Contains("calendar")) return "fas fa-calendar-alt";
+    //     if (normalizedName.Contains("mail")) return "fas fa-envelope";
+    //     if (normalizedName.Contains("store") || normalizedName.Contains("microsoft store")) return "fas fa-shopping-bag";
+
+    //     if (normalizedName.Contains("chrome")) return "fab fa-chrome";
+    //     if (normalizedName.Contains("edge")) return "fab fa-edge";
+    //     if (normalizedName.Contains("firefox")) return "fab fa-firefox";
+    //     if (normalizedName.Contains("teams")) return "fas fa-users";
+    //     if (normalizedName.Contains("outlook")) return "fas fa-envelope-open-text";
+    //     if (normalizedName.Contains("word") || normalizedName.Contains("excel") || normalizedName.Contains("powerpoint")) return "fab fa-microsoft";
+    //     if (normalizedName.Contains("visual studio")) return "fas fa-code";
+    //     if (normalizedName.Contains("code") || normalizedName.Contains("vscode")) return "fas fa-terminal";
+    //     if (normalizedName.Contains("slack")) return "fab fa-slack";
+    //     if (normalizedName.Contains("zoom")) return "fas fa-video";
+    //     if (normalizedName.Contains("reader") || normalizedName.Contains("pdf")) return "fas fa-file-pdf";
+    //     if (normalizedName.Contains("spotify") || normalizedName.Contains("music")) return "fab fa-spotify";
+    //     if (normalizedName.Contains("settings")) return "fas fa-cogs";
+    //     if (normalizedName.Contains("file explorer") || normalizedName.Contains("explorer")) return "fas fa-folder-open";
+    //     if (normalizedName.Contains("snipping tool") || normalizedName.Contains("snip")) return "fas fa-cut";
+    //     if (normalizedName.Contains("anydesk")) return "fas fa-link";
+    //     if (normalizedName.Contains("photos")) return "fas fa-image";
+    //     if (normalizedName.Contains("ultraviewer")) return "fas fa-satellite-dish";
+    //     if (normalizedName.Contains("notepad")) return "fas fa-file-alt";
+
+    //     return "fas fa-desktop";
+    // }
+
     private string GetAppIconClass(string appName)
     {
-        // Use a simple mapping, case-insensitive, on common process/app names
-        var normalizedName = appName.ToLowerInvariant();
 
-        if (normalizedName.Contains("chrome")) return "fab fa-chrome";
-        if (normalizedName.Contains("edge")) return "fab fa-edge";
-        if (normalizedName.Contains("firefox")) return "fab fa-firefox";
-        if (normalizedName.Contains("teams")) return "fas fa-users";
-        if (normalizedName.Contains("outlook")) return "fas fa-envelope-open-text";
-        if (normalizedName.Contains("word") || normalizedName.Contains("excel") || normalizedName.Contains("powerpoint")) return "fab fa-microsoft";
-        if (normalizedName.Contains("visual studio")) return "fas fa-code";
-        if (normalizedName.Contains("code") || normalizedName.Contains("vscode")) return "fas fa-terminal";
-        if (normalizedName.Contains("slack")) return "fab fa-slack";
-        if (normalizedName.Contains("zoom")) return "fas fa-video";
-        if (normalizedName.Contains("reader") || normalizedName.Contains("pdf")) return "fas fa-file-pdf";
-        if (normalizedName.Contains("spotify") || normalizedName.Contains("music")) return "fab fa-spotify";
-        if (normalizedName.Contains("settings")) return "fas fa-cogs";
-        if (normalizedName.Contains("file explorer") || normalizedName.Contains("explorer")) return "fas fa-folder-open";
-        if (normalizedName.Contains("snipping tool") || normalizedName.Contains("snip")) return "fas fa-cut";
-        if (normalizedName.Contains("anydesk")) return "fas fa-link";
-        if (normalizedName.Contains("photos")) return "fas fa-image";
-        if (normalizedName.Contains("ultraviewer")) return "fas fa-satellite-dish";
-        if (normalizedName.Contains("notepad")) return "fas fa-file-alt";
+        string exePath = GetPathFromName(appName); 
 
-        return "fas fa-desktop";
+        try
+        {
+            using (System.Drawing.Icon icon = System.Drawing.Icon.ExtractAssociatedIcon(exePath))
+            {
+                using (System.Drawing.Bitmap bitmap = icon.ToBitmap())
+                {
+                    using (System.IO.MemoryStream ms = new System.IO.MemoryStream())
+                    {
+                        bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                        byte[] byteImage = ms.ToArray();
+                        // Returns the Base64 string directly
+                        return "data:image/png;base64," + Convert.ToBase64String(byteImage);
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Fallback to a default generic icon URL or a FontAwesome class if you prefer
+            return "/images/default-app.png";
+        }
+    }
+
+    private string GetPathFromName(string appName)
+    {
+        try
+        {
+            // 1. Get the real process name (e.g., "Visual Studio" -> "devenv")
+            // Accessing the static dictionary from your other class:
+            var entry = AppUsageTracker._friendlyAppNames
+                .FirstOrDefault(x => x.Value.Equals(appName, StringComparison.OrdinalIgnoreCase));
+
+            // Fix the .Key error: if entry is default/null, use the appName as provided
+            string realProcessName = entry.Key ?? appName;
+
+            var cleanName = realProcessName.Replace(".exe", "", StringComparison.OrdinalIgnoreCase).Trim();
+
+            // 2. Try to find the running process
+            var process = Process.GetProcessesByName(cleanName).FirstOrDefault();
+            if (process != null)
+            {
+                try { return process.MainModule.FileName; }
+                catch { /* Access denied to MainModule */ }
+            }
+
+            // 3. Fallbacks (Hardcoded paths)
+            var lowerName = appName.ToLower();
+            if (lowerName.Contains("calculator")) return @"C:\Windows\System32\calc.exe";
+            if (lowerName.Contains("explorer")) return @"C:\Windows\explorer.exe";
+            if (lowerName.Contains("chrome")) return @"C:\Program Files\Google\Chrome\Application\chrome.exe";
+
+            // Specific Fix for Visual Studio (devenv)
+            if (lowerName.Contains("visual studio"))
+                return @"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\devenv.exe";
+
+            // Specific Fix for Notepad++
+            if (lowerName.Contains("notepad++"))
+                return @"C:\Program Files\Notepad++\notepad++.exe";
+
+            return string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -651,16 +772,137 @@
         if (firstRender)
         {
             localStorageModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/localStorage.js");
+
+            // ONLY use App.first logic if permissions haven't been set yet
+            // LoadUserTrackingPermissions() should have already set the correct isOn state
             if (App.first)
             {
-                isOn = false;
-                await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
-                StopAll();
+                // Check if we already set isOn based on permissions
+                if (isManualTrackingAllowed == null && isAutoTrackingAllowed == null)
+                {
+                    // Permissions not loaded yet, use default
+                    Console.WriteLine("App.first is true and permissions not loaded - setting isOn = false");
+                    isOn = false;
+                    await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
+                    StopAll();
+                }
+                else
+                {
+                    Console.WriteLine($"\n========== OnAfterRenderAsync - App.first = true ==========");
+                    Console.WriteLine($"Permissions loaded: isManualTrackingAllowed={isManualTrackingAllowed}, isAutoTrackingAllowed={isAutoTrackingAllowed}");
+                    Console.WriteLine($"Current isOn state (from LoadUserTrackingPermissions): {isOn}");
+
+                    // Initialize localStorage with the permission-based state
+                    await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
+                    Console.WriteLine($"Synced localStorage with isOn={isOn}");
+
+                    Preferences.Set("IsOnState", isOn);
+                    Console.WriteLine($"Synced Preferences with isOn={isOn}");
+
+                    // Start appropriate tracking based on permissions
+                    if (isManualTrackingAllowed == true && isAutoTrackingAllowed != true)
+                    {
+                        // Case 1: Manual only - start manual tracking (isOn should be true)
+                        if (isOn)
+                        {
+                            Console.WriteLine("Case 1: Starting MANUAL tracking");
+                            StopAll();
+                            StartAll("manual");
+                        }
+                    }
+                    else if (isManualTrackingAllowed != true && isAutoTrackingAllowed == true)
+                    {
+                        // Case 2: Auto only - start automatic tracking
+                        Console.WriteLine("Case 2: Starting AUTOMATIC tracking");
+                        StopAll();
+                        StartAll("automatic");
+                    }
+                    else if (isManualTrackingAllowed == true && isAutoTrackingAllowed == true)
+                    {
+                        // Case 3: Both allowed - start based on isOn state
+                        Console.WriteLine($"Case 3: Checking isOn state - isOn={isOn}");
+                        if (isOn)
+                        {
+                            Console.WriteLine("Case 3: isOn=true - Switching to MANUAL tracking mode");
+                            StopAll();
+                            StartAll("manual");
+                        }
+                        else
+                        {
+                            Console.WriteLine("Case 3: isOn=false - Switching to AUTOMATIC tracking mode");
+                            StopAll();
+                            StartAll("automatic");
+                        }
+                    }
+                    else
+                    {
+                        // Case 4: No permissions - stop all
+                        Console.WriteLine("Case 4: Stopping all tracking");
+                        StopAll();
+                    }
+                    Console.WriteLine("===========================================================\n");
+                }
                 App.first = false;
             }
             else
             {
-                isOn = await localStorageModule.InvokeAsync<bool>("getIsOnState");
+                // For subsequent renders (when navigating back to page), preserve the tracking state
+                // DO NOT restart tracking here - let the existing tracking continue
+                // Only update the isOn state from localStorage for UI display
+
+                if (isManualTrackingAllowed == true && isAutoTrackingAllowed == true)
+                {
+                    // Case 3: Both allowed - read from Preferences (more reliable than localStorage for MAUI)
+                    isOn = Preferences.Get("IsOnState", false); // Default to false (automatic) for fresh login
+                    Console.WriteLine($"Case 3: Restoring state from Preferences - isOn={isOn}");
+
+                    // Also sync to localStorage for web compatibility
+                    await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
+                }
+                else if (isManualTrackingAllowed == true && isAutoTrackingAllowed != true)
+                {
+                    // Case 1: Manual only - read from Preferences
+                    isOn = Preferences.Get("IsOnState", true); // Default to true if not set
+                    Console.WriteLine($"Case 1: Restoring state from Preferences - isOn={isOn}");
+
+                    // Also sync to localStorage
+                    await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
+
+                    // Only start/stop tracking if this is truly a fresh start (not just page navigation)
+                    // Check if tracking services are already running
+                    if (isOn)
+                    {
+                        // User wants manual tracking ON
+                        Console.WriteLine("Case 1: Ensuring manual tracking is running");
+                        // Don't call StopAll/StartAll here as it will interrupt existing tracking
+                        // Only start if not already running (first time after login)
+                        if (App.first)
+                        {
+                            StartAll("manual");
+                        }
+                    }
+                    else
+                    {
+                        // User wants tracking OFF
+                        Console.WriteLine("Case 1: Ensuring tracking is stopped");
+                        if (App.first)
+                        {
+                            StopAll();
+                        }
+                    }
+                }
+                else if (isManualTrackingAllowed != true && isAutoTrackingAllowed == true)
+                {
+                    // Case 2: Auto only - force OFF (button hidden, auto tracking runs)
+                    isOn = false;
+                    Console.WriteLine("Case 2: Auto tracking only - button hidden (tracking continues in background)");
+                }
+                else
+                {
+                    // Case 4: No permissions - OFF
+                    isOn = false;
+                    Console.WriteLine("Case 4: No permissions - button hidden");
+                }
                 StateHasChanged();
             }
 
@@ -766,7 +1008,7 @@
         await LoadDataAsync(userId);
         await LoadAppUsageData();
         await LoadAfkDataAsync(userId);
-       await LoadCheckinTime(userId);
+        await LoadCheckinTime(userId);
         await UpdateChart();
 
         StateHasChanged();
@@ -786,18 +1028,179 @@
 
     private async Task OnToggleStateClicked()
     {
-        isOn = !isOn;
-        await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
-        Preferences.Set("IsOnState", isOn);
-        string startMode = isOn ? "manual" : "automatic";
-        if (isOn)
-            StartAll(startMode);
-        else
-            StopAll();
+        // SuperAdmin should NOT have any tracking (neither manual nor automatic)
+        if (userRole?.ToLower() == "superadmin")
+        {
+            Console.WriteLine("SuperAdmin cannot use tracking - SuperAdmin only views tracked admins and users");
+            return;
+        }
+
+        // Case 1: ONLY manual tracking allowed - Allow toggle ON/OFF
+        if (isManualTrackingAllowed == true && isAutoTrackingAllowed != true)
+        {
+            isOn = !isOn;
+            await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
+            Preferences.Set("IsOnState", isOn);
+
+            if (isOn)
+            {
+                // Turn ON manual tracking - Create NEW manual entry
+                Console.WriteLine("Case 1: Starting manual tracking (ON) - Creating new manual entry");
+                StopAll();
+                StartAll("manual");
+            }
+            else
+            {
+                // Turn OFF tracking - End current manual entry (set IsActive = false)
+                Console.WriteLine("Case 1: Stopping manual tracking (OFF) - Ending current manual entry");
+                StopAll();
+                await UserService.EndDailyTrackerAsync();
+            }
+            StateHasChanged();
+            return;
+        }
+
+        // Case 2: ONLY auto tracking allowed - Should not reach here (button hidden)
+        if (isManualTrackingAllowed != true && isAutoTrackingAllowed == true)
+        {
+            Console.WriteLine("Case 2: Toggle clicked but button should be hidden for auto-only mode");
+            return;
+        }
+
+        // Case 3: BOTH permissions granted - Allow toggle between manual and automatic
+        if (isManualTrackingAllowed == true && isAutoTrackingAllowed == true)
+        {
+            bool oldState = isOn;
+            isOn = !isOn;
+            Console.WriteLine($"Case 3: Toggle clicked - Changing isOn from {oldState} to {isOn}");
+
+            await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
+            Preferences.Set("IsOnState", isOn);
+
+            // Verify it was saved
+            bool savedValue = Preferences.Get("IsOnState", false);
+            Console.WriteLine($"Case 3: Verified Preferences saved value = {savedValue}");
+
+            if (isOn)
+            {
+                // Switching to manual tracking
+                Console.WriteLine("Case 3: Switching to manual tracking mode");
+                StopAll();
+                StartAll("manual");
+            }
+            else
+            {
+                // Switching to automatic tracking
+                Console.WriteLine("Case 3: Switching to automatic tracking mode");
+                StopAll();
+                StartAll("automatic");
+            }
+            StateHasChanged();
+            return;
+        }
+
+        // Case 4: No permissions - Should not reach here (button hidden)
+        Console.WriteLine("Case 4: Toggle clicked but no permissions granted");
+    }
+
+    private bool IsTrackingButtonDisabled()
+    {
+        // SuperAdmin: button disabled (they don't track)
+        if (userRole?.ToLower() == "superadmin")
+            return true;
+
+        // Case 1: ONLY manual tracking allowed → ENABLED (can toggle ON/OFF)
+        if (isManualTrackingAllowed == true && isAutoTrackingAllowed != true)
+            return false;
+
+        // Case 2: ONLY auto tracking allowed → Button should be hidden, not shown
+        if (isManualTrackingAllowed != true && isAutoTrackingAllowed == true)
+            return true;
+
+        // Case 3: BOTH allowed → ENABLED (can toggle between manual and automatic)
+        if (isManualTrackingAllowed == true && isAutoTrackingAllowed == true)
+            return false;
+
+        // Case 4: NO permissions → DISABLED (button shouldn't even be visible)
+        return true;
+    }
+
+    private bool ShouldShowTrackingButton()
+    {
+        Console.WriteLine($"ShouldShowTrackingButton called - userRole: {userRole}, userId: {userId}, loggedInUserId: {loggedInUserId}");
+        Console.WriteLine($"isManualTrackingAllowed: {isManualTrackingAllowed}, isAutoTrackingAllowed: {isAutoTrackingAllowed}");
+
+        // Don't show for SuperAdmin
+        if (userRole?.ToLower() == "superadmin")
+        {
+            Console.WriteLine("Returning false: User is SuperAdmin");
+            return false;
+        }
+
+        // Don't show when viewing other users (when admin selects from dropdown)
+        // Only show when viewing own account (userId == loggedInUserId)
+        if (userId == 0 || userId != loggedInUserId)
+        {
+            Console.WriteLine($"Returning false: userId ({userId}) is 0 or not equal to loggedInUserId ({loggedInUserId})");
+            return false;
+        }
+
+        // Case 1: Only manual tracking allowed - Show button (can toggle ON/OFF)
+        if (isManualTrackingAllowed == true && isAutoTrackingAllowed != true)
+        {
+            Console.WriteLine("Returning true: Case 1 - Manual tracking only (toggleable ON/OFF)");
+            return true;
+        }
+
+        // Case 2: Only auto tracking allowed - Hide button (automatic only)
+        if (isManualTrackingAllowed != true && isAutoTrackingAllowed == true)
+        {
+            Console.WriteLine("Returning false: Case 2 - Auto tracking only (button hidden)");
+            return false;
+        }
+
+        // Case 3: Both manual and auto tracking allowed - Show button (toggleable)
+        if (isManualTrackingAllowed == true && isAutoTrackingAllowed == true)
+        {
+            Console.WriteLine("Returning true: Case 3 - Both tracking modes allowed");
+            return true;
+        }
+
+        // Case 4: No tracking permissions - Don't show button
+        Console.WriteLine("Returning false: Case 4 - No tracking permissions");
+        return false;
+    }
+
+    private string GetTrackingTooltip()
+    {
+        if (userRole?.ToLower() == "superadmin")
+            return "SuperAdmin cannot use tracking";
+
+        // Case 1: When viewing own account with ONLY manual tracking permission
+        if (isManualTrackingAllowed == true && isAutoTrackingAllowed != true)
+            return isOn ? "Click to stop tracking" : "Click to start manual tracking";
+
+        // Case 2: When viewing own account with ONLY auto tracking permission
+        if (isManualTrackingAllowed != true && isAutoTrackingAllowed == true)
+            return "Automatic tracking is running";
+
+        // Case 3: When BOTH permissions allowed
+        if (isManualTrackingAllowed == true && isAutoTrackingAllowed == true)
+            return isOn ? "Click to switch to automatic tracking" : "Click to switch to manual tracking";
+
+        // Case 4: No permissions
+        return "No tracking permissions - Contact SuperAdmin";
     }
 
     private async Task StartAll(string startMode)
     {
+        // SuperAdmin should NOT be tracked - only displays admins and users under them
+        if (userRole?.ToLower() == "superadmin")
+        {
+            Console.WriteLine("SuperAdmin detected - Skipping ALL tracking (automatic/manual) for SuperAdmin user");
+            return;
+        }
+
         try
         {
             appUsageTrackerService.Start(startMode);
@@ -873,7 +1276,8 @@
             Console.WriteLine($"Error stopping AfkTrackerService: {ex.Message}");
         }
 
-        await StartAll("automatic");
+        // Removed automatic StartAll call - let the caller decide what to start
+        // await StartAll("automatic");
     }
 
     protected override async Task OnInitializedAsync()
@@ -909,8 +1313,44 @@
             }
         }
 
-        if (UserStateService.UserId > 0)
+        // Load user's tracking permissions from database (with caching)
+        await LoadUserTrackingPermissions();
+
+        // Restore state from UserStateService if available (preserves selections across navigation)
+        if (!string.IsNullOrEmpty(UserStateService.SelectedAdminUsername))
         {
+            selectedAdminUsername = UserStateService.SelectedAdminUsername;
+            admins = UserStateService.Admins;
+
+            if (!string.IsNullOrEmpty(UserStateService.SelectedUsername))
+            {
+                selectedUsername = UserStateService.SelectedUsername;
+                userId = UserStateService.UserId;
+                selectedUsageType = UserStateService.SelectedUsageType;
+                selectedDate = UserStateService.SelectedDate;
+                users = UserStateService.Users;
+
+                // Load data for the restored selection
+                await LoadDataAsync(this.userId);
+                await LoadAppUsageData();
+                await LoadAfkDataAsync(this.userId);
+                await LoadCheckinTime(userId);
+                await UpdateChart();
+            }
+            else if (admins != null && admins.Any())
+            {
+                // If admin is selected but no user, load users for that admin
+                selectedAdmin = admins.FirstOrDefault(a => a.username == selectedAdminUsername);
+                if (selectedAdmin != null)
+                {
+                    users = await UserService.GetAllUsersByAdminAsync(selectedAdmin.id, "admin");
+                    UserStateService.Users = users;
+                }
+            }
+        }
+        else if (UserStateService.UserId > 0 && UserStateService.Users != null && UserStateService.Users.Any())
+        {
+            Console.WriteLine($"Using UserStateService - UserId: {UserStateService.UserId}, SelectedUsername: {UserStateService.SelectedUsername}");
             this.userId = UserStateService.UserId;
             this.selectedUsername = UserStateService.SelectedUsername;
             this.selectedAdminUsername = UserStateService.SelectedAdminUsername;
@@ -923,7 +1363,7 @@
             await LoadDataAsync(this.userId);
             await LoadAppUsageData();
             await LoadAfkDataAsync(this.userId);
-             await LoadCheckinTime(userId);
+            await LoadCheckinTime(userId);
             await UpdateChart();
 
         }
@@ -931,7 +1371,9 @@
         {
             if (isAdmin && userRole?.ToLower() == "superadmin")
             {
-                admins = await UserService.GetAdminsWithUsersAsync(loggedInUserId);
+                var allAdmins = await UserService.GetAdminsWithUsersAsync(loggedInUserId);
+                // Filter out SuperAdmin users from the list - only show regular Admins
+                admins = allAdmins?.Where(a => a.role?.ToLower() != "superadmin").ToList();
                 UserStateService.Admins = admins;
                 isChartLoading = false;
                 isAppUsageLoading = false;
@@ -939,8 +1381,52 @@
             }
             else if (isAdmin)
             {
+                Console.WriteLine($"\n========== ADMIN LOGIN BLOCK ==========");
+                Console.WriteLine($"Admin login - this.userId: {this.userId}, UserName: {UserName}, loggedInUserId: {loggedInUserId}");
                 users = await UserService.GetAllUsersByAdminAsync(this.userId, userRole);
                 UserStateService.Users = users;
+
+                // Check if there's a previously saved user selection for this admin
+                if (!string.IsNullOrEmpty(UserStateService.SelectedUsername) &&
+                    users.Any(u => u.username == UserStateService.SelectedUsername))
+                {
+                    // Restore the previously selected user
+                    selectedUsername = UserStateService.SelectedUsername;
+                    var restoredUser = users.FirstOrDefault(u => u.username == selectedUsername);
+                    if (restoredUser != null)
+                    {
+                        this.userId = restoredUser.id;
+                        UserStateService.UserId = this.userId;
+                        Console.WriteLine($"Restored user selection: {selectedUsername} (ID: {this.userId})");
+                    }
+                }
+                else
+                {
+                    // No saved selection or saved user not found, default to admin's own account
+                    selectedUsername = UserName;
+                    UserStateService.SelectedUsername = selectedUsername;
+
+                    // CRITICAL: Ensure userId is set to loggedInUserId for admin's own account
+                    if (this.userId == 0 || this.userId != loggedInUserId)
+                    {
+                        this.userId = loggedInUserId;
+                        UserStateService.UserId = this.userId;
+                        Console.WriteLine($"Defaulting to admin's own account - userId: {this.userId}");
+                    }
+                }
+
+                Console.WriteLine($"After setting - userId: {this.userId}, selectedUsername: {selectedUsername}, loggedInUserId: {loggedInUserId}");
+                Console.WriteLine($"isManualTrackingAllowed: {isManualTrackingAllowed}, isAutoTrackingAllowed: {isAutoTrackingAllowed}");
+                Console.WriteLine($"ShouldShowTrackingButton(): {ShouldShowTrackingButton()}");
+                Console.WriteLine($"========================================\n");
+
+                // Load data for the selected user (or admin's own data)
+                await LoadDataAsync(this.userId);
+                await LoadAppUsageData();
+                await LoadAfkDataAsync(this.userId);
+                await LoadCheckinTime(this.userId);
+                await UpdateChart();
+
                 isChartLoading = false;
                 isAppUsageLoading = false;
                 isAfkDataLoading = false;
@@ -963,6 +1449,23 @@
         try
         {
             totalAfkMinutes = await UserService.GetAfkLogsTotalAsync(id, selectedDate, userRole, selectedUsageType);
+
+            // UPDATE CHART: For the selected date, use the correct AFK value and recalculate active time
+            string selectedDateStr = selectedDate.ToString("yyyy-MM-dd");
+            int selectedDateIndex = labels.FindIndex(l => l == selectedDateStr);
+            if (selectedDateIndex >= 0)
+            {
+                // Update AFK data with the correct value from AfkLogs
+                if (selectedDateIndex < afkData.Count)
+                {
+                    afkData[selectedDateIndex] = totalAfkMinutes;
+                }
+                // Recalculate active time: Total - AFK
+                if (selectedDateIndex < activeData.Count)
+                {
+                    activeData[selectedDateIndex] = Math.Max(0, totalTimeInMinutes - totalAfkMinutes);
+                }
+            }
         }
         finally
         {
@@ -979,7 +1482,7 @@
 
             if (startTracker.HasValue)
             {
-          
+
                 CheckinTime = startTracker.Value.ToLocalTime().ToString("hh:mm tt");
             }
             else
@@ -991,6 +1494,94 @@
         {
             Console.WriteLine($"Error loading check-in time: {ex}");
             LoginTime = "Error loading time";
+        }
+    }
+
+    private async Task LoadUserTrackingPermissions()
+    {
+        try
+        {
+            // DISABLED CACHE FOR DEBUGGING - Always fetch from database
+            // string cacheKey = $"TrackingPermissions_{loggedInUserId}";
+            // string cachedData = Preferences.Get(cacheKey, null);
+
+            // if (!string.IsNullOrEmpty(cachedData))
+            // {
+            //     // Use cached data
+            //     var parts = cachedData.Split(',');
+            //     if (parts.Length == 2)
+            //     {
+            //         isManualTrackingAllowed = bool.Parse(parts[0]);
+            //         isAutoTrackingAllowed = bool.Parse(parts[1]);
+            //         Console.WriteLine($"Using cached tracking permissions - Manual: {isManualTrackingAllowed}, Auto: {isAutoTrackingAllowed}");
+            //     }
+            // }
+            // else
+            // {
+            // Fetch from database
+            Console.WriteLine($"Fetching permissions from database for userId: {loggedInUserId}");
+            var currentUser = await UserService.GetUserByIdAsync(loggedInUserId);
+            if (currentUser != null)
+            {
+                isManualTrackingAllowed = currentUser.isManualTrackingEnabled;
+                isAutoTrackingAllowed = currentUser.isAutoTrackingEnabled;
+
+                Console.WriteLine($"Database values - isManualTrackingEnabled: {currentUser.isManualTrackingEnabled}, isAutoTrackingEnabled: {currentUser.isAutoTrackingEnabled}");
+                Console.WriteLine($"Assigned values - isManualTrackingAllowed: {isManualTrackingAllowed}, isAutoTrackingAllowed: {isAutoTrackingAllowed}");
+
+                // Cache the permissions
+                // string cacheKey = $"TrackingPermissions_{loggedInUserId}";
+                // Preferences.Set(cacheKey, $"{isManualTrackingAllowed},{isAutoTrackingAllowed}");
+
+                Console.WriteLine($"Fetched from DB - User {loggedInUserId} tracking permissions - Manual: {isManualTrackingAllowed}, Auto: {isAutoTrackingAllowed}");
+            }
+            else
+            {
+                Console.WriteLine($"ERROR: currentUser is null for userId: {loggedInUserId}");
+            }
+            // }
+
+            // Set initial tracking state based on permissions
+            // NOTE: Don't call localStorageModule here - it's not initialized yet in OnInitializedAsync
+            // localStorage and StartAll will be handled in OnAfterRenderAsync
+            if (isManualTrackingAllowed == true && isAutoTrackingAllowed != true)
+            {
+                // Case 1: ONLY Manual tracking allowed - Start with ON, user can toggle ON/OFF
+                Console.WriteLine("Case 1: Manual tracking only - Setting isOn = true (user can toggle ON/OFF)");
+                isOn = true;
+            }
+            else if (isManualTrackingAllowed != true && isAutoTrackingAllowed == true)
+            {
+                // Case 2: ONLY Auto tracking allowed - Start automatic tracking
+                Console.WriteLine("Case 2: Auto tracking only - Setting isOn = false (button hidden, auto runs)");
+                isOn = false;
+            }
+            else if (isManualTrackingAllowed == true && isAutoTrackingAllowed == true)
+            {
+                // Case 3: BOTH allowed - Read from Preferences to preserve state across navigation
+                // After logout, Preferences is cleared, so it will default to false (OFF/automatic)
+                bool savedState = Preferences.Get("IsOnState", false); // Default to false (automatic) for fresh login
+                Console.WriteLine($"Case 3: LoadUserTrackingPermissions - Read from Preferences: isOn={savedState}");
+                isOn = savedState; // Use the saved state (or false if cleared)
+
+                // IMPORTANT: Also sync to localStorage to ensure NavMenu reads the correct value
+                // This prevents NavMenu from showing wrong state after logout+login
+                // We'll set it in OnAfterRenderAsync when localStorageModule is available
+            }
+            else
+            {
+                // Case 4: NO permissions - OFF (button hidden)
+                Console.WriteLine("Case 4: No tracking permissions - Setting isOn = false (button hidden)");
+                isOn = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading user tracking permissions: {ex.Message}");
+            // Default to false if we can't load permissions
+            isManualTrackingAllowed = false;
+            isAutoTrackingAllowed = false;
+            isOn = false;
         }
     }
 
@@ -1116,14 +1707,22 @@
             afkTrackerService.Stop();
             await UserService.EndDailyTrackerAsync();
         }
+
+        // Clear the tracking state so next login starts fresh
+        Preferences.Remove("IsOnState");
+        await localStorageModule.InvokeVoidAsync("setIsOnState", false);
+
         await UserService.EndDailyTrackerAsync();
         SecureStorage.Remove("auth_token");
         Preferences.Set("authToken", null);
 
         // This logic is correct for clearing the state in User.razor:
         App.SelectedUserId = 0;
+        App.SelectedUsername = string.Empty;
+        App.SelectedAdminUsername = string.Empty;
+        App.selectedUsageType = "all";
 
-        // Clear all state related to selected users/admins
+        // Clear all state related to selected users/admins (RESET ON LOGOUT)
         selectedAdminUsername = null;
         UserStateService.SelectedAdminUsername = null;
         selectedAdmin = null;
@@ -1133,6 +1732,12 @@
         selectedUser = null;
         userId = 0;
         UserStateService.UserId = 0;
+
+        selectedUsageType = "all";
+        UserStateService.SelectedUsageType = "all";
+
+        selectedDate = DateTime.Today;
+        UserStateService.SelectedDate = DateTime.Today;
 
         // Ensure app/chart data is also cleared for visual feedback
         appUsageList = null;
@@ -1162,14 +1767,22 @@
             afkTrackerService.Stop();
             await UserService.EndDailyTrackerAsync();
         }
+
+        // Clear the tracking state so next login starts fresh
+        Preferences.Remove("IsOnState");
+        await localStorageModule.InvokeVoidAsync("setIsOnState", false);
+
         await UserService.EndDailyTrackerAsync();
         SecureStorage.Remove("auth_token");
         Preferences.Set("authToken", null);
 
         // This logic is correct for clearing the state in User.razor:
         App.SelectedUserId = 0;
+        App.SelectedUsername = string.Empty;
+        App.SelectedAdminUsername = string.Empty;
+        App.selectedUsageType = "all";
 
-        // Clear all state related to selected users/admins
+        // Clear all state related to selected users/admins (RESET ON LOGOUT)
         selectedAdminUsername = null;
         UserStateService.SelectedAdminUsername = null;
         selectedAdmin = null;
@@ -1179,6 +1792,12 @@
         selectedUser = null;
         userId = 0;
         UserStateService.UserId = 0;
+
+        selectedUsageType = "all";
+        UserStateService.SelectedUsageType = "all";
+
+        selectedDate = DateTime.Today;
+        UserStateService.SelectedDate = DateTime.Today;
 
         // Ensure app/chart data is also cleared for visual feedback
         appUsageList = null;
@@ -1237,6 +1856,19 @@
             afkData = appUsageData.Select(x => x.AfkDurationInMinutes).ToList();
             activeData = appUsageData.Select(x => x.ActiveDurationInMinutes).ToList();
 
+            // OVERRIDE: For the selected date, use the same aggregate data as the summary cards
+            string selectedDateStr = selectedDate.ToString("yyyy-MM-dd");
+            int selectedDateIndex = labels.FindIndex(l => l == selectedDateStr);
+            if (selectedDateIndex >= 0)
+            {
+                // Replace chart data with aggregate values for the selected date
+                totalData[selectedDateIndex] = totalTimeInMinutes;
+                // Active time = Total - AFK (will be updated after LoadAfkDataAsync completes)
+                // For now, calculate with current afkData value or 0 if not loaded yet
+                double afkForSelectedDate = selectedDateIndex < afkData.Count ? afkData[selectedDateIndex] : 0;
+                activeData[selectedDateIndex] = Math.Max(0, totalTimeInMinutes - afkForSelectedDate);
+            }
+
             // Set the flag to indicate data is ready for charting
             chartDataReady = true;
         }
@@ -1260,12 +1892,14 @@
     {
         UserStateService.SelectedUsername = e.Value?.ToString();
         selectedUsername = UserStateService.SelectedUsername;
-        selectedUser = users.FirstOrDefault(u => u.username == selectedUsername);
 
-        if (selectedUser != null)
+        Console.WriteLine($"OnSelectedUserChanged - selectedUsername: {selectedUsername}, loggedInUserId: {loggedInUserId}");
+
+        // Check if admin selected "Self"
+        if (selectedUsername == UserName)
         {
-            App.SelectedUserId = selectedUser.id;
-            userId = selectedUser.id;
+            Console.WriteLine("Admin selected Self - showing their own data");
+            userId = loggedInUserId;
             UserStateService.UserId = userId;
             LoginTime = await UserService.GetUserLoginTimeFormattedAsync(userId);
 
@@ -1279,12 +1913,34 @@
         }
         else
         {
-            App.SelectedUserId = 0;
-            userId = 0;
-            UserStateService.UserId = 0;
-            appUsageList = null;
-            appTitleList = null;
-            UserStateService.SelectedUsername = null;
+            selectedUser = users.FirstOrDefault(u => u.username == selectedUsername);
+
+            if (selectedUser != null)
+            {
+                Console.WriteLine($"Selected other user: {selectedUser.username}, ID: {selectedUser.id}");
+                App.SelectedUserId = selectedUser.id;
+                userId = selectedUser.id;
+                UserStateService.UserId = userId;
+                LoginTime = await UserService.GetUserLoginTimeFormattedAsync(userId);
+
+                await Task.WhenAll(
+                    LoadDataAsync(userId),
+                    LoadAppUsageData(),
+                    LoadAfkDataAsync(userId),
+                    LoadCheckinTime(userId)
+                );
+                await UpdateChart();
+            }
+            else
+            {
+                Console.WriteLine("No user selected or user not found");
+                App.SelectedUserId = 0;
+                userId = 0;
+                UserStateService.UserId = 0;
+                appUsageList = null;
+                appTitleList = null;
+                UserStateService.SelectedUsername = null;
+            }
         }
         StateHasChanged();
     }

@@ -11,7 +11,7 @@
 @inject AfkTrackerService afkTrackerService
 @inject SystemThemeService SystemThemeService
 @inject AppUsageTracker appUsageTrackerService
-
+@using Microsoft.AspNetCore.Components.Routing
 <div class="stitch-header">
     <h3 class="stitch-heading">
         Welcome @UserName
@@ -138,6 +138,11 @@
             afkTrackerService.Stop();
             await UserService.EndDailyTrackerAsync();
         }
+        
+        // Clear the tracking state so next login starts fresh
+        Preferences.Remove("IsOnState");
+        await localStorageModule.InvokeVoidAsync("setIsOnState", false);
+        
         await UserService.EndDailyTrackerAsync();
         SecureStorage.Remove("auth_token");
         Preferences.Set("authToken", null);

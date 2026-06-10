@@ -7,14 +7,24 @@ namespace ScreenTracker1;
 public partial class App : Application
 {
 
-    public static string BaseUrl { get; set; } = "http://localhost:5011";
+    //public static string BaseUrl { get; set; } = "http://localhost:5011";
+    //http://10.0.3.109:99/api/user/allUsers
+    //public static string BaseUrl { get; set; } = "http://10.0.3.109:99";
     //http://10.0.3.64:99/api/user/allUsers
-    //public static string BaseUrl { get; set; } = "http://10.0.3.64:99";
+    //http://10.0.3.68:99/api/user/allUsers
+    //public static string BaseUrl { get; set; } = "http://10.0.3.68:99";
+    //http://screentracker.walstargroup.org/api/user/allUsersa
+    //public static string BaseUrl { get; set; } = "http://screentracker.walstargroup.org";
+
+    public static string BaseUrl { get; set; } = "http://10.0.3.55:90";
+
+
     public static string ImgURL { get; set; } = $"{BaseUrl}/uploads/";
 
 
     public static bool first { get; set; } = true;
     public static string URL { get; set; } = $"{App.BaseUrl}/api/";
+ 
    
     public static int SelectedUserId { get; set; } = 0;
     public static string SelectedUsername { get; set; } = string.Empty;

@@ -1,14 +1,21 @@
 ﻿@page "/settings"
 @inject UserService UserService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 @using ScreenTracker1.Models
 @using ScreenTracker1.Services
 @using System.IdentityModel.Tokens.Jwt
 @using Microsoft.Maui.Storage
 @using System.Security.Claims
+@using Microsoft.AspNetCore.WebUtilities
+@using NEvaldas.Blazor.Select2
 
 <div class="settings-container">
     <div class="settings-header">
+        <button @onclick="GoBack" class="btn btn-outline-secondary me-3">
+            <i class="fa-solid fa-arrow-left me-2"></i>
+            Back
+        </button>
         <h1>User Management</h1>
     </div>
 
@@ -16,26 +23,53 @@
     {
         <div class="admin-selection mb-3">
             <label>Select Admin:</label>
-            <select class="form-select" @onchange="OnAdminChanged" value="@selectedAdminId">
+            <select id="admin-select" class="form-select select2-dropdown" @onchange="OnAdminChanged" value="@selectedAdminId">
                 <option value="">--Select Admin--</option>
-                @foreach (var admin in admins)
+                @foreach (var admin in admins?.Where(a => a.role?.ToLower() != "superadmin"))
                 {
                     <option value="@admin.id">@admin.username</option>
+                }
+            </select>
+        </div>
+
+        @if (selectedAdminId.HasValue && users != null && users.Count > 0)
+        {
+            <div class="user-selection mb-3">
+                <label>Select User:</label>
+                <select id="user-select" class="form-select select2-dropdown" @onchange="OnUserChanged" value="@selectedUserId">
+                    <option value="">--Select User--</option>
+                    @foreach (var user in users)
+                    {
+                        <option value="@user.id">@user.username</option>
+                    }
+                </select>
+            </div>
+        }
+    }
+    else if (isAdmin && users != null && users.Count > 0)
+    {
+        <div class="user-selection mb-3">
+            <label>Select User:</label>
+            <select id="user-select" class="form-select select2-dropdown" @onchange="OnUserChanged" value="@selectedUserId">
+                <option value="">--Select User--</option>
+                @foreach (var user in users)
+                {
+                    <option value="@user.id">@user.username</option>
                 }
             </select>
         </div>
     }
 
     <div class="user-management-card">
-        <div class="search-container mb-3">
-            <input type="text" style="width:24%"
-                   class="form-control search-input"
-                   placeholder="Search by username..."
-                   @bind-value="searchTerm" />
-            <button class="btn btn-primary" @onclick="HandleSearch">
-                Search
-            </button>
-        </div>
+      @*    <div class="search-container mb-3">
+             <input type="text" style="width:24%"
+                    class="form-control search-input"
+                    placeholder="Search by username..."
+                    @bind-value="searchTerm" />
+             <button class="btn btn-primary" @onclick="HandleSearch">
+                 Search
+             </button>
+         </div> *@
 
         @if (isLoading)
         {
@@ -60,24 +94,35 @@
                 <table class="users-table" @key="CurrentPage">
                     <thead>
                         <tr>
-                            <th class="text-center table-headers">Username</th>
-                            <th class="text-center table-headers">Delete Authorization</th>
+                            <th class="text-start table-headers">Username</th>
+                            <th class="text-center table-headers">Manual Tracking</th>
+                            <th class="text-center table-headers">Auto Tracking</th>
                             <th class="text-center table-headers">Active Status</th>
-                            <th class="text-center table-headers">Delete</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var user in CurrentPageUsers)
                         {
                             <tr class="user-row">
-                                <td class="user-info">
-                                    <div class="user-avatar">@user.username[0].ToString().ToUpper()</div>
-                                    <span class="username span-color">@user.username</span>
+                                <td class="settings-username-cell">
+                                    <div class="settings-user-info">
+                                        <div class="settings-user-avatar">@GetUsernameInitial(user.username)</div>
+                                        <span class="settings-username" title="@user.username">@user.username</span>
+                                    </div>
                                 </td>
                                 <td class="permission-cell">
                                     <label class="toggle-switch">
-                                        <input type="checkbox" checked="@user.isSelected"
-                                               @onchange="e => UpdateUserDeleteAuth(user, e)" />
+                                        <input type="checkbox" checked="@user.isManualTrackingEnabled"
+                                               @onchange="e => UpdateUserManualTrackingAuth(user, e)"
+                                               disabled="@(IsTrackingToggleDisabled(user))" />
+                                        <span class="toggle-slider span-color"></span>
+                                    </label>
+                                </td>
+                                <td class="permission-cell">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" checked="@user.isAutoTrackingEnabled"
+                                               @onchange="e => UpdateUserAutoTrackingAuth(user, e)"
+                                               disabled="@(IsTrackingToggleDisabled(user))" />
                                         <span class="toggle-slider span-color"></span>
                                     </label>
                                 </td>
@@ -87,11 +132,6 @@
                                                @onchange="e => UpdateUserActiveStatus(user, e)" />
                                         <span class="toggle-slider span-color"></span>
                                     </label>
-                                </td>
-                                <td>
-                                    <button class="btn btn-danger delete-button" @onclick="() => DeleteUser(user)">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
                                 </td>
                             </tr>
                         }
@@ -129,20 +169,29 @@
             }
 
             <div class="summary flex justify-between p-2 bg-gray-100 rounded-lg mt-4">
-                <span>Showing <b>@CurrentPageUsers.Count</b> of <b>@pagedUsers.Count</b> users</span>
             </div>
         }
     </div>
 </div>
 
 @code {
+    [SupplyParameterFromQuery]
+    public int? adminId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int? userId { get; set; }
+
     private List<User> pagedUsers = new();
+    private List<User> users = new();
+    private List<User> admins = new();
     private bool isLoading = true;
     private bool isAdmin = false;
     private bool isSuperAdmin = false;
-    private int userId;
+    private int currentUserId;
     private int? selectedAdminId;
-    private List<User> admins = new();
+    private int? selectedUserId;
+    private bool isSelect2AdminInitialized = false;
+    private bool isSelect2UserInitialized = false;
 
     private string searchTerm = string.Empty;
     private string currentUserRole;
@@ -177,7 +226,7 @@
 
                 var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
                 if (int.TryParse(userIdClaim, out int parsedUserId))
-                    userId = parsedUserId;
+                    currentUserId = parsedUserId;
 
                 currentUserRole = roleClaim;
             }
@@ -187,21 +236,198 @@
         {
             await LoadAdmins();
 
-            int persistedAdminId = Preferences.Get(SelectedAdminIdKey, 0);
-
-            if (persistedAdminId > 0 && admins.Any(a => a.id == persistedAdminId))
+            // Check if adminId is provided from query parameter (from Admin List edit button)
+            if (adminId.HasValue && adminId.Value > 0 && admins.Any(a => a.id == adminId.Value))
             {
-                selectedAdminId = persistedAdminId;
+                selectedAdminId = adminId.Value;
+                Preferences.Set(SelectedAdminIdKey, adminId.Value);
                 await LoadUsers();
+                
+                // After loading users, check if userId is also provided
+                if (userId.HasValue && userId.Value > 0)
+                {
+                    selectedUserId = userId.Value;
+                    
+                    // Filter to show only the selected user/admin
+                    var selectedUser = users.FirstOrDefault(u => u.id == userId.Value);
+                    if (selectedUser != null)
+                    {
+                        pagedUsers = new List<User> { selectedUser };
+                        CurrentPage = 1;
+                        Console.WriteLine($"Auto-selected user/admin {userId.Value} from query parameter");
+                    }
+                }
             }
             else
             {
-                isLoading = false;
+                // Fall back to persisted selection
+                int persistedAdminId = Preferences.Get(SelectedAdminIdKey, 0);
+
+                if (persistedAdminId > 0 && admins.Any(a => a.id == persistedAdminId))
+                {
+                    selectedAdminId = persistedAdminId;
+                    await LoadUsers();
+                    
+                    // After loading users, check if userId is also provided
+                    if (userId.HasValue && userId.Value > 0)
+                    {
+                        selectedUserId = userId.Value;
+                        
+                        // Filter to show only the selected user/admin
+                        var selectedUser = users.FirstOrDefault(u => u.id == userId.Value);
+                        if (selectedUser != null)
+                        {
+                            pagedUsers = new List<User> { selectedUser };
+                            CurrentPage = 1;
+                            Console.WriteLine($"Auto-selected user/admin {userId.Value} from persisted admin load");
+                        }
+                    }
+                }
+                else
+                {
+                    isLoading = false;
+                }
             }
         }
         else
         {
             await LoadUsers();
+            
+            // For admin role, check if userId is provided and select that user
+            if (userId.HasValue && userId.Value > 0)
+            {
+                selectedUserId = userId.Value;
+                var specificUser = users.FirstOrDefault(u => u.id == userId.Value);
+                if (specificUser != null)
+                {
+                    pagedUsers = new List<User> { specificUser };
+                    CurrentPage = 1;
+                    Console.WriteLine($"Auto-selected user {userId.Value} from query parameter for admin");
+                }
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender || !isSelect2AdminInitialized)
+        {
+            try
+            {
+                // Initialize Select2 for Admin dropdown (SuperAdmin only)
+                if (isSuperAdmin && admins != null && admins.Any())
+                {
+                    var dotNetRef = DotNetObjectReference.Create(this);
+                    await JSRuntime.InvokeVoidAsync("initializeSelect2", "admin-select", dotNetRef);
+                    isSelect2AdminInitialized = true;
+                    Console.WriteLine("Admin Select2 initialized");
+                    
+                    // If a specific admin was selected via query parameter, set the Select2 value
+                    if (selectedAdminId.HasValue)
+                    {
+                        // Small delay to ensure Select2 is fully initialized before setting value
+                        await Task.Delay(100);
+                        await JSRuntime.InvokeVoidAsync("setSelect2Value", "admin-select", selectedAdminId.Value.ToString());
+                        Console.WriteLine($"Set admin Select2 value to: {selectedAdminId.Value}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing Admin Select2: {ex.Message}");
+            }
+        }
+
+        // Initialize Select2 for User dropdown when users are loaded
+        if (users != null && users.Count > 0 && !isSelect2UserInitialized)
+        {
+            try
+            {
+                var dotNetRef = DotNetObjectReference.Create(this);
+                await JSRuntime.InvokeVoidAsync("initializeSelect2", "user-select", dotNetRef);
+                isSelect2UserInitialized = true;
+                Console.WriteLine("User Select2 initialized");
+                
+                // If a specific user was selected via query parameter, set the Select2 value
+                if (selectedUserId.HasValue)
+                {
+                    // Small delay to ensure Select2 is fully initialized before setting value
+                    await Task.Delay(100);
+                    await JSRuntime.InvokeVoidAsync("setSelect2Value", "user-select", selectedUserId.Value.ToString());
+                    Console.WriteLine($"Set user Select2 value to: {selectedUserId.Value}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing User Select2: {ex.Message}");
+            }
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    [JSInvokable]
+    public async Task OnSelect2Changed(string elementId, string value)
+    {
+        Console.WriteLine($"Select2 changed: {elementId} = {value}");
+
+        if (elementId == "admin-select")
+        {
+            if (int.TryParse(value, out int adminId))
+            {
+                selectedAdminId = adminId;
+                selectedUserId = null;
+                Preferences.Set(SelectedAdminIdKey, adminId);
+
+                // Load users for selected admin
+                users = await UserService.GetAllUsersByAdminAsyncforsetting(adminId, "user", searchTerm) ?? new List<User>();
+                pagedUsers = new List<User>(users);
+                CurrentPage = 1;
+                isLoading = false;
+
+                // Reset User Select2 to reinitialize with new data
+                isSelect2UserInitialized = false;
+                StateHasChanged();
+            }
+            else
+            {
+                selectedAdminId = null;
+                selectedUserId = null;
+                users = new List<User>();
+                pagedUsers = new List<User>();
+                Preferences.Remove(SelectedAdminIdKey);
+                CurrentPage = 1;
+                isLoading = false;
+                isSelect2UserInitialized = false;
+                StateHasChanged();
+            }
+        }
+        else if (elementId == "user-select")
+        {
+            if (int.TryParse(value, out int userId))
+            {
+                selectedUserId = userId;
+                // Filter to show only the selected user
+                var selectedUser = users.FirstOrDefault(u => u.id == userId);
+                if (selectedUser != null)
+                {
+                    pagedUsers = new List<User> { selectedUser };
+                }
+                else
+                {
+                    pagedUsers = new List<User>(users);
+                }
+                CurrentPage = 1;
+                StateHasChanged();
+            }
+            else
+            {
+                selectedUserId = null;
+                // Show all users for the selected admin (or all users for admin role)
+                pagedUsers = new List<User>(users);
+                CurrentPage = 1;
+                StateHasChanged();
+            }
         }
     }
 
@@ -209,25 +435,71 @@
     {
         if (!string.IsNullOrEmpty(currentUserRole))
         {
-            admins = await UserService.GetAllUsersByAdminAsync(userId, currentUserRole);
+            var allAdmins = await UserService.GetAllUsersByAdminAsync(currentUserId, currentUserRole);
+            // Filter out SuperAdmin users - only show regular Admins
+            admins = allAdmins?.Where(a => a.role?.ToLower() != "superadmin").ToList();
         }
     }
 
     private async Task OnAdminChanged(ChangeEventArgs e)
     {
+        // This method is kept for fallback, but Select2 will handle the change event
         if (int.TryParse(e.Value?.ToString(), out int adminId))
         {
             selectedAdminId = adminId;
+            selectedUserId = null;
             Preferences.Set(SelectedAdminIdKey, adminId);
-            await LoadUsers();
+    
+            // Load users for selected admin
+            users = await UserService.GetAllUsersByAdminAsyncforsetting(adminId, "user", searchTerm) ?? new List<User>();
+            pagedUsers = new List<User>(users);
+            CurrentPage = 1;
+            isLoading = false;
+    
+            // Reset User Select2 to reinitialize with new data
+            isSelect2UserInitialized = false;
+            StateHasChanged();
         }
         else
         {
             selectedAdminId = null;
-            Preferences.Remove(SelectedAdminIdKey);
+            selectedUserId = null;
+            users = new List<User>();
             pagedUsers = new List<User>();
+            Preferences.Remove(SelectedAdminIdKey);
             CurrentPage = 1;
             isLoading = false;
+            isSelect2UserInitialized = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task OnUserChanged(ChangeEventArgs e)
+    {
+        // This method is kept for fallback, but Select2 will handle the change event
+        if (int.TryParse(e.Value?.ToString(), out int userId))
+        {
+            selectedUserId = userId;
+            // Filter to show only the selected user
+            var selectedUser = users.FirstOrDefault(u => u.id == userId);
+            if (selectedUser != null)
+            {
+                pagedUsers = new List<User> { selectedUser };
+            }
+            else
+            {
+                pagedUsers = new List<User>(users);
+            }
+            CurrentPage = 1;
+            StateHasChanged();
+        }
+        else
+        {
+            selectedUserId = null;
+            // Show all users for the selected admin (or all users for admin role)
+            pagedUsers = new List<User>(users);
+            CurrentPage = 1;
+            StateHasChanged();
         }
     }
 
@@ -238,7 +510,7 @@
         int adminIdToUse = 0;
         if (isAdmin)
         {
-            adminIdToUse = userId;
+            adminIdToUse = currentUserId;
         }
         else if (isSuperAdmin && selectedAdminId.HasValue)
         {
@@ -247,18 +519,52 @@
 
         if (adminIdToUse == 0)
         {
+            users = new List<User>();
             pagedUsers = new List<User>();
             isLoading = false;
             return;
         }
 
-        pagedUsers = await UserService.GetAllUsersByAdminAsyncforsetting(adminIdToUse, "user", searchTerm);
+        var allUsers = await UserService.GetAllUsersByAdminAsyncforsetting(adminIdToUse, "user", searchTerm);
+        
+        // Filter out the admin's own account from the list
+        // Admin should only see users under them, not themselves
+        if (isAdmin)
+        {
+            users = allUsers?.Where(u => u.id != currentUserId).ToList() ?? new List<User>();
+            Console.WriteLine($"Admin {currentUserId} viewing users - filtered out self. Total users: {users.Count}");
+        }
+        else
+        {
+            // SuperAdmin sees all users (no filtering)
+            users = allUsers ?? new List<User>();
+        }
+        
+        // If userId query parameter matches adminId, include the admin in the users list
+        if (isSuperAdmin && userId.HasValue && userId.Value == adminId)
+        {
+            var adminUser = admins?.FirstOrDefault(a => a.id == userId.Value);
+            if (adminUser != null && !users.Any(u => u.id == adminUser.id))
+            {
+                users.Add(adminUser);
+                Console.WriteLine($"Added admin {adminUser.id} to users list for dropdown display");
+            }
+        }
+        
+        pagedUsers = new List<User>(users);
         CurrentPage = 1;
         isLoading = false;
         StateHasChanged();
     }
 
     private async Task HandleSearch() => await LoadUsers();
+
+    private static string GetUsernameInitial(string? username)
+    {
+        return string.IsNullOrWhiteSpace(username)
+            ? "U"
+            : username.Trim()[0].ToString().ToUpper();
+    }
 
     // ⭐ SIMPLIFIED PAGINATION: Only update CurrentPage, the @key attribute handles the re-render.
     private void ChangePage(int page)
@@ -312,24 +618,16 @@
         return pages;
     }
 
-    private async Task DeleteUser(User user)
+    private async Task UpdateUserManualTrackingAuth(User user, ChangeEventArgs e)
     {
-        var confirmed = await App.Current.MainPage.DisplayAlert(
-            "Confirm Deletion",
-            $"Are you sure you want to delete {user.username}?",
-            "Yes", "No");
-
-        if (confirmed)
-        {
-            var success = await UserService.DeleteUserAsync(user.id);
-            if (success) await LoadUsers();
-        }
+        user.isManualTrackingEnabled = (bool?)e.Value ?? false;
+        await UserService.UpdateManualTrackingAuthAsync(user.id, currentUserId, user.isManualTrackingEnabled.Value);
     }
 
-    private async Task UpdateUserDeleteAuth(User user, ChangeEventArgs e)
+    private async Task UpdateUserAutoTrackingAuth(User user, ChangeEventArgs e)
     {
-        user.isSelected = (bool?)e.Value ?? false;
-        await UserService.UpdateDeleteAuthAsync(user.id, userId, user.isSelected.Value);
+        user.isAutoTrackingEnabled = (bool?)e.Value ?? false;
+        await UserService.UpdateAutoTrackingAuthAsync(user.id, currentUserId, user.isAutoTrackingEnabled.Value);
     }
 
     private async Task UpdateUserActiveStatus(User user, ChangeEventArgs e)
@@ -337,7 +635,27 @@
         if (e.Value is bool isActive)
         {
             user.isActive = isActive;
-            await UserService.UpdateActiveStatusAsync(user.id, userId, isActive);
+            await UserService.UpdateActiveStatusAsync(user.id, currentUserId, isActive);
         }
+    }
+
+    private bool IsTrackingToggleDisabled(User user)
+    {
+        // If SuperAdmin: can control all tracking toggles
+        if (isSuperAdmin)
+            return false;
+
+        // If Admin: cannot change their OWN tracking toggles (locked by SuperAdmin)
+        // But can control tracking for users under them
+        if (isAdmin && user.id == currentUserId)
+            return true;
+
+        // For all other cases, allow control
+        return false;
+    }
+
+    private async Task GoBack()
+    {
+        await JSRuntime.InvokeVoidAsync("history.back");
     }
 }

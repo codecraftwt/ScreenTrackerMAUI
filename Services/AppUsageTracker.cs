@@ -24,27 +24,30 @@ namespace ScreenTracker1.Services
         private string _startMode = "automatic";
 
 
-        private readonly Dictionary<string, string> _friendlyAppNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        public static readonly Dictionary<string, string> _friendlyAppNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
+            { "ApplicationFrameHost", "Windows App" },
             { "msedgewebview2", "Microsoft Edge" },
-            { "ShellExperienceHost", "Windows Shell" },
+            //{ "ShellExperienceHost", "Windows Shell" },
+            { "ShellExperienceHost", "System Interface (Start Menu)" },
             { "SearchHost", "Windows Search" },
             { "LockApp", "Windows Lock Screen" },
             { "chrome", "Google Chrome" },
             { "notepad", "Notepad" },
             { "notepad++", "Notepad++" },
             { "Slack", "Slack" },
-             { "code", "Slack" },
+             { "code", "Visual Studio Code" },
             { "pgAdmin4", "pgAdmin 4" },
             { "explorer", "File Explorer" },
-            { "devenv", "Visual Studio Code" },
+            { "devenv", "Visual Studio" },
             { "msedge", "Microsoft Edge" },
             { "chrome_proxy", "Google Chrome" },
             { "Microsoft.Photos", "Microsoft Photos" },
             { "Discord", "Discord" },
             { "ms-teams", "Microsoft Teams" },
             { "calc", "Calculator" },
-             { "ShellHost", "Windows Shell Host" }
+             { "ShellHost", "Windows Shell" },
+             { "SystemSettings", "Settings" },
         };
 
         public List<TrackedApp> AppUsageLogs { get; private set; } = new();
@@ -96,14 +99,32 @@ namespace ScreenTracker1.Services
                     processName = processName.Substring(0, processName.Length - 4);
                 }
 
-               
-                if (_friendlyAppNames.ContainsKey(processName))
+
+                //if (_friendlyAppNames.ContainsKey(processName))
+                //{
+                //    appName = _friendlyAppNames[processName];
+                //}
+                //else
+                //{
+
+                //    appName = processName;
+                //}
+
+                if (_friendlyAppNames.TryGetValue(processName, out string friendlyName))
                 {
-                    appName = _friendlyAppNames[processName];
+                    // If it's the Generic Host, try to use the Window Title to be more specific
+                    if (processName.Equals("ApplicationFrameHost", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // If title is "Calculator", use that. Otherwise, use "Windows App"
+                        appName = !string.IsNullOrWhiteSpace(windowTitle) ? windowTitle : friendlyName;
+                    }
+                    else
+                    {
+                        appName = friendlyName;
+                    }
                 }
                 else
                 {
-                  
                     appName = processName;
                 }
             }

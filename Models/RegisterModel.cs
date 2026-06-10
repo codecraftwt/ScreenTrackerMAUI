@@ -16,8 +16,7 @@ namespace ScreenTracker1.Models
         [Required, EmailAddress]
         public string email { get; set; }
 
-        [Required]
-        public string phoneNumber { get; set; }
+        public string? phoneNumber { get; set; }
 
         [Required, MinLength(6)]
         public string Password { get; set; }
@@ -28,7 +27,11 @@ namespace ScreenTracker1.Models
         [Required]
         public string role { get; set; }
         public int? IsCreatedBy { get; set; }
-
-
+        
+        // Tracking permission fields
+        public bool? isManualTrackingEnabled { get; set; } = true;
+        public int? manualTrackingAuthBy { get; set; }
+        public bool? isAutoTrackingEnabled { get; set; } = true;
+        public int? autoTrackingAuthBy { get; set; }
     }
 }

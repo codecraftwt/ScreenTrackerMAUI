@@ -21,10 +21,10 @@
         @* --- START: ALIGNED CARD HEADER --- *@
        <div class="card-header d-flex align-items-center justify-content-between mb-2 p-2">
 
-            @* 1. Home Button *@
-            <button @onclick="NavigateHome" class="btn btn-primary me-3">
-                <i class="fa-solid fa-house me-2"></i>
-                Home
+            @* 1. Back Button *@
+            <button @onclick="GoBack" class="btn btn-outline-secondary me-3">
+                <i class="fa-solid fa-arrow-left me-2"></i>
+                Back
             </button>
 
             @* 2. Date Picker and Custom Calendar (Crucial Fix: Added d-flex align-items-center to the inner container) *@
@@ -84,37 +84,24 @@
                 }
             </div>
 
-            <div class="d-flex align-items-center justify-content-between ms-3 me-3 paginatiion-buttons">
-    <!-- Previous Button with Font Awesome icon and text on the same line -->
-    <button @onclick="PreviousPage" class="btn btn-secondary btn-sm" disabled="@(!CanGoToPreviousPage)">
-        <i class="fa fa-chevron-left me-2"></i>Previous
-    </button>
-    
-    <!-- Page Number -->
-    <span class="mx-2" style="white-space: nowrap;">Page @currentPage</span>
-    
-    <!-- Next Button with Font Awesome icon and text on the same line -->
-    <button @onclick="NextPage" class="btn btn-secondary btn-sm" disabled="@(!CanGoToNextPage)">
-        <i class="fa fa-chevron-right me-2"></i>Next
-    </button>
-</div>
+            @* 3. Refresh Button *@
 
 
 
             @* 4. Usage Type Dropdown (Pushed to the right) *@
-            @if (userRole == "Admin" || userRole == "superadmin")
-            {
-                <div class="toolbar-section ms-auto d-flex align-items-center">
-                    <div class="tooltip-container">
-                        <select id="usage-type-select" class="stitch-user-select ms-2" value="@usageType">
-                            <option value="all">All</option>
-                            <option value="manual">Manual</option>
-                            <option value="automatic">Automatic</option>
-                        </select>
-                        <span class="tooltip-text">Filter data by usage type</span>
-                    </div>
-                </div>
-            }
+          @*    @if (userRole == "Admin" || userRole == "superadmin")
+             {
+                 <div class="toolbar-section ms-auto d-flex align-items-center">
+                     <div class="tooltip-container">
+                         <select id="usage-type-select" class="stitch-user-select ms-2" value="@usageType">
+                             <option value="all">All</option>
+                             <option value="manual">Manual</option>
+                             <option value="automatic">Automatic</option>
+                         </select>
+                         <span class="tooltip-text">Filter data by usage type</span>
+                     </div>
+                 </div>
+             } *@
 
             @* 5. Refresh Button *@
             <div class="d-flex align-items-center">
@@ -144,6 +131,15 @@
         }
         else if (screenshots?.Any() == true)
         {
+            @* Display Total Duration *@
+            @if (totalDuration > TimeSpan.Zero)
+            {
+                <div class="total-duration-banner">
+                    <i class="fa fa-clock me-2"></i>
+                    <span>Total Duration: <strong>@FormatDuration(totalDuration)</strong></span>
+                </div>
+            }
+
             <div class="row">
                 @foreach (var screenshot in screenshots)
                 {
@@ -192,22 +188,31 @@
 @code {
     [Parameter]
     public DateTime? Date { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int ViewedUserId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string startTime { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string endTime { get; set; }
+
     @using System.Timers
 
     private List<Screenshots> screenshots;
     private List<DateTime> availableDates = new List<DateTime>();
     private string token;
-    private int userId;
+    private int userId = 0;
     private DateTime selectedDate;
     private bool isLoading;
-    private int skip = 1;
-    private int take = 18;
-    private int currentPage = 1;
     private User currentUser;
     private string userRole;
-    private bool CanGoToPreviousPage => currentPage > 1;
-    private bool CanGoToNextPage => screenshots?.Count == take;
     private string maxSelectableDate = DateTime.Today.ToString("yyyy-MM-dd");
+    private TimeSpan totalDuration = TimeSpan.Zero;
 
     private bool showCustomCalendar = false;
     private DateTime currentCalendarDate;
@@ -218,6 +223,9 @@
     private DotNetObjectReference<ScreenshotsPage> objRef;
 
     private bool isSelect2UsageTypeInitialized = false;
+    private bool isTimeFiltered = false;
+    private TimeSpan? filterStartTime;
+    private TimeSpan? filterEndTime;
 
     [Parameter]
     [SupplyParameterFromQuery]
@@ -228,12 +236,15 @@
         selectedDate = Date ?? DateTime.Today;
         currentCalendarDate = selectedDate;
 
+        Console.WriteLine($"ScreenshotsPage OnInitializedAsync - Date: {selectedDate:yyyy-MM-dd}, ViewedUserId: {ViewedUserId}, StartTime: {startTime}, EndTime: {endTime}");
+
         token = Preferences.Get("authToken", null);
         if (!string.IsNullOrEmpty(token))
         {
             var handler = new JwtSecurityTokenHandler();
             if (handler.ReadToken(token) is JwtSecurityToken jwtToken)
             {
+                // Get the logged-in user's ID from JWT token (default/fallback)
                 var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
                 if (int.TryParse(userIdClaim, out int id))
                 {
@@ -244,24 +255,6 @@
                 if (!string.IsNullOrEmpty(roleClaim))
                 {
                     userRole = roleClaim;
-                }
-
-                if (App.SelectedUserId != 0)
-                {
-                    userId = App.SelectedUserId;
-                }
-
-                if (userId != 0)
-                {
-                    currentUser = await UserService.GetUserByIdAsync(userId);
-                    StateHasChanged();
-                    if (currentUser != null)
-                    {
-                        Console.WriteLine($"Current User Role: {currentUser.role}");
-                    }
-                    availableDates = await UserService.GetAvailableDatesAsync(userId);
-                    await LoadScreenshotsAsync(usageType);
-                    GenerateCalendarDays();
                 }
             }
         }
@@ -277,6 +270,69 @@
         activityTimer.AutoReset = true;
         activityTimer.Enabled = true;
         // --------------------------------------
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Console.WriteLine($"ScreenshotsPage OnParametersSetAsync - Date: {Date}, ViewedUserId: {ViewedUserId}, StartTime: {startTime}, EndTime: {endTime}");
+
+        // Update selected date if Date parameter changed
+        if (Date.HasValue)
+        {
+            selectedDate = Date.Value;
+            currentCalendarDate = selectedDate;
+        }
+
+        // Parse time filter parameters if provided
+        if (!string.IsNullOrEmpty(startTime) && !string.IsNullOrEmpty(endTime))
+        {
+            if (TimeSpan.TryParse(startTime, out TimeSpan start) && TimeSpan.TryParse(endTime, out TimeSpan end))
+            {
+                filterStartTime = start;
+                filterEndTime = end;
+                isTimeFiltered = true;
+                Console.WriteLine($"Time filter applied: {start} to {end}");
+            }
+            else
+            {
+                Console.WriteLine($"Failed to parse time parameters: startTime={startTime}, endTime={endTime}");
+            }
+        }
+        else
+        {
+            isTimeFiltered = false;
+            filterStartTime = null;
+            filterEndTime = null;
+            Console.WriteLine("No time filter parameters provided");
+        }
+
+        // Priority 1: If ViewedUserId is provided from URL (e.g., from Report or AdminUsers page), use it FIRST
+        // This is the most explicit and should override everything else
+        if (ViewedUserId != 0)
+        {
+            userId = ViewedUserId;
+            Console.WriteLine($"Using ViewedUserId from URL: {userId}");
+        }
+        // Priority 2: If App.SelectedUserId is set, use it (for internal navigation)
+        else if (App.SelectedUserId != 0)
+        {
+            userId = App.SelectedUserId;
+            Console.WriteLine($"Using App.SelectedUserId: {userId}");
+        }
+
+        // Load data if we have a valid userId
+        if (userId != 0 && token != null)
+        {
+            currentUser = await UserService.GetUserByIdAsync(userId);
+            StateHasChanged();
+            if (currentUser != null)
+            {
+                Console.WriteLine($"Current User Role: {currentUser.role}");
+            }
+            availableDates = await UserService.GetAvailableDatesAsync(userId);
+            await LoadScreenshotsAsync(usageType);
+            GenerateCalendarDays();
+        }
     }
     private async Task OnRefreshClicked()
     {
@@ -319,7 +375,6 @@
             isLoading = true;
             StateHasChanged();
             usageType = value;
-            currentPage = skip = 1;
             await LoadScreenshotsAsync(usageType);
             isLoading = false;
             StateHasChanged();
@@ -387,16 +442,57 @@
         {
             selectedDate = date;
             showCustomCalendar = false;
-            currentPage = skip = 1;
+            
+            // Clear time filters when date is selected from custom calendar
+            isTimeFiltered = false;
+            filterStartTime = null;
+            filterEndTime = null;
+            startTime = null;
+            endTime = null;
+            
             await LoadScreenshotsAsync(usageType);
         }
     }
     // In ScreenshotsPage.razor @code block
     private void NavigateToDetailsPage(int screenshotId)
     {
-        // The variable 'userId' here holds the ID of the user whose screenshots are displayed.
-        // We must pass this as 'viewedUserId' for the details page to know whose data to fetch.
         NavigationManager.NavigateTo($"/screenshot-details/{screenshotId}?date={selectedDate:yyyy-MM-dd}&usageType={usageType}&viewedUserId={userId}"); // <--- ADD THIS
+    }
+
+    private async Task GoBack()
+    {
+        await JSRuntime.InvokeVoidAsync("history.back");
+    }
+
+    private void CalculateTotalDurationFromScreenshots()
+    {
+        // Each screenshot represents 10 minutes of tracking
+        // Total duration = number of screenshots × 10 minutes
+        if (screenshots != null && screenshots.Any())
+        {
+            int totalMinutes = screenshots.Count * 10;
+            totalDuration = TimeSpan.FromMinutes(totalMinutes);
+        }
+        else
+        {
+            totalDuration = TimeSpan.Zero;
+        }
+    }
+
+    private string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalDays >= 1)
+        {
+            return $"{(int)duration.TotalDays}d {(int)duration.Hours}h {duration.Minutes}m";
+        }
+        else if (duration.TotalHours >= 1)
+        {
+            return $"{(int)duration.TotalHours}h {duration.Minutes}m";
+        }
+        else
+        {
+            return $"{(int)duration.TotalMinutes}m";
+        }
     }
 
     private void NavigateHome() => NavigationManager.NavigateTo("/users");
@@ -409,30 +505,56 @@
 
         try
         {
-            // 1. Fetch the basic data from the server
-            var basicScreenshots = await UserService.GetImagesByDateAsync(userId, selectedDate, skip, take, usageType);
+            // Fetch ALL screenshots for the selected date (no pagination)
+            // Using a large take value to get all records
+            var basicScreenshots = await UserService.GetImagesByDateAsync(
+                userId,
+                selectedDate,
+                1,      // skip
+                10000,  // take - large number to get all screenshots
+                usageType,
+                startTime,
+                endTime
+            );
 
-            // 2. Create a temporary list to hold the detailed, processed results
+            Console.WriteLine($"[LoadScreenshots] Fetched {basicScreenshots?.Count ?? 0} basic screenshots from API");
+
+            // Create a temporary list to hold the detailed, processed results
             var newScreenshots = new List<Screenshots>();
 
             if (basicScreenshots?.Any() == true)
             {
-                // 3. Process the detailed data, adding results to the temporary list
-                foreach (var shot in basicScreenshots)
+                // Reverse the order to show oldest first (FCFS - First Come First Serve)
+                var reversedScreenshots = basicScreenshots.AsEnumerable().Reverse().ToList();
+                
+                Console.WriteLine($"[LoadScreenshots] Reversed list has {reversedScreenshots.Count} screenshots");
+                
+                // Process the detailed data, adding results to the temporary list
+                foreach (var shot in reversedScreenshots)
                 {
                     var detailed = await KeyboardMouseService.GetImageActivityDataAsync(shot.id);
+                    if (detailed == null)
+                    {
+                        Console.WriteLine($"[LoadScreenshots] Screenshot ID {shot.id} returned null from GetImageActivityDataAsync, using original");
+                    }
                     newScreenshots.Add(detailed ?? shot);
                 }
+                
+                Console.WriteLine($"[LoadScreenshots] Final processed screenshots count: {newScreenshots.Count}");
             }
 
-            // 4. Update the component's state list ONLY after all processing is complete
+            // Update the component's state list ONLY after all processing is complete
             screenshots = newScreenshots;
+
+            // Calculate total duration based on number of screenshots (each = 10 minutes)
+            CalculateTotalDurationFromScreenshots();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading screenshots: {ex.Message}");
             // Optionally clear the list on error
             screenshots = new List<Screenshots>();
+            totalDuration = TimeSpan.Zero;
         }
         finally
         {
@@ -447,27 +569,19 @@
         if (DateTime.TryParse(e.Value?.ToString(), out var newDate))
         {
             selectedDate = newDate;
-            currentPage = skip = 1;
+            
+            // Clear time filters when date changes manually
+            isTimeFiltered = false;
+            filterStartTime = null;
+            filterEndTime = null;
+            startTime = null;
+            endTime = null;
+            
             await LoadScreenshotsAsync(usageType);
         }
     }
 
-    private async Task NextPage()
-    {
-        currentPage++;
-        skip++;
-        await LoadScreenshotsAsync(usageType);
-    }
 
-    private async Task PreviousPage()
-    {
-        if (currentPage > 1)
-        {
-            currentPage--;
-            skip--;
-            await LoadScreenshotsAsync(usageType);
-        }
-    }
 
     private async Task DeleteScreenshot(int screenshotId)
     {
@@ -499,13 +613,15 @@
 
     private int CalculateActivityScore(Screenshots screenshot)
     {
-        int score = (int)((double)(screenshot.keyboardClicks + screenshot.mouseClicks) / 1000 * 100);
+        // int score = (int)((double)(screenshot.keyboardClicks + screenshot.mouseClicks) / 1000 * 100);
+          int score = (int)((double)(screenshot.keyboardClicks + screenshot.mouseClicks) / 300 * 100);
         return Math.Clamp(score, 0, 100);
     }
 
     private int GetActiveBlocks(Screenshots screenshot)
     {
-        int blocks = (int)Math.Round((double)(screenshot.keyboardClicks + screenshot.mouseClicks) / 1000 * 10);
+        // int blocks = (int)Math.Round((double)(screenshot.keyboardClicks + screenshot.mouseClicks) / 1000 * 10);
+        int blocks = (int)((double)(screenshot.keyboardClicks + screenshot.mouseClicks) / 300 * 10);
         return Math.Clamp(blocks, 0, 10);
     }
 }

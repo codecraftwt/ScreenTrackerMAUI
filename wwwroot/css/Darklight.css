@@ -1,15 +1,19 @@
-﻿.dark-theme {
-    --bg-primary: #1a1a1a;
-    --bg-secondary: #2d2d2d;
-    --bg-tertiary: #3d3d3d;
+﻿/* Black Dashboard Premium Dark Theme */
+.dark-theme {
+    --bg-primary: #171941;
+    --bg-secondary: #1e1e2f;
+    --bg-tertiary: #27293d;
     --text-primary: #ffffff;
-    --text-secondary: #cccccc;
-    --border-color: white; 
-    --card-bg: #2d2d2d;
-    --header-bg: #1f1f1f;
-    --accent-color: #4a7aff;
-    --bar-bg: #3d3d3d;
-    --shadow-color: rgba(0, 0, 0, 0.3);
+    --text-secondary: #a0a0a0;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --card-bg: rgba(30, 30, 47, 0.8);
+    --header-bg: #1e1e2f;
+    --accent-color: #e14eca;
+    --accent-hover: #f48efb;
+    --bar-bg: #27293d;
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    --glass-bg: rgba(30, 30, 47, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
 }
 
     .dark-theme body {
@@ -140,15 +144,18 @@
         }
 
     .dark-theme .stitch-bar {
-        background-color: var(--bar-bg);
+/*        background-color: var(--bar-bg);*/
+background-color:white;
     }
 
         .dark-theme .stitch-bar .label {
-            color: var(--text-primary);
+/*            color: var(--text-primary);*/
+color:black;
         }
 
         .dark-theme .stitch-bar .time {
-            color: var(--text-primary);
+            /*            color: var(--text-primary);*/
+            color: black;
         }
 
         .dark-theme .stitch-bar .label[data-tooltip]:hover::after {
@@ -202,8 +209,8 @@
     }
 
 .dark-theme {
-    --border-color: white;
-    background-color: dimgrey;
+    --border-color: #3a3a3a;
+    background-color: #1a1a1a;
 }
 
 
@@ -243,9 +250,17 @@
 
 
     .dark-theme .btn-primary {
-        background-color: var(--accent-color);
-        border-color: var(--accent-color);
+        background: linear-gradient(135deg, #e14eca 0%, #ba54f5 100%);
+        border-color: #e14eca;
         color: white;
+        box-shadow: 0 4px 15px rgba(225, 78, 202, 0.3);
+    }
+
+    .dark-theme .btn-primary:hover {
+        background: linear-gradient(135deg, #f48efb 0%, #d35bf7 100%);
+        border-color: #f48efb;
+        box-shadow: 0 6px 20px rgba(225, 78, 202, 0.5);
+        transform: translateY(-1px);
     }
 
     .dark-theme .btn-secondary {
@@ -339,8 +354,10 @@
     }
 
         .dark-theme .btn-secondary:hover {
-            background-color: var(--accent-color);
+            background: linear-gradient(135deg, #e14eca 0%, #ba54f5 100%);
             color: white;
+            border-color: #e14eca;
+            box-shadow: 0 4px 15px rgba(225, 78, 202, 0.3);
         }
 
     .dark-theme h4 {
@@ -408,7 +425,7 @@
 
 
     .dark-theme .screenshot-info {
-        isplay: flex;
+       display: flex;
         justify-content: space-between;
         align-items: center;
         width: 100%;
@@ -659,21 +676,27 @@
         }
 
             .dark-theme .pagination li a {
-                 color: white; 
+                color: white;
                 text-decoration: none;
                 padding: 0.4rem 0.8rem;
+                background: rgba(39, 41, 61, 0.8);
+                border: 1px solid rgba(255, 255, 255, 0.1);
                 border-radius: 0.25rem;
-                background-color: var(--bg-tertiary);
+                transition: all 0.2s ease;
             }
 
-                .dark-theme .pagination li a:hover {
-                    background-color: var(--bg-tertiary); 
-                    color: var(--accent-color); 
-                }
+            .dark-theme .pagination li a:hover {
+                background: linear-gradient(135deg, #e14eca 0%, #ba54f5 100%);
+                border-color: #e14eca;
+                color: white;
+                box-shadow: 0 4px 15px rgba(225, 78, 202, 0.3);
+            }
 
         .dark-theme .pagination .active a {
-            background-color: var(--accent-color); 
-            color: white; 
+            background: linear-gradient(135deg, #e14eca 0%, #ba54f5 100%);
+            color: white;
+            border-color: #e14eca;
+            box-shadow: 0 0 15px rgba(225, 78, 202, 0.4);
         }
 
         .dark-theme .pagination .disabled a {
@@ -692,9 +715,10 @@
             border-bottom-right-radius: 0.25rem;
         }
     .dark-theme .select2-container--default .select2-selection--single {
-        background-color: black;
-        border: 1px solid #aaa;
-        border-radius: 4px;
+        background: rgba(39, 41, 61, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        color: white;
     }
 
     .dark-theme .select2-selection select2-selection--single {
@@ -711,8 +735,9 @@
     }
 
     .dark-theme .select2-search__field {
-        color: white;
-        background-color: black;
+/*        color: white;
+        background-color: black;*/
+color:black;
     }
     .dark-theme .select2-selection__rendered
     {
@@ -747,9 +772,25 @@
         background-color:black;
     }
     .dark-theme .user-management-card {
-        background-color: black;
+        background: linear-gradient(135deg, rgba(30, 30, 47, 0.95) 0%, rgba(39, 41, 61, 0.9) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(225, 78, 202, 0.1);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 16px;
+    }
+
+    .dark-theme .user-management-card:hover {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(225, 78, 202, 0.15);
+        border-color: rgba(225, 78, 202, 0.3);
     }
     .dark-theme .text-center {
-        background-color: black;
         color: white;
+    }
+
+    /* Enhanced table headers for dark theme */
+    .dark-theme .table-headers {
+        background: linear-gradient(135deg, rgba(39, 41, 61, 0.9) 0%, rgba(30, 30, 47, 0.7) 100%) !important;
+        color: #ffffff !important;
+        border-bottom: 1px solid rgba(225, 78, 202, 0.3) !important;
     }

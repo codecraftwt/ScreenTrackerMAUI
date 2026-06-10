@@ -239,10 +239,10 @@ else
         try
         {
             // FIX: Uses TargetUserId which correctly holds the SELECTED user's ID
-            var nextCheck = await UserService.GetRelativeScreenshotAsync(TargetUserId, screenshots.id, screenshots.captureTime, "previous", UsageType);
+            var nextCheck = await UserService.GetRelativeScreenshotAsync(TargetUserId, screenshots.id, screenshots.captureTime, "next", UsageType);
             hasNextScreenshot = nextCheck != null;
 
-            var previousCheck = await UserService.GetRelativeScreenshotAsync(TargetUserId, screenshots.id, screenshots.captureTime, "next", UsageType);
+            var previousCheck = await UserService.GetRelativeScreenshotAsync(TargetUserId, screenshots.id, screenshots.captureTime, "previous", UsageType);
             hasPreviousScreenshot = previousCheck != null;
         }
         catch (Exception ex)
@@ -261,11 +261,9 @@ else
             return;
         }
 
-        var apiDirection = direction == "next" ? "previous" : "next";
-
         // FIX: Uses TargetUserId which correctly holds the SELECTED user's ID
         var relativeScreenshot = await UserService.GetRelativeScreenshotAsync(
-            TargetUserId, screenshots.id, screenshots.captureTime, apiDirection, UsageType);
+            TargetUserId, screenshots.id, screenshots.captureTime, direction, UsageType);
 
         if (relativeScreenshot != null)
         {

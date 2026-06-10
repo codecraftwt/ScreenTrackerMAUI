@@ -1,11 +1,11 @@
 ﻿// Helper function definition for theme color determination (must be available globally or imported)
 const getTextColor = (isDarkTheme) => {
-    // ⭐️ INVERTED LOGIC ⭐️
-    // If it's a Dark Theme (isDarkTheme = true), use DARK text color
-    if (isDarkTheme === true) return '#444444';
+    // CORRECTED LOGIC
+    // If it's a Dark Theme (isDarkTheme = true), use LIGHT text color for dark backgrounds
+    if (isDarkTheme === true) return '#f5f5f5';
 
-    // If it's a Light Theme (isDarkTheme = false), use LIGHT text color
-    return '#c9c9c9';
+    // If it's a Light Theme (isDarkTheme = false), use DARK text color for light backgrounds
+    return '#212529';
 };
 
 
@@ -14,12 +14,26 @@ window.renderGroupedBarChart = (labels, totalData, afkData, activeData, isInitia
     const canvas = document.getElementById('barChart');
     const ctx = canvas.getContext('2d');
 
+    // Auto-detect theme if not provided
+    if (isInitialDarkTheme === undefined || isInitialDarkTheme === null) {
+        isInitialDarkTheme = document.body.classList.contains('dark-theme');
+    }
+
+    // Set explicit canvas dimensions to prevent stretching
+    const container = canvas.parentElement;
+    if (container) {
+        canvas.style.width = container.clientWidth + 'px';
+        canvas.style.height = '350px';
+    }
+
     // Determine the initial color using the function
     const initialTextColor = getTextColor(isInitialDarkTheme);
 
-    // 🚨 FIX: Set the default font family 🚨
+    // 🚨 FIX: Set the default font family and size 🚨
     if (typeof Chart !== 'undefined' && Chart.defaults) {
-        Chart.defaults.font.family = 'Inter, sans-serif';
+        Chart.defaults.font.family = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        Chart.defaults.font.size = 14; // Increased font size for better visibility
+        Chart.defaults.devicePixelRatio = window.devicePixelRatio || 1; // Ensure crisp rendering
     }
 
     if (!canvas || !ctx) {
@@ -110,11 +124,33 @@ window.renderGroupedBarChart = (labels, totalData, afkData, activeData, isInitia
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            resizeDelay: 200, // Prevent rapid resizing that can stretch text
+            animation: {
+                duration: 500 // Smoother animation
+            },
+            layout: {
+                padding: 10
+            },
             scales: {
                 x: {
                     grid: { display: false, },
-                    title: { display: true, text: 'Date', color: initialTextColor },
-                    ticks: { color: initialTextColor },
+                    title: { 
+                        display: true, 
+                        text: 'Date', 
+                        color: initialTextColor,
+                        font: { 
+                            size: 15, 
+                            weight: 'bold',
+                            family: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                        }
+                    },
+                    ticks: { 
+                        color: initialTextColor,
+                        font: { 
+                            size: 13,
+                            family: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                        }
+                    },
                     // ⭐️ ADDED: Set initial X-axis line color ⭐️
                     border: { color: initialTextColor },
                     stacked: false
@@ -123,8 +159,23 @@ window.renderGroupedBarChart = (labels, totalData, afkData, activeData, isInitia
                     display: true,
                     beginAtZero: true,
                     grid: { display: false, },
-                    title: { display: true, text: 'Duration (Minutes)', color: initialTextColor },
-                    ticks: { color: initialTextColor },
+                    title: { 
+                        display: true, 
+                        text: 'Duration (Minutes)', 
+                        color: initialTextColor,
+                        font: { 
+                            size: 15, 
+                            weight: 'bold',
+                            family: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                        }
+                    },
+                    ticks: { 
+                        color: initialTextColor,
+                        font: { 
+                            size: 13,
+                            family: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                        }
+                    },
                     // ⭐️ ADDED: Set initial Y-axis line color ⭐️
                     border: { color: initialTextColor }
                 }
@@ -134,7 +185,14 @@ window.renderGroupedBarChart = (labels, totalData, afkData, activeData, isInitia
                     display: true,
                     position: 'right',
                     labels: {
-                        color: initialTextColor
+                        color: initialTextColor,
+                        font: { 
+                            size: 14, 
+                            weight: '500',
+                            family: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                        },
+                        padding: 15,
+                        usePointStyle: true // Better legend display
                     }
                 },
                 tooltip: {
@@ -151,7 +209,10 @@ window.renderGroupedBarChart = (labels, totalData, afkData, activeData, isInitia
                         },
                         label: (tooltipItem) => {
                             const dataValue = tooltipItem.raw;
-                            return `${tooltipItem.dataset.label}: ${dataValue.toFixed(2)} minutes`;
+                            const hours = Math.floor(dataValue / 60);
+                            const minutes = Math.floor(dataValue % 60);
+                            const seconds = Math.floor((dataValue % 1) * 60);
+                            return `${tooltipItem.dataset.label}: ${hours}h ${minutes}m ${seconds}s`;
                         }
                     }
                 }

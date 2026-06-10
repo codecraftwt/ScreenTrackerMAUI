@@ -1,0 +1,295 @@
+@page "/dashboard"
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@using ScreenTracker1.Models
+@using ScreenTracker1.Services
+@using System.IdentityModel.Tokens.Jwt
+@using System.Globalization
+
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1 class="dashboard-title">Activity Dashboard</h1>
+        <div class="dashboard-filters">
+            @if (UserRole?.ToLower() == "superadmin")
+            {
+                <select class="dashboard-select" @onchange="OnAdminChanged">
+                    <option value="0">All Admins</option>
+                    @foreach (var admin in admins)
+                    {
+                        <option value="@admin.id" selected="@(selectedAdminId == admin.id)">@admin.firstName @admin.lastName</option>
+                    }
+                </select>
+            }
+
+            @if (UserRole?.ToLower() == "superadmin" || UserRole?.ToLower() == "admin")
+            {
+                <select class="dashboard-select" @onchange="OnUserChanged">
+                    <option value="0">All Users</option>
+                    @foreach (var u in users)
+                    {
+                        <option value="@u.id" selected="@(selectedUserId == u.id)">@u.firstName @u.lastName</option>
+                    }
+                </select>
+            }
+        </div>
+    </div>
+
+    <div class="calendar-card">
+        <div class="calendar-nav">
+            <button class="calendar-nav-btn" @onclick="PreviousMonth"><i class="fas fa-chevron-left"></i></button>
+            <h3 class="calendar-nav-title">@currentMonth.ToString("MMMM yyyy")</h3>
+            <button class="calendar-nav-btn" @onclick="NextMonth"><i class="fas fa-chevron-right"></i></button>
+        </div>
+
+        <div class="calendar-weekdays">
+            <span class="calendar-weekday">Sun</span>
+            <span class="calendar-weekday">Mon</span>
+            <span class="calendar-weekday">Tue</span>
+            <span class="calendar-weekday">Wed</span>
+            <span class="calendar-weekday">Thu</span>
+            <span class="calendar-weekday">Fri</span>
+            <span class="calendar-weekday">Sat</span>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="loading-text">Loading calendar data...</div>
+        }
+        else
+        {
+            <div class="calendar-grid">
+                @for (int i = 0; i < startingDayOfWeek; i++)
+                {
+                    <div class="calendar-day other-month"></div>
+                }
+
+                @for (int day = 1; day <= daysInMonth; day++)
+                {
+                    var currentDay = day;
+                    var date = new DateTime(currentMonth.Year, currentMonth.Month, currentDay);
+                    var isToday = date.Date == DateTime.Today;
+                    var hasActivity = availableDates.Any(d => d.Date == date.Date);
+                    var isSelected = selectedDate.HasValue && selectedDate.Value.Date == date.Date;
+
+                    <div class="calendar-day @(isToday ? "today" : "") @(hasActivity ? "has-dot" : "") @(isSelected ? "selected" : "")"
+                         @onclick="() => OnDayClick(date)">
+                        <span>@currentDay</span>
+                        @if (hasActivity)
+                        {
+                            <span class="dot-indicator"></span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    @if (selectedDate.HasValue)
+    {
+        <div style="margin-top: 1rem; text-align: center;">
+            <p style="color: var(--color-text-color); font-size: 0.95rem;">
+                Selected: <strong>@selectedDate.Value.ToString("dddd, MMMM d, yyyy")</strong>
+                @if (availableDates.Any(d => d.Date == selectedDate.Value.Date))
+                {
+                    <span> — screenshots captured</span>
+                }
+            </p>
+            <button class="btn btn-primary" @onclick="() => ViewScreenshots(selectedDate.Value)" style="margin-top: 0.5rem;">
+                <i class="fas fa-camera"></i> View Screenshots
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private List<User> admins = new();
+    private List<User> users = new();
+    private List<DateTime> availableDates = new();
+
+    private DateTime currentMonth = DateTime.Today;
+    private DateTime? selectedDate;
+
+    private int selectedAdminId;
+    private int selectedUserId;
+
+    private int loggedInUserId;
+    private string? UserRole;
+    private bool isLoading;
+
+    private int startingDayOfWeek;
+    private int daysInMonth;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAuthData();
+        await LoadRoleData();
+        await LoadAvailableDates();
+    }
+
+    private async Task LoadAuthData()
+    {
+        var token = Preferences.Get("authToken", null);
+        if (string.IsNullOrEmpty(token))
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+            if (handler.ReadToken(token) is JwtSecurityToken jwtToken)
+            {
+                var userIdClaim = jwtToken.Claims.FirstOrDefault(c =>
+                    c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+                if (int.TryParse(userIdClaim, out int id))
+                    loggedInUserId = id;
+
+                UserRole = jwtToken.Claims.FirstOrDefault(c =>
+                    c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
+
+                if (UserRole?.ToLower() == "superadmin")
+                    selectedUserId = 0;
+                else if (UserRole?.ToLower() == "admin")
+                    selectedUserId = loggedInUserId;
+                else
+                    selectedUserId = loggedInUserId;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading auth data: {ex.Message}");
+        }
+    }
+
+    private async Task LoadRoleData()
+    {
+        try
+        {
+            if (UserRole?.ToLower() == "superadmin")
+            {
+                var allUsers = await UserService.GetAllUsersAsync();
+                admins = allUsers?.Where(u => u.role?.ToLower() == "admin").ToList() ?? new();
+                users = allUsers ?? new();
+            }
+            else if (UserRole?.ToLower() == "admin")
+            {
+                users = await UserService.GetAllUsersByAdminAsync(loggedInUserId, "admin") ?? new();
+                var currentAdmin = await UserService.GetUserByIdAsync(loggedInUserId);
+                if (currentAdmin != null && !users.Any(u => u.id == loggedInUserId))
+                    users.Insert(0, currentAdmin);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading role data: {ex.Message}");
+        }
+    }
+
+    private async Task LoadAvailableDates()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            int targetUserId;
+            if (UserRole?.ToLower() == "superadmin" && selectedUserId > 0)
+                targetUserId = selectedUserId;
+            else if (UserRole?.ToLower() == "superadmin")
+                targetUserId = 0;
+            else if (UserRole?.ToLower() == "admin" && selectedUserId > 0)
+                targetUserId = selectedUserId;
+            else if (UserRole?.ToLower() == "admin")
+                targetUserId = loggedInUserId;
+            else
+                targetUserId = loggedInUserId;
+
+            if (targetUserId > 0)
+            {
+                availableDates = await UserService.GetAvailableDatesAsync(targetUserId) ?? new();
+            }
+            else
+            {
+                availableDates = new();
+            }
+
+            UpdateCalendarMetadata();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading available dates: {ex.Message}");
+            availableDates = new();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void UpdateCalendarMetadata()
+    {
+        startingDayOfWeek = (int)new DateTime(currentMonth.Year, currentMonth.Month, 1).DayOfWeek;
+        daysInMonth = DateTime.DaysInMonth(currentMonth.Year, currentMonth.Month);
+    }
+
+    private async Task PreviousMonth()
+    {
+        currentMonth = currentMonth.AddMonths(-1);
+        UpdateCalendarMetadata();
+        StateHasChanged();
+    }
+
+    private async Task NextMonth()
+    {
+        currentMonth = currentMonth.AddMonths(1);
+        UpdateCalendarMetadata();
+        StateHasChanged();
+    }
+
+    private async Task OnAdminChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int adminId))
+        {
+            selectedAdminId = adminId;
+            selectedUserId = 0;
+
+            if (adminId > 0)
+            {
+                users = await UserService.GetAllUsersByAdminAsync(adminId, "admin") ?? new();
+                var adminDetails = await UserService.GetUserByIdAsync(adminId);
+                if (adminDetails != null && !users.Any(u => u.id == adminId))
+                    users.Insert(0, adminDetails);
+            }
+            else
+            {
+                var allUsers = await UserService.GetAllUsersAsync();
+                users = allUsers ?? new();
+            }
+
+            await LoadAvailableDates();
+        }
+    }
+
+    private async Task OnUserChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int userId))
+        {
+            selectedUserId = userId;
+            await LoadAvailableDates();
+        }
+    }
+
+    private async Task OnDayClick(DateTime date)
+    {
+        selectedDate = date;
+        StateHasChanged();
+    }
+
+    private void ViewScreenshots(DateTime date)
+    {
+        NavigationManager.NavigateTo($"/screenshots/{date:yyyy-MM-dd}");
+    }
+}

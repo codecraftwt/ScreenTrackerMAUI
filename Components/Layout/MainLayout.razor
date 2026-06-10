@@ -1,7 +1,8 @@
-﻿@inherits LayoutComponentBase
+﻿@using ScreenTracker1.Services
+@inherits LayoutComponentBase
+@implements IDisposable
 @inject NavigationManager NavigationManager
-
-
+@inject UserService UserService
 
 @code {
     private bool ShouldShowNav => !HideNavPages.Contains(CurrentPage);
@@ -10,9 +11,39 @@
 
     private readonly HashSet<string> HideNavPages = new()
     {
-        "register",   // page path without leading slash
-        "login"       // optionally hide for login too
+        "register",
+        "login"
     };
+
+    private PeriodicTimer? _heartbeatTimer;
+    private CancellationTokenSource? _heartbeatCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = Preferences.Get("authToken", null);
+        if (!string.IsNullOrEmpty(token))
+        {
+            await UserService.HeartbeatAsync();
+            _heartbeatCts = new CancellationTokenSource();
+            _heartbeatTimer = new PeriodicTimer(TimeSpan.FromSeconds(60));
+            _ = RunHeartbeatAsync(_heartbeatCts.Token);
+        }
+    }
+
+    private async Task RunHeartbeatAsync(CancellationToken ct)
+    {
+        while (await _heartbeatTimer!.WaitForNextTickAsync(ct))
+        {
+            await UserService.HeartbeatAsync();
+        }
+    }
+
+    public void Dispose()
+    {
+        _heartbeatCts?.Cancel();
+        _heartbeatCts?.Dispose();
+        _heartbeatTimer?.Dispose();
+    }
 }
 <div class="page">
     <div class="sidebar">
