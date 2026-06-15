@@ -302,30 +302,37 @@
 
         private string FormatDuration(TimeSpan duration)
         {
-            int hours = (int)duration.TotalHours;
-            int minutes = duration.Minutes;
-            return $"{hours} hrs {minutes} mins";
+            int totalMinutes = (int)duration.TotalMinutes;
+            int seconds = duration.Seconds;
+            return $"{totalMinutes}m {seconds}s";
         }
 
-        // private TimeSpan GetTotalDuration()
-        // {
-        //     return Trackers
-        //         .Where(t => t.Tracker.StartTracker.HasValue && t.Tracker.EndTracker.HasValue &&
-        //                     (t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value).TotalMinutes >= 0)
-        //         .Aggregate(TimeSpan.Zero, (sum, t) => sum + (t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value));
-        // }
         private TimeSpan GetTotalDuration()
         {
-            // Add a null check for Trackers
             if (Trackers == null || !Trackers.Any()) return TimeSpan.Zero;
 
-            return Trackers
+            Console.WriteLine($"[Duration Debug] === Calculating total from {Trackers.Count} trackers ===");
+
+            var valid = Trackers
                 .Where(t => t.Tracker.StartTracker.HasValue &&
                             t.Tracker.EndTracker.HasValue)
-                .Select(t => t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value)
-                // Ensure we only sum up durations that are 10 mins+ (matching backend)
-                .Where(d => d.TotalMinutes >= 10)
-                .Aggregate(TimeSpan.Zero, (sum, d) => sum + d);
+                .Select(t =>
+                {
+                    var d = t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value;
+                    int sec = (int)d.TotalSeconds;
+                    Console.WriteLine($"[Duration Debug] Raw: {(int)d.TotalMinutes}m {d.Seconds}s => {sec}s");
+                    return sec;
+                })
+                .ToList();
+
+            long totalSec = valid.Sum(x => (long)x);
+            Console.WriteLine($"[Duration Debug] Running total seconds: {totalSec}s");
+
+            int finalMinutes = (int)(totalSec / 60);
+            int finalSeconds = (int)(totalSec % 60);
+            Console.WriteLine($"[Duration Debug] Final total: {finalMinutes}m {finalSeconds}s");
+
+            return TimeSpan.FromSeconds(totalSec);
         }
     }
 }

@@ -47,6 +47,7 @@ namespace ScreenTracker1
                          }
                         
                          new WindowInterop(nativeWindowHandle).DisableCloseButton();
+                         NativeThemeService.SetWindowHandle(nativeWindowHandle);
                          winuiAppWindow.Closing += (sender, args) =>
                          {
                              args.Cancel = true;
@@ -81,6 +82,7 @@ namespace ScreenTracker1
             builder.Services.AddSingleton<AppUsageTracker>();
             builder.Services.AddSingleton<UserStateService>();
             builder.Services.AddScoped<CurrentThemeService>();
+            builder.Services.AddSingleton<NativeThemeService>();
 
 #if WINDOWS
             builder.Services.AddSingleton<DesktopScreenshotService>();

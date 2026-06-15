@@ -11,6 +11,7 @@
 @inject SystemThemeService SystemThemeService
 @inject AppUsageTracker appUsageTrackerService
 @inject UserSelectionStateService UserStateService
+@inject NativeThemeService NativeThemeService
 
 <div class="stitch-header">
     <div class="header-content">
@@ -235,6 +236,7 @@
                 isDarkTheme = await themeModule.InvokeAsync<bool>("getSavedTheme");
                 await UpdateThemeIcon();
                 await UpdateChartTheme();
+                NativeThemeService.SetDarkMode(isDarkTheme);
             }
         }
     }
@@ -286,6 +288,7 @@
             selectedTheme = isDarkTheme ? "dark" : "light";
             await UpdateThemeIcon();
             await UpdateChartTheme();
+            NativeThemeService.SetDarkMode(isDarkTheme);
         }
     }
 
@@ -316,6 +319,7 @@
             // Apply the saved theme
             isDarkTheme = await themeModule.InvokeAsync<bool>("getSavedTheme");
             await UpdateThemeIcon();
+            NativeThemeService.SetDarkMode(isDarkTheme);
             
             isOn = false;
             await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);

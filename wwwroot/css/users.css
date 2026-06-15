@@ -179,9 +179,14 @@ body, select, input, button, h3, h4 {
         z-index: 1;
     }
 
+.chart-wrapper {
+    height: 350px;
+    width: 100%;
+    position: relative;
+}
+
 .stitch-chart {
-    width: 100% !important;
-    height: 350px !important;
+    display: block;
     margin: 0;
     padding: 0;
     border-radius: 8px;
@@ -552,7 +557,6 @@ body, select, input, button, h3, h4 {
     position: relative;
 }
 
-    /* Ensure chart canvas doesn't stretch */
     .chart-container canvas {
         max-width: 100%;
         display: block;
