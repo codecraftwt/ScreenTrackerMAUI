@@ -7,7 +7,7 @@
   xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
   IgnorableNamespaces="uap rescap uap5">
 
-  <Identity Name="com.companyname.screentracker11" Publisher="CN=Admin" Version="1.0.1.1" />
+  <Identity Name="com.companyname.screentracker11" Publisher="CN=Admin" Version="1.0.5.1" />
 
   <mp:PhoneIdentity PhoneProductId="4A2285F3-6655-4380-880E-A4D2B91C58D3" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 

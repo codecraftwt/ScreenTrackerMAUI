@@ -1,0 +1,10 @@
+- Implemented Windows title bar dark/light theme via NativeThemeService
+- Fixed chart tooltip seconds calculation to use Math.round instead of Math.floor
+- Fixed Profile.css to use CSS variables instead of hardcoded colors
+- Fixed Users.razor FormatDuration floating-point precision bug
+- Fixed UserReport.razor by removing 10-min filter and fixing duration format
+- Fixed AppTitleServices.cs filter to use AppName instead of Title
+- Fixed gap detection to use Math.Abs so negative gaps are caught
+- Fixed LoadMoreTitles to re-apply the gap fix entry
+- Empty titles now show as "Unknown / No Window Title"
+- Added debug logging for duration comparison

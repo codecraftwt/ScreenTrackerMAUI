@@ -8,6 +8,20 @@ const getTextColor = (isDarkTheme) => {
     return '#212529';
 };
 
+const formatAxisLabel = (label) => {
+    if (!label) return '';
+    const today = new Date().toISOString().split('T')[0];
+    if (label === today) return 'Today';
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    if (label === yesterday) return 'Yesterday';
+    const parts = label.split('-');
+    if (parts.length === 3) {
+        const month = new Date(label).toLocaleString('en', { month: 'short' });
+        const day = parseInt(parts[2], 10);
+        return `${month} ${day}`;
+    }
+    return label;
+};
 
 // Accepts five arguments: labels, total data, afk data, active data, and isInitialDarkTheme (replacing the old textColor arg).
 window.renderGroupedBarChart = (labels, totalData, afkData, activeData, isInitialDarkTheme) => {
@@ -17,13 +31,6 @@ window.renderGroupedBarChart = (labels, totalData, afkData, activeData, isInitia
     // Auto-detect theme if not provided
     if (isInitialDarkTheme === undefined || isInitialDarkTheme === null) {
         isInitialDarkTheme = document.body.classList.contains('dark-theme');
-    }
-
-    // Set explicit canvas dimensions to prevent stretching
-    const container = canvas.parentElement;
-    if (container) {
-        canvas.style.width = container.clientWidth + 'px';
-        canvas.style.height = '350px';
     }
 
     // Determine the initial color using the function
@@ -53,6 +60,19 @@ window.renderGroupedBarChart = (labels, totalData, afkData, activeData, isInitia
         total: '#fdbb2d',  // Orange/Yellow (Total Time)
         afk: '#27ae60',    // Green (AFK Time)
         active: '#3498db'  // Blue (Active Time)
+    };
+
+    // Plugin for chart background fill
+    const chartBackgroundPlugin = {
+        id: 'chartBackground',
+        beforeDraw(chart) {
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return;
+            ctx.save();
+            ctx.fillStyle = chart._chartBackgroundColor || '#ffffff';
+            ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+            ctx.restore();
+        },
     };
 
     // Plugin 1: for drawing rounded tops on bars
@@ -149,6 +169,9 @@ window.renderGroupedBarChart = (labels, totalData, afkData, activeData, isInitia
                         font: { 
                             size: 13,
                             family: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                        },
+                        callback: function(value, index) {
+                            return formatAxisLabel(labels[index]);
                         }
                     },
                     // ⭐️ ADDED: Set initial X-axis line color ⭐️
@@ -158,7 +181,7 @@ window.renderGroupedBarChart = (labels, totalData, afkData, activeData, isInitia
                 y: {
                     display: true,
                     beginAtZero: true,
-                    grid: { display: false, },
+                    grid: { display: true, color: isInitialDarkTheme ? '#444444' : '#e2e8f0', drawBorder: false },
                     title: { 
                         display: true, 
                         text: 'Duration (Minutes)', 
@@ -208,10 +231,10 @@ window.renderGroupedBarChart = (labels, totalData, afkData, activeData, isInitia
                             return tooltipItems[0].label === today ? "Today" : tooltipItems[0].label;
                         },
                         label: (tooltipItem) => {
-                            const dataValue = tooltipItem.raw;
-                            const hours = Math.floor(dataValue / 60);
-                            const minutes = Math.floor(dataValue % 60);
-                            const seconds = Math.floor((dataValue % 1) * 60);
+                            const dataValue = Math.round(tooltipItem.raw * 60);
+                            const hours = Math.floor(dataValue / 3600);
+                            const minutes = Math.floor((dataValue % 3600) / 60);
+                            const seconds = dataValue % 60;
                             return `${tooltipItem.dataset.label}: ${hours}h ${minutes}m ${seconds}s`;
                         }
                     }
@@ -222,8 +245,10 @@ window.renderGroupedBarChart = (labels, totalData, afkData, activeData, isInitia
                 intersect: true
             }
         },
-        plugins: [roundedBar]
+        plugins: [roundedBar, chartBackgroundPlugin]
     });
+
+    window.barChartInstance._chartBackgroundColor = isInitialDarkTheme ? '#1e1e1e' : '#ffffff';
 };
 
 // ⭐️ NEW GLOBAL FUNCTION: Updates the chart's text color immediately on theme change. ⭐️
@@ -250,10 +275,16 @@ window.updateChartThemeColor = (isDarkTheme) => {
         // Update tooltip background for maximum contrast with the new theme
         chart.options.plugins.tooltip.backgroundColor = isDarkTheme ? 'rgba(30, 30, 30, 0.95)' : 'rgba(0, 0, 0, 0.8)';
 
+        // Update grid line colors
+        chart.options.scales.y.grid.color = isDarkTheme ? '#444444' : '#e2e8f0';
+
+        // Update chart background fill for the plugin
+        chart._chartBackgroundColor = isDarkTheme ? '#1e1e1e' : '#ffffff';
+
         // Apply the changes to the chart
         chart.update();
 
-        console.log('Chart text color updated for theme change to:', newColor, '(isDarkTheme:', isDarkTheme, ')');
+        console.log('Chart theme updated for theme change (isDarkTheme:', isDarkTheme, ')');
     }
 };
 

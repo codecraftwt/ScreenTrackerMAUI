@@ -14,9 +14,9 @@ public partial class App : Application
     //http://10.0.3.68:99/api/user/allUsers
     //public static string BaseUrl { get; set; } = "http://10.0.3.68:99";
     //http://screentracker.walstargroup.org/api/user/allUsersa
-    //public static string BaseUrl { get; set; } = "http://screentracker.walstargroup.org";
+    public static string BaseUrl { get; set; } = "http://screentracker.walstargroup.org";
 
-    public static string BaseUrl { get; set; } = "http://10.0.3.55:90";
+    //public static string BaseUrl { get; set; } = "http://10.0.3.55:90";
 
 
     public static string ImgURL { get; set; } = $"{BaseUrl}/uploads/";

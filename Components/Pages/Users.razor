@@ -177,7 +177,7 @@
                         </div>
                         <div class="tooltip-container">
                             <button class="stitch-refresh-btn btn btn-primary" style="background-color:#592cab; border-radius: 8px;" @onclick="OnViewScreenshotsClicked">
-                                <i class="bi bi-camera"></i> Screen
+                                <i class="bi bi-camera me-2"></i> Screen
                             </button>
                             <span class="tooltip-text">Screenshots</span>
                         </div>
@@ -203,7 +203,9 @@
                 }
                 else
                 {
+                    <div class="chart-wrapper">
                     <canvas id="barChart" class="stitch-chart"></canvas>
+                </div>
 
                 }
                 <div class="dashboard-grid-container">
@@ -529,6 +531,7 @@
     private const int takePerPage = 5;
     private string? LoginTime;
     private string? CheckinTime;
+    private double _titleGapMinutes = 0; // Gap between Top App total and Window Titles total (client-side fix)
 
     private List<Screenshots> screenshots = new();
     private bool showScreenshots = false;
@@ -1597,11 +1600,16 @@
 
     private async Task OnAppClick(string appName)
     {
+        //  FIX: Clear all previous Window Titles and category state before loading new app's data
         selectedAppName = appName;
+        appTitleList = null;
+        categoryKeywordGroups = null;
         currentTitlePage = 1;
         currentCategoryPage = 1;
         moreTitlesAvailable = true;
+        StateHasChanged();  // Immediate UI update to show loading state
 
+        // Fetch window titles for the selected app (initial page)
         var titles = await UserService.GetAppTitleDetailsAsync(
             selectedDate,
             userId,
@@ -1612,6 +1620,7 @@
 
         appTitleList = new List<AppTitle>(titles);
 
+        // Fetch ALL titles for the selected app to get the true total
         var allTitles = await UserService.GetAppTitleDetailsAsync(
             selectedDate,
             userId,
@@ -1620,6 +1629,50 @@
             take: int.MaxValue
         );
         totalAppTitleRecords = allTitles.Count;
+
+        //  CLIENT-SIDE CROSS-REFERENCE: Compare Top App duration vs Window Titles total
+        var selectedAppInList = appUsageList?.FirstOrDefault(a => a.appName?.Equals(appName, StringComparison.OrdinalIgnoreCase) == true);
+        double topAppDuration = selectedAppInList?.durationInMinutes ?? 0;
+        double titlesTotal = allTitles.Sum(t => t.durationInMinutes);
+        double difference = topAppDuration - titlesTotal;
+        double absDifference = Math.Abs(difference);
+
+        Console.WriteLine($"========================================");
+        Console.WriteLine($"[DEBUG OnAppClick] Selected App: {appName}");
+        Console.WriteLine($"[DEBUG OnAppClick] Usage Type: {selectedUsageType}");
+        Console.WriteLine($"[DEBUG OnAppClick] Top Applications duration for '{appName}': {topAppDuration:F2} min ({FormatDuration(topAppDuration)})");
+        Console.WriteLine($"[DEBUG OnAppClick] Window Titles total for '{appName}':      {titlesTotal:F2} min ({FormatDuration(titlesTotal)})");
+        Console.WriteLine($"[DEBUG OnAppClick] Difference (AppUsage - AppTitle):        {difference:F2} min ({FormatDuration(absDifference)})");
+        Console.WriteLine($"[DEBUG OnAppClick] Total Window Title records: {allTitles.Count}");
+        foreach (var t in allTitles)
+        {
+            Console.WriteLine($"[DEBUG OnAppClick]   Title='{t.title}' Duration={t.durationInMinutes:F2} min");
+        }
+        Console.WriteLine($"========================================");
+
+        // If there's ANY gap between Top App total and Window Titles total,
+        // add an "Unknown / No Window Title" entry client-side to make the totals match
+        // Threshold of 0.001 min (~60ms) is enough to ignore floating-point noise
+        // while catching even tiny real gaps like 4 seconds (0.067 min)
+        _titleGapMinutes = 0; // Reset from previous selection
+        if (absDifference > 0.001)
+        {
+            _titleGapMinutes = absDifference;
+            var unknownEntry = new AppTitle
+            {
+                title = "Unknown / No Window Title",
+                durationInMinutes = absDifference
+            };
+            appTitleList.Add(unknownEntry);
+            // Re-sort so the unknown entry appears in correct position
+            appTitleList = appTitleList.OrderByDescending(t => t.durationInMinutes).ToList();
+            totalAppTitleRecords++; // Account for the synthetic entry
+            Console.WriteLine($"[DEBUG OnAppClick] Added client-side 'Unknown / No Window Title' entry for {absDifference:F2} min gap (AppUsage={topAppDuration:F2}, Titles={titlesTotal:F2})");
+        }
+        else
+        {
+            Console.WriteLine($"[DEBUG OnAppClick] No gap detected (absDifference={absDifference:F6} min <= 0.001 threshold)");
+        }
 
         var categories = await UserService.GetCategoryByAppNameAsync(appName);
         categoryKeywordGroups = new List<CategoryKeywordGroup>(categories);
@@ -2039,6 +2092,21 @@
             moreTitlesAvailable = false;
         }
 
+        // Re-apply the client-side gap fix if one existed
+        if (_titleGapMinutes > 0.001)
+        {
+            var existingGap = appTitleList.FirstOrDefault(t => t.title == "Unknown / No Window Title" && Math.Abs(t.durationInMinutes - _titleGapMinutes) < 0.001);
+            if (existingGap == null)
+            {
+                appTitleList.Add(new AppTitle
+                {
+                    title = "Unknown / No Window Title",
+                    durationInMinutes = _titleGapMinutes
+                });
+                appTitleList = appTitleList.OrderByDescending(t => t.durationInMinutes).ToList();
+            }
+        }
+
         StateHasChanged();
     }
 
@@ -2068,6 +2136,18 @@
             take: takePerPage
         );
         appTitleList = new List<AppTitle>(initial);
+
+        // Re-apply the client-side gap fix if one existed
+        if (_titleGapMinutes > 0.001)
+        {
+            appTitleList.Add(new AppTitle
+            {
+                title = "Unknown / No Window Title",
+                durationInMinutes = _titleGapMinutes
+            });
+            appTitleList = appTitleList.OrderByDescending(t => t.durationInMinutes).ToList();
+        }
+
         StateHasChanged();
     }
     private async Task OnDateChanged(ChangeEventArgs e)

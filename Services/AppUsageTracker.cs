@@ -232,6 +232,17 @@ namespace ScreenTracker1.Services
                 {
                     _currentApp.EndTime = DateTime.UtcNow;
                     AppUsageLogs.Insert(0, _currentApp);
+
+                    // FIX: Send the final AppUsage record to the API so the AppUsage table
+                    // has the complete session duration and matches the AppTitle records.
+                    var usage = new AppUsageModel
+                    {
+                        AppName = _currentApp.AppName,
+                        StartTime = _currentApp.StartTime,
+                        EndTime = _currentApp.EndTime,
+                        StartMode = _startMode
+                    };
+                    _ = SendToApi("AppUsage", usage);
                 }
             }
         }
