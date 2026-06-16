@@ -2,17 +2,8 @@
 
 	<PropertyGroup>
 		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">net8.0-windows10.0.22621.0</TargetFrameworks>
-		<!-- Uncomment to also build the tizen app. You will need to install tizen by following this: https://github.com/Samsung/Tizen.NET -->
-		<!-- <TargetFrameworks>$(TargetFrameworks);net8.0-tizen</TargetFrameworks> -->
+		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('osx'))">net8.0-maccatalyst</TargetFrameworks>
 
-		<!-- Note for MacCatalyst:
-            The default runtime is maccatalyst-x64, except in Release config, in which case the default is maccatalyst-x64;maccatalyst-arm64.
-            When specifying both architectures, use the plural <RuntimeIdentifiers> instead of the singular <RuntimeIdentifier>.
-            The Mac App Store will NOT accept apps with ONLY maccatalyst-arm64 indicated;
-            either BOTH runtimes must be indicated or ONLY macatalyst-x64. -->
-		<!-- For example: <RuntimeIdentifiers>maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers> -->
-
-		<!--<TargetFrameworks></TargetFrameworks>-->
 		<UseMaui>true</UseMaui>
 		<UseMauiRazor>true</UseMauiRazor>
 		<DefaultItemExcludes>$(DefaultItemExcludes);Platforms\Tizen\**</DefaultItemExcludes>
@@ -126,6 +117,7 @@
 		</Content>
 	</ItemGroup>
 
+
 	<ItemGroup>
 		<PackageReference Include="Blazorise" Version="0.9.0" />
 		<PackageReference Include="Blazorise.Charts" Version="0.9.0" />
@@ -136,14 +128,14 @@
 		<PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.1" />
-		<PackageReference Include="MouseKeyHook" Version="5.7.1" />
+		<PackageReference Condition="$(TargetFramework.Contains('windows'))" Include="MouseKeyHook" Version="5.7.1" />
 		<PackageReference Include="MudBlazor" Version="6.0.2" />
 		<PackageReference Include="NEvaldas.Blazor.Select2" Version="0.1.0" />
 		<PackageReference Include="Radzen.Blazor" Version="4.32.9" />
 		<PackageReference Include="SkiaSharp.Views.Maui.Controls" Version="3.119.0" />
-		<PackageReference Include="System.Drawing.Common" Version="8.0.18" />
+		<PackageReference Condition="$(TargetFramework.Contains('windows'))" Include="System.Drawing.Common" Version="8.0.18" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.13.0" />
-		<FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+		<FrameworkReference Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'" Include="Microsoft.WindowsDesktop.App.WindowsForms" />
 
 	</ItemGroup>
 

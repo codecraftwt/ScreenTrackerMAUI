@@ -10,10 +10,10 @@
 @using System.IdentityModel.Tokens.Jwt;
 @using ScreenTracker1.Components.Layout
 @inject NavigationManager NavigationManager
-@inject DesktopAutoCaptureService desktopAutoCaptureService
+@inject IAutoCaptureService desktopAutoCaptureService
 @inject AfkTrackerService afkTrackerService
-@inject SystemThemeService SystemThemeService
 @inject AppUsageTracker appUsageTrackerService
+@inject SystemThemeService SystemThemeService
 @inject UserSelectionStateService UserStateService
 @using NEvaldas.Blazor.Select2
 @using System.Diagnostics
@@ -698,6 +698,7 @@
     //     return "fas fa-desktop";
     // }
 
+#if WINDOWS
     private string GetAppIconClass(string appName)
     {
 
@@ -769,6 +770,12 @@
             return string.Empty;
         }
     }
+#else
+    private string GetAppIconClass(string appName)
+    {
+        return "/images/default-app.png";
+    }
+#endif
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -1231,7 +1238,6 @@
             Console.WriteLine($"Error starting AfkTrackerService: {ex.Message}");
         }
 
-
         try
         {
             var dailyTracker = await UserService.StartDailyTrackerAsync(startMode);
@@ -1278,9 +1284,6 @@
         {
             Console.WriteLine($"Error stopping AfkTrackerService: {ex.Message}");
         }
-
-        // Removed automatic StartAll call - let the caller decide what to start
-        // await StartAll("automatic");
     }
 
     protected override async Task OnInitializedAsync()

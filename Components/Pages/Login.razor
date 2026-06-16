@@ -6,12 +6,12 @@
 @using System.IdentityModel.Tokens.Jwt
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
-@inject AppUsageTracker AppUsageTracker
-@inject DesktopAutoCaptureService desktopAutoCaptureService
-@inject AfkTrackerService afkTrackerService
 @inject LoginService LoginService
-@inject UserService UserService
+@inject AppUsageTracker AppUsageTracker
+@inject IAutoCaptureService desktopAutoCaptureService
+@inject AfkTrackerService afkTrackerService
 @inject AppUsageTracker appUsageTrackerService
+@inject UserService UserService
 @layout ScreenTracker1.Components.Layout.NoNavLayout
 
 

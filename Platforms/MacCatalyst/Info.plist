@@ -11,6 +11,13 @@
     <!-- Please consult https://developer.apple.com/documentation/bundleresources/information_property_list/lsapplicationcategorytype -->
     <!-- <key>LSApplicationCategoryType</key> -->
     <!-- <string>public.app-category.YOUR-CATEGORY-HERE</string> -->
+    <!-- Permission: Required for global keyboard/mouse monitoring via NSEvent global monitors -->
+    <key>NSAccessibilityUsageDescription</key>
+    <string>ScreenTracker1 requires Accessibility access to monitor global keyboard and mouse activity for productivity tracking.</string>
+    <!-- Permission: Required for screen capture via CGDisplayCreateImage on macOS 10.15+ -->
+    <key>NSScreenCaptureDescription</key>
+    <string>ScreenTracker1 requires screen recording permission to capture periodic screenshots of your desktop for productivity tracking.</string>
+
     <key>UIDeviceFamily</key>
     <array>
         <integer>2</integer>

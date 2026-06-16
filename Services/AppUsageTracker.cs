@@ -11,10 +11,14 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+#if MACCATALYST
+using Foundation;
+using AppKit;
+#endif
 
 namespace ScreenTracker1.Services
 {
-    public class AppUsageTracker
+    public class AppUsageTracker : IActiveWindowTrackerService
     {
         private readonly HttpClient _httpClient;
         private readonly IJSRuntime _jsRuntime;
@@ -79,6 +83,7 @@ namespace ScreenTracker1.Services
 
         private async Task TrackActiveApp()
         {
+#if WINDOWS
             IntPtr hwnd = GetForegroundWindow();
             if (hwnd == IntPtr.Zero) return;
 
@@ -87,48 +92,16 @@ namespace ScreenTracker1.Services
             string windowTitle = buffer.ToString();
 
             GetWindowThreadProcessId(hwnd, out int pid);
-            string appName = "Unknown";
+            string appName = GetFriendlyAppNameFromProcess(pid, windowTitle);
+#elif MACCATALYST
+            var app = NSWorkspace.SharedWorkspace.FrontmostApplication;
+            if (app == null) return;
 
-            try
-            {
-                var proc = Process.GetProcessById(pid);
-        
-                string processName = proc.ProcessName;
-                if (processName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    processName = processName.Substring(0, processName.Length - 4);
-                }
-
-
-                //if (_friendlyAppNames.ContainsKey(processName))
-                //{
-                //    appName = _friendlyAppNames[processName];
-                //}
-                //else
-                //{
-
-                //    appName = processName;
-                //}
-
-                if (_friendlyAppNames.TryGetValue(processName, out string friendlyName))
-                {
-                    // If it's the Generic Host, try to use the Window Title to be more specific
-                    if (processName.Equals("ApplicationFrameHost", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // If title is "Calculator", use that. Otherwise, use "Windows App"
-                        appName = !string.IsNullOrWhiteSpace(windowTitle) ? windowTitle : friendlyName;
-                    }
-                    else
-                    {
-                        appName = friendlyName;
-                    }
-                }
-                else
-                {
-                    appName = processName;
-                }
-            }
-            catch { }
+            string appName = app.LocalizedName ?? app.BundleIdentifier ?? "Unknown";
+            string windowTitle = GetMacWindowTitle(app);
+#else
+            return;
+#endif
 
             var now = DateTime.UtcNow;
 
@@ -247,6 +220,39 @@ namespace ScreenTracker1.Services
             }
         }
 
+        private string GetFriendlyAppNameFromProcess(int pid, string windowTitle)
+        {
+            string appName = "Unknown";
+            try
+            {
+                var proc = Process.GetProcessById(pid);
+                string processName = proc.ProcessName;
+                if (processName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    processName = processName.Substring(0, processName.Length - 4);
+                }
+
+                if (_friendlyAppNames.TryGetValue(processName, out string friendlyName))
+                {
+                    if (processName.Equals("ApplicationFrameHost", StringComparison.OrdinalIgnoreCase))
+                    {
+                        appName = !string.IsNullOrWhiteSpace(windowTitle) ? windowTitle : friendlyName;
+                    }
+                    else
+                    {
+                        appName = friendlyName;
+                    }
+                }
+                else
+                {
+                    appName = processName;
+                }
+            }
+            catch { }
+            return appName;
+        }
+
+#if WINDOWS
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
 
@@ -255,5 +261,33 @@ namespace ScreenTracker1.Services
 
         [DllImport("user32.dll")]
         private static extern int GetWindowThreadProcessId(IntPtr hWnd, out int processId);
+#endif
+
+#if MACCATALYST
+        private static string GetMacWindowTitle(NSRunningApplication app)
+        {
+            try
+            {
+                using var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "/usr/bin/osascript",
+                        Arguments = "-e \"tell application \\\"System Events\\\" to get name of first window of (first process whose frontmost is true)\"",
+                        RedirectStandardOutput = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                process.Start();
+                string? result = process.StandardOutput.ReadToEnd()?.Trim();
+                process.WaitForExit(2000);
+                if (!string.IsNullOrEmpty(result))
+                    return result;
+            }
+            catch { }
+            return app.LocalizedName ?? "Unknown";
+        }
+#endif
     }
 }

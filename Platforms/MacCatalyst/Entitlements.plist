@@ -3,11 +3,17 @@
 <plist version="1.0">
     <!-- See https://aka.ms/maui-publish-app-store#add-entitlements for more information about adding entitlements.-->
     <dict>
-        <!-- App Sandbox must be enabled to distribute a MacCatalyst app through the Mac App Store. -->
+        <!-- App Sandbox is disabled because global keyboard monitoring via NSEvent
+             does not work when sandboxed. Distribute outside the Mac App Store (DMG). -->
         <key>com.apple.security.app-sandbox</key>
-        <true/>
+        <false/>
         <!-- When App Sandbox is enabled, this value is required to open outgoing network connections. -->
         <key>com.apple.security.network.client</key>
+        <true/>
+        <!-- Accessibility: Required for global keyboard/mouse event monitoring via NSEvent global monitors.
+             NOTE: Global keyboard monitoring via NSEvent may still be blocked when App Sandbox is enabled.
+             For full functionality, distribute outside the Mac App Store and disable App Sandbox. -->
+        <key>com.apple.security.accessibility</key>
         <true/>
     </dict>
 </plist>

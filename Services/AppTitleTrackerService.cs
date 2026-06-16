@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if WINDOWS
+using System;
 using Microsoft.JSInterop;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -111,3 +112,4 @@ namespace ScreenTracker1.Services
         }
     }
 }
+#endif
