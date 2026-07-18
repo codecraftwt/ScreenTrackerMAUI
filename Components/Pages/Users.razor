@@ -1,4 +1,4 @@
-﻿ @page "/users"
+﻿@page "/users"
 @layout MainLayout
 @inject UserService UserService
 @inject IJSRuntime JSRuntime
@@ -46,7 +46,7 @@
                                     <option value="@admin.username">@admin.username</option>
                                 }
                             </select>
-                            @*  <span class="tooltip-text tooltip-bottom">Choose an admin from the list</span> *@
+                            <span class="tooltip-text tooltip-bottom">Choose an admin from the list</span>
                         </div>
                     </div>
 
@@ -208,8 +208,8 @@
                 else
                 {
                     <div class="chart-wrapper">
-                    <canvas id="barChart" class="stitch-chart"></canvas>
-                </div>
+                        <canvas id="barChart" class="stitch-chart"></canvas>
+                    </div>
 
                 }
                 <div class="dashboard-grid-container">
@@ -319,7 +319,7 @@
 
             <div class="stitch-tabs">
                 <div class="stitch-tab @(selectedTab == "summary" ? "active" : "")" @onclick='() => SelectTab("summary")'>Summary</div>
-                 @* <div class="stitch-tab @(selectedTab == "window" ? "active" : "")" @onclick='() => SelectTab("window")'>Window</div> *@
+                @* <div class="stitch-tab @(selectedTab == "window" ? "active" : "")" @onclick='() => SelectTab("window")'>Window</div> *@
             </div>
 
             <div class="stitch-tab-content">
@@ -591,6 +591,9 @@
     private List<double> activeData = new List<double>();
     private bool chartDataReady = false;
 
+    private double totalActiveAppMinutes = 0;
+    private List<AppTitle> selectedAppAllTitles = new();
+
     [JSInvokable]
     public async Task OnSelect2Changed(string elementId, string value)
     {
@@ -677,7 +680,7 @@
 
     // private string GetAppIconClass(string appName)
     // {
-      
+
     //     var normalizedName = appName.ToLowerInvariant();
     //     if (normalizedName.Contains("calculator")) return "fas fa-calculator";
     //     if (normalizedName.Contains("weather")) return "fas fa-cloud-sun";
@@ -713,7 +716,7 @@
     private string GetAppIconClass(string appName)
     {
 
-        string exePath = GetPathFromName(appName); 
+        string exePath = GetPathFromName(appName);
 
         try
         {
@@ -1767,7 +1770,7 @@
             // ⭐ FIX: LoadAfkDataAsync now only updates the summary card's totalAfkMinutes.
             // Chart data correction for ALL dates is now handled in LoadDataAsync.
             // This matches the Web app behavior where afkLogsTotal is fetched for every date.
-            
+
             // First try to use the already-corrected value from LoadDataAsync
             string selectedDateStr = selectedDate.ToString("yyyy-MM-dd");
             int selectedDateIndex = labels.FindIndex(l => l == selectedDateStr);
@@ -1781,6 +1784,9 @@
                 // Fallback: fetch afk logs total directly
                 totalAfkMinutes = await UserService.GetAfkLogsTotalAsync(id, selectedDate, userRole, selectedUsageType);
             }
+
+            SyncSelectedDateGraphToCards();
+            chartDataReady = true;
         }
         finally
         {
@@ -1955,7 +1961,7 @@
         moreTitlesAvailable = appTitleList.Count < totalAppTitleRecords;
 
         var categories = await UserService.GetCategoryByAppNameAsync(appName);
-        categoryKeywordGroups = new List<CategoryKeywordGroup>(categories);
+        categoryKeywordGroups = new List<CategoryKeywordGroup>(categories ?? new List<CategoryKeywordGroup>());
         totalCategoryRecords = categoryKeywordGroups.Count;
 
         StateHasChanged();
@@ -2226,26 +2232,26 @@
             // but the primary AFK tracking data lives in the AfkLogs table.
             // To match the Web app behavior, we combine both sources for every date.
             string selectedDateStr = selectedDate.ToString("yyyy-MM-dd");
-            
+
             // Build parallel fetch tasks for all dates (except the selected one which we already have)
             var chartCorrectionTasks = new List<Task>();
             var chartDayAfkMinutes = new Dictionary<string, double>(); // date -> max(aggregateAfk, afkLogs)
             var chartDayTotals = new Dictionary<string, double>();     // date -> total
-            
+
             for (int i = 0; i < labels.Count; i++)
             {
                 string dateStr = labels[i];
-                
+
                 if (dateStr == selectedDateStr)
                 {
                     // Selected date: use the already-fetched aggregate + fetch afk logs
                     aggregateResponse = await UserService.GetDailyTrackerAggregateAsync(userId, selectedDate, selectedUsageType);
                     double afkLogsMinutes = await UserService.GetAfkLogsTotalAsync(id, selectedDate, userRole, selectedUsageType);
-                    
+
                     double afkFromApi = afkData[i];
                     double finalAfk = Math.Max(afkFromApi, Math.Max(aggregateResponse.AfkDurationMinutes, afkLogsMinutes));
                     double finalTotal = Math.Max(aggregateResponse.TotalDurationMinutes, finalAfk);
-                    
+
                     chartDayAfkMinutes[dateStr] = finalAfk;
                     chartDayTotals[dateStr] = finalTotal;
                 }
@@ -2253,35 +2259,35 @@
                 {
                     // Other dates: fetch both aggregate and afk logs in parallel
                     DateTime chartDate = DateTime.ParseExact(dateStr, "yyyy-MM-dd", null);
-                    
+
                     Task<DailyTrackerAggregateResponse> aggTask = UserService.GetDailyTrackerAggregateAsync(userId, chartDate, selectedUsageType);
                     Task<double> afkTask = UserService.GetAfkLogsTotalAsync(id, chartDate, userRole, selectedUsageType);
-                    
+
                     // Capture date in local variable for closure
                     string capturedDate = dateStr;
                     int capturedIndex = i;
-                    
+
                     chartCorrectionTasks.Add(Task.Run(async () =>
-                    {
-                        var dayAggregate = await aggTask;
-                        double dayAfkLogs = await afkTask;
-                        
-                        double afkFromApi2 = afkData[capturedIndex];
-                        double finalAfk = Math.Max(afkFromApi2, Math.Max(dayAggregate.AfkDurationMinutes, dayAfkLogs));
-                        double finalTotal = Math.Max(dayAggregate.TotalDurationMinutes, finalAfk);
-                        
-                        lock (chartDayAfkMinutes)
-                        {
-                            chartDayAfkMinutes[capturedDate] = finalAfk;
-                            chartDayTotals[capturedDate] = finalTotal;
-                        }
-                    }));
+                                        {
+                                            var dayAggregate = await aggTask;
+                                            double dayAfkLogs = await afkTask;
+
+                                            double afkFromApi2 = afkData[capturedIndex];
+                                            double finalAfk = Math.Max(afkFromApi2, Math.Max(dayAggregate.AfkDurationMinutes, dayAfkLogs));
+                                            double finalTotal = Math.Max(dayAggregate.TotalDurationMinutes, finalAfk);
+
+                                            lock (chartDayAfkMinutes)
+                                            {
+                                                chartDayAfkMinutes[capturedDate] = finalAfk;
+                                                chartDayTotals[capturedDate] = finalTotal;
+                                            }
+                                        }));
                 }
             }
-            
+
             // Wait for all parallel fetches to complete
             await Task.WhenAll(chartCorrectionTasks);
-            
+
             // Apply corrected values to the chart data arrays for ALL dates
             for (int i = 0; i < labels.Count; i++)
             {
@@ -2294,7 +2300,7 @@
                     activeData[i] = Math.Max(0, correctedTotal - correctedAfk);
                 }
             }
-            
+
             // Also update the summary card values for the selected date
             if (chartDayAfkMinutes.TryGetValue(selectedDateStr, out double selectedAfk))
             {
@@ -2381,6 +2387,14 @@
 
 
     private void SelectTab(string tabName) => selectedTab = tabName;
+
+    // private string FormatDuration(double minutes)
+    // {
+    //     int hours = (int)(minutes / 60);
+    //     int remainingMinutes = (int)(minutes % 60);
+    //     int seconds = (int)((minutes - (int)minutes) * 60);
+    //     return $"{hours}h {remainingMinutes}m {seconds}s";
+    // }
 
     private string FormatDuration(double minutes)
     {
@@ -2495,9 +2509,62 @@
         return $"#{r:X2}{g:X2}{b:X2}";
     }
 
+    // private async Task LoadAppUsageData()
+    // {
+    //     if (userId == 0) return;
+    //     isAppUsageLoading = true;
+    //     StateHasChanged();
+
+    //     currentAppUsagePage = 1;
+    //     selectedAppName = null;
+
+    //     try
+    //     {
+    //         var appUsageTask = UserService.GetAppUsageByUserIdAsync(
+    //             userId, selectedDate, page: 1, take: appUsagePageSize, usageType: selectedUsageType, userRole: userRole);
+    //         var usageCountTask = UserService.GetDayUsageCountAsync(selectedDate, userId, selectedUsageType);
+    //         var allTitlesTask = UserService.GetAppTitleByDateAsync(selectedDate, userId, page: 1, take: int.MaxValue);
+    //         var appTitlesTask = UserService.GetAppTitleByDateAsync(selectedDate, userId, page: 1, take: takePerPage);
+    //         var categoriesTask = UserService.GetGroupedCategoryKeywordsAsync(userId, selectedDate);
+
+    //         await Task.WhenAll(appUsageTask, usageCountTask, allTitlesTask, appTitlesTask, categoriesTask);
+
+    //         initialAppUsageList = appUsageTask.Result;
+    //         totalAppUsageRecords = usageCountTask.Result;
+    //         appUsageList = new List<AppUsage>(initialAppUsageList);
+    //         moreAppUsageAvailable = appUsageList.Count < totalAppUsageRecords;
+
+    //         totalAppTitleRecords = allTitlesTask.Result.Count;
+    //         initialAppTitleList = appTitlesTask.Result;
+    //         appTitleList = new List<AppTitle>(initialAppTitleList);
+    //         moreTitlesAvailable = true;
+    //         currentTitlePage = 1;
+
+    //         totalCategoryRecords = categoriesTask.Result.Count;
+    //         initialCategoryList = categoriesTask.Result;
+    //         categoryKeywordGroups = new List<CategoryKeywordGroup>(initialCategoryList);
+    //         currentCategoryPage = 1;
+    //         moreCategoriesAvailable = true;
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Console.WriteLine($"Error loading app usage data: {ex.Message}");
+    //         moreAppUsageAvailable = false;
+    //         moreTitlesAvailable = false;
+    //         moreCategoriesAvailable = false;
+    //     }
+    //     finally
+    //     {
+    //         isAppUsageLoading = false;
+    //         StateHasChanged();
+    //     }
+    // }
+
+
     private async Task LoadAppUsageData()
     {
         if (userId == 0) return;
+
         isAppUsageLoading = true;
         StateHasChanged();
 
@@ -2533,6 +2600,14 @@
             totalAppUsageRecords = _allGroupedAppUsage.Count;
             initialAppUsageList = _allGroupedAppUsage.Take(appUsagePageSize).ToList();
             appUsageList = new List<AppUsage>(initialAppUsageList);
+
+            // Active Time should come from same AppUsage data
+            var allAppUsageList = allAppUsageTask.Result ?? new List<AppUsage>();
+            totalActiveAppMinutes = allAppUsageList.Sum(x => x.durationInMinutes);
+            SyncSelectedDateGraphToCards();
+            chartDataReady = true;
+
+            totalAppUsageRecords = usageCountTask.Result;
             moreAppUsageAvailable = appUsageList.Count < totalAppUsageRecords;
             currentAppUsagePage = 1;
 
@@ -2586,11 +2661,27 @@
                 categoryKeywordGroups = new List<CategoryKeywordGroup>();
             }
             currentCategoryPage = 1;
-            moreCategoriesAvailable = true;
+            moreCategoriesAvailable = categoryKeywordGroups.Count < totalCategoryRecords;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading app usage data: {ex.Message}");
+
+            appUsageList = new List<AppUsage>();
+            initialAppUsageList = new List<AppUsage>();
+
+            appTitleList = new List<AppTitle>();
+            initialAppTitleList = new List<AppTitle>();
+
+            categoryKeywordGroups = new List<CategoryKeywordGroup>();
+            initialCategoryList = new List<CategoryKeywordGroup>();
+
+            totalAppUsageRecords = 0;
+            totalAppTitleRecords = 0;
+            totalCategoryRecords = 0;
+
+            totalActiveAppMinutes = 0;
+
             moreAppUsageAvailable = false;
             moreTitlesAvailable = false;
             moreCategoriesAvailable = false;
@@ -2732,3 +2823,4 @@
     }
 
 }
+

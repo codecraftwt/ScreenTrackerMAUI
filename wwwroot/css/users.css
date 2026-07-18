@@ -726,6 +726,8 @@ h4 {
 
 .selectbox {
     display: flex;
+    position: relative;
+    z-index: 10;
     align-items: center;
     align-content: center;
     margin-top: 14px;
@@ -833,8 +835,6 @@ body {
 .tooltip-container {
     position: relative;
     display: inline-block;
-    /*  z-index: 2; */
-    z-index: 0;
 }
 
 .tooltip-text {
@@ -846,7 +846,7 @@ body {
     border-radius: 6px;
     padding: 5px 0;
     position: absolute;
-    z-index: 1;
+    z-index: 1000;
     bottom: 125%;
     left: 50%;
     margin-left: -60px;
@@ -856,6 +856,10 @@ body {
 
 .tooltip-container:hover .tooltip-text {
     visibility: visible;
+}
+
+.tooltip-container:hover {
+    z-index: 1000;
 }
 
 .user-menu-section {

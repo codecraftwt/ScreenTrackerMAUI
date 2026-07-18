@@ -790,12 +790,14 @@ namespace ScreenTracker1.Services
 			{
 				string url = $"{App.URL}Image/{screenshotId}";
 				var request = new HttpRequestMessage(HttpMethod.Delete, url);
+				AddAuthorizationHeader(request);
 
 				var response = await _httpClient.SendAsync(request);
 
 				if (!response.IsSuccessStatusCode)
 				{
-					Console.WriteLine($"HTTP{response.StatusCode}:{await response.Content.ReadAsStringAsync()}");
+					var errorBody = await response.Content.ReadAsStringAsync();
+					Console.WriteLine($"HTTP{response.StatusCode}:{errorBody}");
 					return false;
 				}
 				return true;
@@ -1489,6 +1491,8 @@ namespace ScreenTracker1.Services
                 {
                     var content = await response.Content.ReadAsStringAsync();
                     var result = JsonSerializer.Deserialize<DailyTrackerAggregateResponse>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    return result ?? new DailyTrackerAggregateResponse();
+
                     return result ?? new DailyTrackerAggregateResponse();
                 }
                 else if (response.StatusCode == HttpStatusCode.Unauthorized)
