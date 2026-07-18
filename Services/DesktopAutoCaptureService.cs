@@ -1,22 +1,27 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Gma.System.MouseKeyHook;
 using Microsoft.Maui.ApplicationModel;
 using System.IO;
 using System.Net.Http;
 using System.Timers;
-using ScreenTracker1.Platforms.Windows;
+#if WINDOWS
+using Gma.System.MouseKeyHook;
+#endif
+#if MACCATALYST
+using AppKit;
+using ScreenTracker1.Platforms.MacCatalyst;
+#endif
 
 namespace ScreenTracker1.Services
 {
-    public class DesktopAutoCaptureService
+    public class DesktopAutoCaptureService : IAutoCaptureService
     {
-        private readonly DesktopScreenshotService _screenshotService;
+        private readonly IScreenshotService _screenshotService;
         private readonly HttpClient _httpClient;
         private System.Timers.Timer _oneMinuteTimer;
         private System.Timers.Timer _tenMinuteTimer;
@@ -28,21 +33,23 @@ namespace ScreenTracker1.Services
         private int _currentMinute = 0;
         private int _keyboardClicks = 0;
         private int _mouseClicks = 0;
-        // This field was correctly added by you
-        private HashSet<System.Windows.Forms.Keys> _activeKeys = new HashSet<System.Windows.Forms.Keys>();
-
+        private HashSet<int> _activeKeys = new HashSet<int>();
 
         private Dictionary<int, (int keyboard, int mouse, DateTime timestamp)> _minuteStats =
             new Dictionary<int, (int, int, DateTime)>();
 
+#if WINDOWS
         private IKeyboardMouseEvents _keyboardMouseEvents;
+#elif MACCATALYST
+        private GlobalInputMonitorService? _inputMonitor;
+#endif
         private string _startMode;
 
         private DateTime _lastActivityTime = DateTime.Now;
         private bool _isAfk = false;
         private const int AfkThresholdMinutes = 5;
 
-        public DesktopAutoCaptureService(DesktopScreenshotService screenshotService)
+        public DesktopAutoCaptureService(IScreenshotService screenshotService)
         {
             _screenshotService = screenshotService;
             _httpClient = new HttpClient
@@ -63,33 +70,41 @@ namespace ScreenTracker1.Services
             _currentMinute = 0;
             _minuteStats.Clear();
 
+#if WINDOWS
             _keyboardMouseEvents = Hook.GlobalEvents();
 
-            // ----------------------------------------------------
-            // 🚨 FIX: REPLACE KeyPress with KeyDown/KeyUp logic 🚨
-            // ----------------------------------------------------
-
-            // 1. KeyDown: Only count if the key is NOT already in the set (i.e., not auto-repeat)
             _keyboardMouseEvents.KeyDown += (s, e) => {
-                // .Add() returns true if the key was successfully added (was not present)
-                if (_activeKeys.Add(e.KeyCode))
+                if (_activeKeys.Add((int)e.KeyCode))
                 {
                     _keyboardClicks++;
                     _lastActivityTime = DateTime.Now;
                 }
             };
 
-            // 2. KeyUp: Remove the key from the set when released
             _keyboardMouseEvents.KeyUp += (s, e) => {
-                _activeKeys.Remove(e.KeyCode);
+                _activeKeys.Remove((int)e.KeyCode);
             };
-            // ----------------------------------------------------
-
 
             _keyboardMouseEvents.MouseDown += (s, e) => {
                 _mouseClicks++;
                 _lastActivityTime = DateTime.Now;
             };
+#elif MACCATALYST
+            _inputMonitor = new GlobalInputMonitorService();
+            _inputMonitor.OnKeyDown += (evt) => {
+                ushort keyCode = evt.KeyCode;
+                if (_activeKeys.Add(keyCode))
+                {
+                    _keyboardClicks++;
+                    _lastActivityTime = DateTime.Now;
+                }
+            };
+            _inputMonitor.OnMouseDown += (evt) => {
+                _mouseClicks++;
+                _lastActivityTime = DateTime.Now;
+            };
+            _inputMonitor.Start();
+#endif
 
             token = Preferences.Get("authToken", null);
             if (token != null)
@@ -174,14 +189,16 @@ namespace ScreenTracker1.Services
                 _tenMinuteTimer = null;
             }
 
+#if WINDOWS
             _keyboardMouseEvents?.Dispose();
             _keyboardMouseEvents = null;
+#elif MACCATALYST
+            _inputMonitor?.Stop();
+            _inputMonitor?.Dispose();
+            _inputMonitor = null;
+#endif
 
-            // ------------------------------------
-            // 🚨 FIX: Clear the tracking state 🚨
-            // ------------------------------------
             _activeKeys.Clear();
-            // ------------------------------------
 
             Logger.Log($"USER: {_userName}, INFO: Timers and Hooks STOPPED.");
         }

@@ -10,10 +10,10 @@
 @using System.IdentityModel.Tokens.Jwt;
 @using ScreenTracker1.Components.Layout
 @inject NavigationManager NavigationManager
-@inject DesktopAutoCaptureService desktopAutoCaptureService
+@inject IAutoCaptureService desktopAutoCaptureService
 @inject AfkTrackerService afkTrackerService
-@inject SystemThemeService SystemThemeService
 @inject AppUsageTracker appUsageTrackerService
+@inject SystemThemeService SystemThemeService
 @inject UserSelectionStateService UserStateService
 @using NEvaldas.Blazor.Select2
 @using System.Diagnostics
@@ -698,6 +698,7 @@
     //     return "fas fa-desktop";
     // }
 
+#if WINDOWS
     private string GetAppIconClass(string appName)
     {
 
@@ -769,6 +770,12 @@
             return string.Empty;
         }
     }
+#else
+    private string GetAppIconClass(string appName)
+    {
+        return "/images/default-app.png";
+    }
+#endif
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -1231,7 +1238,6 @@
             Console.WriteLine($"Error starting AfkTrackerService: {ex.Message}");
         }
 
-
         try
         {
             var dailyTracker = await UserService.StartDailyTrackerAsync(startMode);
@@ -1278,9 +1284,6 @@
         {
             Console.WriteLine($"Error stopping AfkTrackerService: {ex.Message}");
         }
-
-        // Removed automatic StartAll call - let the caller decide what to start
-        // await StartAll("automatic");
     }
 
     protected override async Task OnInitializedAsync()
@@ -1451,23 +1454,22 @@
         StateHasChanged();
         try
         {
-            totalAfkMinutes = await UserService.GetAfkLogsTotalAsync(id, selectedDate, userRole, selectedUsageType);
-
-            // UPDATE CHART: For the selected date, use the correct AFK value and recalculate active time
+            // ⭐ FIX: LoadAfkDataAsync now only updates the summary card's totalAfkMinutes.
+            // Chart data correction for ALL dates is now handled in LoadDataAsync.
+            // This matches the Web app behavior where afkLogsTotal is fetched for every date.
+            
+            // First try to use the already-corrected value from LoadDataAsync
             string selectedDateStr = selectedDate.ToString("yyyy-MM-dd");
             int selectedDateIndex = labels.FindIndex(l => l == selectedDateStr);
-            if (selectedDateIndex >= 0)
+            if (selectedDateIndex >= 0 && selectedDateIndex < afkData.Count && afkData[selectedDateIndex] > 0)
             {
-                // Update AFK data with the correct value from AfkLogs
-                if (selectedDateIndex < afkData.Count)
-                {
-                    afkData[selectedDateIndex] = totalAfkMinutes;
-                }
-                // Recalculate active time: Total - AFK
-                if (selectedDateIndex < activeData.Count)
-                {
-                    activeData[selectedDateIndex] = Math.Max(0, totalTimeInMinutes - totalAfkMinutes);
-                }
+                // Use the value already computed in LoadDataAsync (more accurate - takes MAX of all sources)
+                totalAfkMinutes = afkData[selectedDateIndex];
+            }
+            else
+            {
+                // Fallback: fetch afk logs total directly
+                totalAfkMinutes = await UserService.GetAfkLogsTotalAsync(id, selectedDate, userRole, selectedUsageType);
             }
         }
         finally
@@ -1909,17 +1911,89 @@
             afkData = appUsageData.Select(x => x.AfkDurationInMinutes).ToList();
             activeData = appUsageData.Select(x => x.ActiveDurationInMinutes).ToList();
 
-            // OVERRIDE: For the selected date, use the same aggregate data as the summary cards
+            // ⭐ FIX: Fetch AFK logs total AND aggregate data for ALL dates in the chart,
+            // then take the MAX of all AFK sources (same as the Web application does).
+            // The API's GetLastDaysUsage endpoint derives AFK from AppUsage.StartMode == "afk",
+            // but the primary AFK tracking data lives in the AfkLogs table.
+            // To match the Web app behavior, we combine both sources for every date.
             string selectedDateStr = selectedDate.ToString("yyyy-MM-dd");
-            int selectedDateIndex = labels.FindIndex(l => l == selectedDateStr);
-            if (selectedDateIndex >= 0)
+            
+            // Build parallel fetch tasks for all dates (except the selected one which we already have)
+            var chartCorrectionTasks = new List<Task>();
+            var chartDayAfkMinutes = new Dictionary<string, double>(); // date -> max(aggregateAfk, afkLogs)
+            var chartDayTotals = new Dictionary<string, double>();     // date -> total
+            
+            for (int i = 0; i < labels.Count; i++)
             {
-                // Replace chart data with aggregate values for the selected date
-                totalData[selectedDateIndex] = totalTimeInMinutes;
-                // Active time = Total - AFK (will be updated after LoadAfkDataAsync completes)
-                // For now, calculate with current afkData value or 0 if not loaded yet
-                double afkForSelectedDate = selectedDateIndex < afkData.Count ? afkData[selectedDateIndex] : 0;
-                activeData[selectedDateIndex] = Math.Max(0, totalTimeInMinutes - afkForSelectedDate);
+                string dateStr = labels[i];
+                
+                if (dateStr == selectedDateStr)
+                {
+                    // Selected date: use the already-fetched aggregate + fetch afk logs
+                    aggregateResponse = await UserService.GetDailyTrackerAggregateAsync(userId, selectedDate, selectedUsageType);
+                    double afkLogsMinutes = await UserService.GetAfkLogsTotalAsync(id, selectedDate, userRole, selectedUsageType);
+                    
+                    double afkFromApi = afkData[i];
+                    double finalAfk = Math.Max(afkFromApi, Math.Max(aggregateResponse.AfkDurationMinutes, afkLogsMinutes));
+                    double finalTotal = Math.Max(aggregateResponse.TotalDurationMinutes, finalAfk);
+                    
+                    chartDayAfkMinutes[dateStr] = finalAfk;
+                    chartDayTotals[dateStr] = finalTotal;
+                }
+                else
+                {
+                    // Other dates: fetch both aggregate and afk logs in parallel
+                    DateTime chartDate = DateTime.ParseExact(dateStr, "yyyy-MM-dd", null);
+                    
+                    Task<DailyTrackerAggregateResponse> aggTask = UserService.GetDailyTrackerAggregateAsync(userId, chartDate, selectedUsageType);
+                    Task<double> afkTask = UserService.GetAfkLogsTotalAsync(id, chartDate, userRole, selectedUsageType);
+                    
+                    // Capture date in local variable for closure
+                    string capturedDate = dateStr;
+                    int capturedIndex = i;
+                    
+                    chartCorrectionTasks.Add(Task.Run(async () =>
+                    {
+                        var dayAggregate = await aggTask;
+                        double dayAfkLogs = await afkTask;
+                        
+                        double afkFromApi2 = afkData[capturedIndex];
+                        double finalAfk = Math.Max(afkFromApi2, Math.Max(dayAggregate.AfkDurationMinutes, dayAfkLogs));
+                        double finalTotal = Math.Max(dayAggregate.TotalDurationMinutes, finalAfk);
+                        
+                        lock (chartDayAfkMinutes)
+                        {
+                            chartDayAfkMinutes[capturedDate] = finalAfk;
+                            chartDayTotals[capturedDate] = finalTotal;
+                        }
+                    }));
+                }
+            }
+            
+            // Wait for all parallel fetches to complete
+            await Task.WhenAll(chartCorrectionTasks);
+            
+            // Apply corrected values to the chart data arrays for ALL dates
+            for (int i = 0; i < labels.Count; i++)
+            {
+                string dateStr = labels[i];
+                if (chartDayAfkMinutes.TryGetValue(dateStr, out double correctedAfk) &&
+                    chartDayTotals.TryGetValue(dateStr, out double correctedTotal))
+                {
+                    totalData[i] = correctedTotal;
+                    afkData[i] = correctedAfk;
+                    activeData[i] = Math.Max(0, correctedTotal - correctedAfk);
+                }
+            }
+            
+            // Also update the summary card values for the selected date
+            if (chartDayAfkMinutes.TryGetValue(selectedDateStr, out double selectedAfk))
+            {
+                totalAfkMinutes = selectedAfk;
+            }
+            if (chartDayTotals.TryGetValue(selectedDateStr, out double selectedTotal))
+            {
+                totalTimeInMinutes = selectedTotal;
             }
 
             // Set the flag to indicate data is ready for charting
@@ -1932,8 +2006,6 @@
             totalData.Clear();
             afkData.Clear();
             activeData.Clear();
-            // data.Clear(); // <-- Removed old single data variable
-            // appUsageList = null; // Assuming appUsageList is a list of AppUsageData
         }
         finally
         {

@@ -8,8 +8,6 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using System.Text;
-using ScreenTracker1.WinUI;
-
 namespace ScreenTracker1.Services
 {
 	public class UserService

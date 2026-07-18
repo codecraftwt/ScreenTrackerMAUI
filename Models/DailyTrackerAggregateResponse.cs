@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,5 +9,7 @@ namespace ScreenTracker1.Models
     public class DailyTrackerAggregateResponse
     {
         public double TotalDurationMinutes { get; set; }
+        public double ActiveDurationMinutes { get; set; }
+        public double AfkDurationMinutes { get; set; }
     }
 }

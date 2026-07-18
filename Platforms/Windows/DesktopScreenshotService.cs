@@ -5,11 +5,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using ScreenTracker1.Services;
 
 
 namespace ScreenTracker1.Platforms.Windows
 {
-    public class DesktopScreenshotService
+    public class DesktopScreenshotService : IScreenshotService
     {
         public byte[] CaptureDesktop()
         {

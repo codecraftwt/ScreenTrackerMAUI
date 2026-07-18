@@ -9,10 +9,12 @@ using System.Net.Http;
 using Microsoft.Maui.LifecycleEvents;
 using System;
 using Microsoft.Extensions.DependencyInjection;
+#if WINDOWS
 using ScreenTracker1.Platforms.Windows;
 using Microsoft.UI.Windowing;
 using Microsoft.UI;
 using WinRT.Interop;
+#endif
 
 namespace ScreenTracker1
 {
@@ -72,30 +74,32 @@ namespace ScreenTracker1
             builder.Services.AddBlazorWebViewDeveloperTools();
 #endif
 
-            builder.Services.AddMudServices();
-
+            builder.Services.AddMudServices();
+            builder.Services.AddSingleton<AfkTrackerService>();
+            builder.Services.AddSingleton<AppUsageTracker>();
+            builder.Services.AddSingleton<NativeThemeService>();
             builder.Services.AddSingleton<UserService>();
             builder.Services.AddScoped<LoginService>();
             builder.Services.AddScoped<RegisterService>();
-            builder.Services.AddSingleton<AfkTrackerService>();
             builder.Services.AddScoped<AppStateService>();
-            builder.Services.AddSingleton<AppUsageTracker>();
             builder.Services.AddSingleton<UserStateService>();
             builder.Services.AddScoped<CurrentThemeService>();
-            builder.Services.AddSingleton<NativeThemeService>();
 
 #if WINDOWS
-            builder.Services.AddSingleton<DesktopScreenshotService>();
+            builder.Services.AddSingleton<IScreenshotService, Platforms.Windows.DesktopScreenshotService>();
+#elif MACCATALYST
+            builder.Services.AddSingleton<IScreenshotService, Platforms.MacCatalyst.DesktopScreenshotService>();
+#endif
             builder.Services.AddSingleton<DesktopAutoCaptureService>();
+            builder.Services.AddSingleton<IAutoCaptureService>(sp => sp.GetRequiredService<DesktopAutoCaptureService>());
             builder.Services.AddSingleton<KeyboardMouseService>();
             builder.Services.AddSingleton<ImageService>();
             builder.Services.AddSingleton<SystemThemeService>();
             builder.Services.AddSingleton<SharedStateService>();
             builder.Services.AddSingleton<UserSelectionStateService>();
             builder.Services.AddSingleton<IWebAuthenticator>(WebAuthenticator.Default);
-#endif
 
-            builder.Services.AddScoped(sp => new HttpClient
+            builder.Services.AddScoped(sp => new HttpClient
             {
                 Timeout = TimeSpan.FromSeconds(30)
             });

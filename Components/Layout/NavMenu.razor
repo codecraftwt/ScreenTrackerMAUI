@@ -8,10 +8,10 @@
 @inject NavigationManager NavigationManager
 @inject DesktopAutoCaptureService desktopAutoCaptureService
 @inject AfkTrackerService afkTrackerService
-@inject SystemThemeService SystemThemeService
 @inject AppUsageTracker appUsageTrackerService
-@inject UserSelectionStateService UserStateService
 @inject NativeThemeService NativeThemeService
+@inject SystemThemeService SystemThemeService
+@inject UserSelectionStateService UserStateService
 
 <div class="stitch-header">
     <div class="header-content">
@@ -289,7 +289,7 @@
             await UpdateThemeIcon();
             await UpdateChartTheme();
             NativeThemeService.SetDarkMode(isDarkTheme);
-        }
+            }
     }
 
     private async Task UpdateThemeIcon()

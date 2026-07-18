@@ -5,10 +5,13 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+#if MACCATALYST
+using ScreenTracker1.Platforms.MacCatalyst;
+#endif
 
 namespace ScreenTracker1.Services
 {
-    public class AfkTrackerService : IDisposable
+    public class AfkTrackerService : IAfkDetectorService, IDisposable
     {
         private readonly HttpClient _httpClient;
         private int _userId;
@@ -21,6 +24,7 @@ namespace ScreenTracker1.Services
 
 
 
+#if WINDOWS
         [StructLayout(LayoutKind.Sequential)]
         struct LASTINPUTINFO
         {
@@ -30,6 +34,7 @@ namespace ScreenTracker1.Services
 
         [DllImport("user32.dll")]
         static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+#endif
 
         public AfkTrackerService(HttpClient httpClient)
         {
@@ -83,12 +88,18 @@ namespace ScreenTracker1.Services
 
         private int GetIdleTimeInSeconds()
         {
+#if WINDOWS
             LASTINPUTINFO lastInputInfo = new LASTINPUTINFO();
             lastInputInfo.cbSize = (uint)Marshal.SizeOf(lastInputInfo);
             if (!GetLastInputInfo(ref lastInputInfo)) return 0;
 
             uint idleTime = ((uint)Environment.TickCount - lastInputInfo.dwTime);
             return (int)(idleTime / 1000);
+#elif MACCATALYST
+            return (int)MacIdleTimeService.GetIdleTimeInSeconds();
+#else
+            return 0;
+#endif
         }
 
         private async Task PostAfkLogAsync(AfkLogDto afkLog)
