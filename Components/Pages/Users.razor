@@ -1,4 +1,4 @@
-﻿ @page "/users"
+﻿@page "/users"
 @layout MainLayout
 @inject UserService UserService
 @inject IJSRuntime JSRuntime
@@ -43,7 +43,7 @@
                                     <option value="@admin.username">@admin.username</option>
                                 }
                             </select>
-                            @*  <span class="tooltip-text tooltip-bottom">Choose an admin from the list</span> *@
+                            <span class="tooltip-text tooltip-bottom">Choose an admin from the list</span>
                         </div>
                     </div>
 
@@ -204,8 +204,8 @@
                 else
                 {
                     <div class="chart-wrapper">
-                    <canvas id="barChart" class="stitch-chart"></canvas>
-                </div>
+                        <canvas id="barChart" class="stitch-chart"></canvas>
+                    </div>
 
                 }
                 <div class="dashboard-grid-container">
@@ -268,7 +268,9 @@
                                         <span class="card-options">...</span>
                                     </div>
                                     <div class="card-body">
-                                        <div class="main-value">@FormatDuration(totalTimeInMinutes - totalAfkMinutes)</div>
+                                        @* <div class="main-value">@FormatDuration(totalTimeInMinutes - totalAfkMinutes)</div>  *@
+
+                                        <div class="main-value">@FormatDuration(totalActiveAppMinutes)</div>
                                         <div class="sub-text">Time On Task</div>
                                     </div>
                                 </div>
@@ -282,7 +284,9 @@
                                         <span class="card-options">...</span>
                                     </div>
                                     <div class="card-body">
-                                        <div class="main-value">@FormatDuration(totalTimeInMinutes)</div>
+                                        @* <div class="main-value">@FormatDuration(totalTimeInMinutes)</div> *@
+
+                                        <div class="main-value">@FormatDuration(totalActiveAppMinutes + totalAfkMinutes)</div>
                                         <div class="sub-text">Total Shift Duration</div>
                                     </div>
                                 </div>
@@ -315,7 +319,7 @@
 
             <div class="stitch-tabs">
                 <div class="stitch-tab @(selectedTab == "summary" ? "active" : "")" @onclick='() => SelectTab("summary")'>Summary</div>
-                 @* <div class="stitch-tab @(selectedTab == "window" ? "active" : "")" @onclick='() => SelectTab("window")'>Window</div> *@
+                @* <div class="stitch-tab @(selectedTab == "window" ? "active" : "")" @onclick='() => SelectTab("window")'>Window</div> *@
             </div>
 
             <div class="stitch-tab-content">
@@ -398,7 +402,7 @@
                                         @{
                                             var titleIndex = 0;
                                         }
-                                     @*     @foreach (var title in appTitleList)
+                                        @*     @foreach (var title in appTitleList)
                                          {
                                              var percent = (title.durationInMinutes / totalTitleTime) * 100;
                                              var isFirst = titleIndex == 0;
@@ -580,6 +584,9 @@
     private List<double> activeData = new List<double>();
     private bool chartDataReady = false;
 
+    private double totalActiveAppMinutes = 0;
+    private List<AppTitle> selectedAppAllTitles = new();
+
     [JSInvokable]
     public async Task OnSelect2Changed(string elementId, string value)
     {
@@ -666,7 +673,7 @@
 
     // private string GetAppIconClass(string appName)
     // {
-      
+
     //     var normalizedName = appName.ToLowerInvariant();
     //     if (normalizedName.Contains("calculator")) return "fas fa-calculator";
     //     if (normalizedName.Contains("weather")) return "fas fa-cloud-sun";
@@ -702,7 +709,7 @@
     private string GetAppIconClass(string appName)
     {
 
-        string exePath = GetPathFromName(appName); 
+        string exePath = GetPathFromName(appName);
 
         try
         {
@@ -993,6 +1000,8 @@
 
             try
             {
+                SyncSelectedDateGraphToCards();
+
                 // Call the NEW JavaScript function name with all four lists
                 await JSRuntime.InvokeVoidAsync("renderGroupedBarChart",
                                                 labels,
@@ -1457,7 +1466,7 @@
             // ⭐ FIX: LoadAfkDataAsync now only updates the summary card's totalAfkMinutes.
             // Chart data correction for ALL dates is now handled in LoadDataAsync.
             // This matches the Web app behavior where afkLogsTotal is fetched for every date.
-            
+
             // First try to use the already-corrected value from LoadDataAsync
             string selectedDateStr = selectedDate.ToString("yyyy-MM-dd");
             int selectedDateIndex = labels.FindIndex(l => l == selectedDateStr);
@@ -1471,6 +1480,9 @@
                 // Fallback: fetch afk logs total directly
                 totalAfkMinutes = await UserService.GetAfkLogsTotalAsync(id, selectedDate, userRole, selectedUsageType);
             }
+
+            SyncSelectedDateGraphToCards();
+            chartDataReady = true;
         }
         finally
         {
@@ -1602,27 +1614,24 @@
 
     private async Task OnAppClick(string appName)
     {
-        //  FIX: Clear all previous Window Titles and category state before loading new app's data
         selectedAppName = appName;
+
         appTitleList = null;
         categoryKeywordGroups = null;
         currentTitlePage = 1;
         currentCategoryPage = 1;
         moreTitlesAvailable = true;
-        StateHasChanged();  // Immediate UI update to show loading state
+        selectedAppAllTitles = new List<AppTitle>();
 
-        // Fetch window titles for the selected app (initial page)
-        var titles = await UserService.GetAppTitleDetailsAsync(
-            selectedDate,
-            userId,
-            appName,
-            page: currentTitlePage,
-            take: takePerPage
-        );
+        StateHasChanged();
 
-        appTitleList = new List<AppTitle>(titles);
+        // Get selected Top Application duration
+        var selectedAppInList = appUsageList?
+            .FirstOrDefault(a => a.appName?.Equals(appName, StringComparison.OrdinalIgnoreCase) == true);
 
-        // Fetch ALL titles for the selected app to get the true total
+        double topAppDuration = selectedAppInList?.durationInMinutes ?? 0;
+
+        // Get all titles for selected app
         var allTitles = await UserService.GetAppTitleDetailsAsync(
             selectedDate,
             userId,
@@ -1630,54 +1639,32 @@
             page: 1,
             take: int.MaxValue
         );
-        totalAppTitleRecords = allTitles.Count;
 
-        //  CLIENT-SIDE CROSS-REFERENCE: Compare Top App duration vs Window Titles total
-        var selectedAppInList = appUsageList?.FirstOrDefault(a => a.appName?.Equals(appName, StringComparison.OrdinalIgnoreCase) == true);
-        double topAppDuration = selectedAppInList?.durationInMinutes ?? 0;
-        double titlesTotal = allTitles.Sum(t => t.durationInMinutes);
-        double difference = topAppDuration - titlesTotal;
-        double absDifference = Math.Abs(difference);
+        allTitles = allTitles ?? new List<AppTitle>();
 
-        Console.WriteLine($"========================================");
+        // IMPORTANT:
+        // Do not show full-day AppTitle duration.
+        // Match Window Titles total with selected Top Application duration.
+        selectedAppAllTitles = GetTitlesMatchingTopAppDuration(allTitles, topAppDuration);
+
+        totalAppTitleRecords = selectedAppAllTitles.Count;
+
+        appTitleList = selectedAppAllTitles
+            .Take(takePerPage)
+            .ToList();
+
+        initialAppTitleList = new List<AppTitle>(appTitleList);
+
+        moreTitlesAvailable = appTitleList.Count < totalAppTitleRecords;
+
+        Console.WriteLine("========================================");
         Console.WriteLine($"[DEBUG OnAppClick] Selected App: {appName}");
-        Console.WriteLine($"[DEBUG OnAppClick] Usage Type: {selectedUsageType}");
-        Console.WriteLine($"[DEBUG OnAppClick] Top Applications duration for '{appName}': {topAppDuration:F2} min ({FormatDuration(topAppDuration)})");
-        Console.WriteLine($"[DEBUG OnAppClick] Window Titles total for '{appName}':      {titlesTotal:F2} min ({FormatDuration(titlesTotal)})");
-        Console.WriteLine($"[DEBUG OnAppClick] Difference (AppUsage - AppTitle):        {difference:F2} min ({FormatDuration(absDifference)})");
-        Console.WriteLine($"[DEBUG OnAppClick] Total Window Title records: {allTitles.Count}");
-        foreach (var t in allTitles)
-        {
-            Console.WriteLine($"[DEBUG OnAppClick]   Title='{t.title}' Duration={t.durationInMinutes:F2} min");
-        }
-        Console.WriteLine($"========================================");
-
-        // If there's ANY gap between Top App total and Window Titles total,
-        // add an "Unknown / No Window Title" entry client-side to make the totals match
-        // Threshold of 0.001 min (~60ms) is enough to ignore floating-point noise
-        // while catching even tiny real gaps like 4 seconds (0.067 min)
-        _titleGapMinutes = 0; // Reset from previous selection
-        if (absDifference > 0.001)
-        {
-            _titleGapMinutes = absDifference;
-            var unknownEntry = new AppTitle
-            {
-                title = "Unknown / No Window Title",
-                durationInMinutes = absDifference
-            };
-            appTitleList.Add(unknownEntry);
-            // Re-sort so the unknown entry appears in correct position
-            appTitleList = appTitleList.OrderByDescending(t => t.durationInMinutes).ToList();
-            totalAppTitleRecords++; // Account for the synthetic entry
-            Console.WriteLine($"[DEBUG OnAppClick] Added client-side 'Unknown / No Window Title' entry for {absDifference:F2} min gap (AppUsage={topAppDuration:F2}, Titles={titlesTotal:F2})");
-        }
-        else
-        {
-            Console.WriteLine($"[DEBUG OnAppClick] No gap detected (absDifference={absDifference:F6} min <= 0.001 threshold)");
-        }
+        Console.WriteLine($"[DEBUG OnAppClick] Top App duration: {topAppDuration:F2} min ({FormatDuration(topAppDuration)})");
+        Console.WriteLine($"[DEBUG OnAppClick] Window Titles filtered total: {selectedAppAllTitles.Sum(t => t.durationInMinutes):F2} min ({FormatDuration(selectedAppAllTitles.Sum(t => t.durationInMinutes))})");
+        Console.WriteLine("========================================");
 
         var categories = await UserService.GetCategoryByAppNameAsync(appName);
-        categoryKeywordGroups = new List<CategoryKeywordGroup>(categories);
+        categoryKeywordGroups = new List<CategoryKeywordGroup>(categories ?? new List<CategoryKeywordGroup>());
         totalCategoryRecords = categoryKeywordGroups.Count;
 
         StateHasChanged();
@@ -1917,26 +1904,26 @@
             // but the primary AFK tracking data lives in the AfkLogs table.
             // To match the Web app behavior, we combine both sources for every date.
             string selectedDateStr = selectedDate.ToString("yyyy-MM-dd");
-            
+
             // Build parallel fetch tasks for all dates (except the selected one which we already have)
             var chartCorrectionTasks = new List<Task>();
             var chartDayAfkMinutes = new Dictionary<string, double>(); // date -> max(aggregateAfk, afkLogs)
             var chartDayTotals = new Dictionary<string, double>();     // date -> total
-            
+
             for (int i = 0; i < labels.Count; i++)
             {
                 string dateStr = labels[i];
-                
+
                 if (dateStr == selectedDateStr)
                 {
                     // Selected date: use the already-fetched aggregate + fetch afk logs
                     aggregateResponse = await UserService.GetDailyTrackerAggregateAsync(userId, selectedDate, selectedUsageType);
                     double afkLogsMinutes = await UserService.GetAfkLogsTotalAsync(id, selectedDate, userRole, selectedUsageType);
-                    
+
                     double afkFromApi = afkData[i];
                     double finalAfk = Math.Max(afkFromApi, Math.Max(aggregateResponse.AfkDurationMinutes, afkLogsMinutes));
                     double finalTotal = Math.Max(aggregateResponse.TotalDurationMinutes, finalAfk);
-                    
+
                     chartDayAfkMinutes[dateStr] = finalAfk;
                     chartDayTotals[dateStr] = finalTotal;
                 }
@@ -1944,35 +1931,35 @@
                 {
                     // Other dates: fetch both aggregate and afk logs in parallel
                     DateTime chartDate = DateTime.ParseExact(dateStr, "yyyy-MM-dd", null);
-                    
+
                     Task<DailyTrackerAggregateResponse> aggTask = UserService.GetDailyTrackerAggregateAsync(userId, chartDate, selectedUsageType);
                     Task<double> afkTask = UserService.GetAfkLogsTotalAsync(id, chartDate, userRole, selectedUsageType);
-                    
+
                     // Capture date in local variable for closure
                     string capturedDate = dateStr;
                     int capturedIndex = i;
-                    
+
                     chartCorrectionTasks.Add(Task.Run(async () =>
-                    {
-                        var dayAggregate = await aggTask;
-                        double dayAfkLogs = await afkTask;
-                        
-                        double afkFromApi2 = afkData[capturedIndex];
-                        double finalAfk = Math.Max(afkFromApi2, Math.Max(dayAggregate.AfkDurationMinutes, dayAfkLogs));
-                        double finalTotal = Math.Max(dayAggregate.TotalDurationMinutes, finalAfk);
-                        
-                        lock (chartDayAfkMinutes)
-                        {
-                            chartDayAfkMinutes[capturedDate] = finalAfk;
-                            chartDayTotals[capturedDate] = finalTotal;
-                        }
-                    }));
+                                        {
+                                            var dayAggregate = await aggTask;
+                                            double dayAfkLogs = await afkTask;
+
+                                            double afkFromApi2 = afkData[capturedIndex];
+                                            double finalAfk = Math.Max(afkFromApi2, Math.Max(dayAggregate.AfkDurationMinutes, dayAfkLogs));
+                                            double finalTotal = Math.Max(dayAggregate.TotalDurationMinutes, finalAfk);
+
+                                            lock (chartDayAfkMinutes)
+                                            {
+                                                chartDayAfkMinutes[capturedDate] = finalAfk;
+                                                chartDayTotals[capturedDate] = finalTotal;
+                                            }
+                                        }));
                 }
             }
-            
+
             // Wait for all parallel fetches to complete
             await Task.WhenAll(chartCorrectionTasks);
-            
+
             // Apply corrected values to the chart data arrays for ALL dates
             for (int i = 0; i < labels.Count; i++)
             {
@@ -1985,7 +1972,7 @@
                     activeData[i] = Math.Max(0, correctedTotal - correctedAfk);
                 }
             }
-            
+
             // Also update the summary card values for the selected date
             if (chartDayAfkMinutes.TryGetValue(selectedDateStr, out double selectedAfk))
             {
@@ -2073,14 +2060,120 @@
 
     private void SelectTab(string tabName) => selectedTab = tabName;
 
+    // private string FormatDuration(double minutes)
+    // {
+    //     int hours = (int)(minutes / 60);
+    //     int remainingMinutes = (int)(minutes % 60);
+    //     int seconds = (int)((minutes - (int)minutes) * 60);
+    //     return $"{hours}h {remainingMinutes}m {seconds}s";
+    // }
+
     private string FormatDuration(double minutes)
     {
-        int hours = (int)(minutes / 60);
-        int remainingMinutes = (int)(minutes % 60);
-        int seconds = (int)((minutes - (int)minutes) * 60);
+        int totalSeconds = (int)Math.Round(minutes * 60);
+
+        int hours = totalSeconds / 3600;
+        int remainingMinutes = (totalSeconds % 3600) / 60;
+        int seconds = totalSeconds % 60;
+
         return $"{hours}h {remainingMinutes}m {seconds}s";
     }
 
+    private void SyncSelectedDateGraphToCards()
+    {
+        // Graph-only synchronization: copy the existing displayed card values
+        // into the selected date's datasets. Never update a card from graph data.
+        string selectedDateKey = selectedDate.ToString("yyyy-MM-dd");
+        int index = labels.FindIndex(label => label == selectedDateKey);
+        if (index < 0 || index >= activeData.Count ||
+            index >= afkData.Count || index >= totalData.Count)
+        {
+            return;
+        }
+
+        double activeCardMinutes = totalActiveAppMinutes;
+        double idealCardMinutes = totalAfkMinutes;
+
+        activeData[index] = activeCardMinutes;
+        afkData[index] = idealCardMinutes;
+        totalData[index] = activeCardMinutes + idealCardMinutes;
+    }
+
+
+    private List<AppTitle> GetTitlesMatchingTopAppDuration(List<AppTitle> titles, double topAppDuration)
+    {
+        if (titles == null || !titles.Any() || topAppDuration <= 0)
+        {
+            return new List<AppTitle>();
+        }
+
+        var groupedTitles = titles
+            .Where(t => t.durationInMinutes > 0)
+            .GroupBy(t => string.IsNullOrWhiteSpace(t.title) ? "Unknown / No Window Title" : t.title)
+            .Select(g => new
+            {
+                Title = g.Key,
+                Duration = g.Sum(x => x.durationInMinutes)
+            })
+            .Where(t => t.Duration > 0)
+            .OrderByDescending(t => t.Duration)
+            .ToList();
+
+        double titlesTotal = groupedTitles.Sum(t => t.Duration);
+
+        if (titlesTotal <= 0)
+        {
+            return new List<AppTitle>();
+        }
+
+        int targetTotalSeconds = (int)Math.Round(topAppDuration * 60);
+
+        var scaledTitles = groupedTitles
+            .Select(t =>
+            {
+                double scaledSeconds = (t.Duration / titlesTotal) * targetTotalSeconds;
+
+                return new
+                {
+                    t.Title,
+                    RawSeconds = scaledSeconds,
+                    FloorSeconds = (int)Math.Floor(scaledSeconds),
+                    Remainder = scaledSeconds - Math.Floor(scaledSeconds)
+                };
+            })
+            .ToList();
+
+        int usedSeconds = scaledTitles.Sum(t => t.FloorSeconds);
+        int remainingSeconds = targetTotalSeconds - usedSeconds;
+
+        var finalSecondMap = scaledTitles
+            .Select(t => new
+            {
+                t.Title,
+                Seconds = t.FloorSeconds,
+                t.Remainder
+            })
+            .OrderByDescending(t => t.Remainder)
+            .ToList();
+
+        var adjustedSeconds = finalSecondMap
+            .Select((t, index) => new
+            {
+                t.Title,
+                Seconds = t.Seconds + (index < remainingSeconds ? 1 : 0)
+            })
+            .Where(t => t.Seconds > 0)
+            .OrderByDescending(t => t.Seconds)
+            .ToList();
+
+        return adjustedSeconds
+            .Select(t => new AppTitle
+            {
+                title = t.Title,
+                durationInMinutes = t.Seconds / 60.0
+            })
+            .ToList();
+    }
     private string GetDynamicColor(string key)
     {
         var hash = key.GetHashCode();
@@ -2090,9 +2183,62 @@
         return $"#{r:X2}{g:X2}{b:X2}";
     }
 
+    // private async Task LoadAppUsageData()
+    // {
+    //     if (userId == 0) return;
+    //     isAppUsageLoading = true;
+    //     StateHasChanged();
+
+    //     currentAppUsagePage = 1;
+    //     selectedAppName = null;
+
+    //     try
+    //     {
+    //         var appUsageTask = UserService.GetAppUsageByUserIdAsync(
+    //             userId, selectedDate, page: 1, take: appUsagePageSize, usageType: selectedUsageType, userRole: userRole);
+    //         var usageCountTask = UserService.GetDayUsageCountAsync(selectedDate, userId, selectedUsageType);
+    //         var allTitlesTask = UserService.GetAppTitleByDateAsync(selectedDate, userId, page: 1, take: int.MaxValue);
+    //         var appTitlesTask = UserService.GetAppTitleByDateAsync(selectedDate, userId, page: 1, take: takePerPage);
+    //         var categoriesTask = UserService.GetGroupedCategoryKeywordsAsync(userId, selectedDate);
+
+    //         await Task.WhenAll(appUsageTask, usageCountTask, allTitlesTask, appTitlesTask, categoriesTask);
+
+    //         initialAppUsageList = appUsageTask.Result;
+    //         totalAppUsageRecords = usageCountTask.Result;
+    //         appUsageList = new List<AppUsage>(initialAppUsageList);
+    //         moreAppUsageAvailable = appUsageList.Count < totalAppUsageRecords;
+
+    //         totalAppTitleRecords = allTitlesTask.Result.Count;
+    //         initialAppTitleList = appTitlesTask.Result;
+    //         appTitleList = new List<AppTitle>(initialAppTitleList);
+    //         moreTitlesAvailable = true;
+    //         currentTitlePage = 1;
+
+    //         totalCategoryRecords = categoriesTask.Result.Count;
+    //         initialCategoryList = categoriesTask.Result;
+    //         categoryKeywordGroups = new List<CategoryKeywordGroup>(initialCategoryList);
+    //         currentCategoryPage = 1;
+    //         moreCategoriesAvailable = true;
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Console.WriteLine($"Error loading app usage data: {ex.Message}");
+    //         moreAppUsageAvailable = false;
+    //         moreTitlesAvailable = false;
+    //         moreCategoriesAvailable = false;
+    //     }
+    //     finally
+    //     {
+    //         isAppUsageLoading = false;
+    //         StateHasChanged();
+    //     }
+    // }
+
+
     private async Task LoadAppUsageData()
     {
         if (userId == 0) return;
+
         isAppUsageLoading = true;
         StateHasChanged();
 
@@ -2101,35 +2247,114 @@
 
         try
         {
+            // Top Applications - first page for UI display
             var appUsageTask = UserService.GetAppUsageByUserIdAsync(
-                userId, selectedDate, page: 1, take: appUsagePageSize, usageType: selectedUsageType, userRole: userRole);
-            var usageCountTask = UserService.GetDayUsageCountAsync(selectedDate, userId, selectedUsageType);
-            var allTitlesTask = UserService.GetAppTitleByDateAsync(selectedDate, userId, page: 1, take: int.MaxValue);
-            var appTitlesTask = UserService.GetAppTitleByDateAsync(selectedDate, userId, page: 1, take: takePerPage);
-            var categoriesTask = UserService.GetGroupedCategoryKeywordsAsync(userId, selectedDate);
+                userId,
+                selectedDate,
+                page: 1,
+                take: appUsagePageSize,
+                usageType: selectedUsageType,
+                userRole: userRole
+            );
 
-            await Task.WhenAll(appUsageTask, usageCountTask, allTitlesTask, appTitlesTask, categoriesTask);
+            // Top Applications - all records for exact Active Time calculation
+            var allAppUsageTask = UserService.GetAppUsageByUserIdAsync(
+                userId,
+                selectedDate,
+                page: 1,
+                take: int.MaxValue,
+                usageType: selectedUsageType,
+                userRole: userRole
+            );
 
-            initialAppUsageList = appUsageTask.Result;
-            totalAppUsageRecords = usageCountTask.Result;
+            // Count for Show More button
+            var usageCountTask = UserService.GetDayUsageCountAsync(
+                selectedDate,
+                userId,
+                selectedUsageType
+            );
+
+            // Window title total count
+            var allTitlesTask = UserService.GetAppTitleByDateAsync(
+                selectedDate,
+                userId,
+                page: 1,
+                take: int.MaxValue
+            );
+
+            // Window title first page
+            var appTitlesTask = UserService.GetAppTitleByDateAsync(
+                selectedDate,
+                userId,
+                page: 1,
+                take: takePerPage
+            );
+
+            // Categories
+            var categoriesTask = UserService.GetGroupedCategoryKeywordsAsync(
+                userId,
+                selectedDate
+            );
+
+            await Task.WhenAll(
+                appUsageTask,
+                allAppUsageTask,
+                usageCountTask,
+                allTitlesTask,
+                appTitlesTask,
+                categoriesTask
+            );
+
+            // Top Applications - UI list
+            initialAppUsageList = appUsageTask.Result ?? new List<AppUsage>();
             appUsageList = new List<AppUsage>(initialAppUsageList);
+
+            // Active Time should come from same AppUsage data
+            var allAppUsageList = allAppUsageTask.Result ?? new List<AppUsage>();
+            totalActiveAppMinutes = allAppUsageList.Sum(x => x.durationInMinutes);
+            SyncSelectedDateGraphToCards();
+            chartDataReady = true;
+
+            totalAppUsageRecords = usageCountTask.Result;
             moreAppUsageAvailable = appUsageList.Count < totalAppUsageRecords;
 
-            totalAppTitleRecords = allTitlesTask.Result.Count;
-            initialAppTitleList = appTitlesTask.Result;
-            appTitleList = new List<AppTitle>(initialAppTitleList);
-            moreTitlesAvailable = true;
-            currentTitlePage = 1;
+            // Window Titles
+            var allTitles = allTitlesTask.Result ?? new List<AppTitle>();
+            totalAppTitleRecords = allTitles.Count;
 
-            totalCategoryRecords = categoriesTask.Result.Count;
-            initialCategoryList = categoriesTask.Result;
+            initialAppTitleList = appTitlesTask.Result ?? new List<AppTitle>();
+            appTitleList = new List<AppTitle>(initialAppTitleList);
+
+            currentTitlePage = 1;
+            moreTitlesAvailable = appTitleList.Count < totalAppTitleRecords;
+
+            // Categories
+            initialCategoryList = categoriesTask.Result ?? new List<CategoryKeywordGroup>();
             categoryKeywordGroups = new List<CategoryKeywordGroup>(initialCategoryList);
+
+            totalCategoryRecords = categoryKeywordGroups.Count;
             currentCategoryPage = 1;
-            moreCategoriesAvailable = true;
+            moreCategoriesAvailable = categoryKeywordGroups.Count < totalCategoryRecords;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading app usage data: {ex.Message}");
+
+            appUsageList = new List<AppUsage>();
+            initialAppUsageList = new List<AppUsage>();
+
+            appTitleList = new List<AppTitle>();
+            initialAppTitleList = new List<AppTitle>();
+
+            categoryKeywordGroups = new List<CategoryKeywordGroup>();
+            initialCategoryList = new List<CategoryKeywordGroup>();
+
+            totalAppUsageRecords = 0;
+            totalAppTitleRecords = 0;
+            totalCategoryRecords = 0;
+
+            totalActiveAppMinutes = 0;
+
             moreAppUsageAvailable = false;
             moreTitlesAvailable = false;
             moreCategoriesAvailable = false;
@@ -2141,45 +2366,19 @@
         }
     }
 
-
-    private async Task LoadMoreTitles()
+    private Task ShowLessTitles()
     {
-        currentTitlePage++;
+        currentTitlePage = 1;
 
-        var more = await UserService.GetAppTitleDetailsAsync(
-            selectedDate,
-            userId,
-            selectedAppName,
-            page: currentTitlePage,
-            take: takePerPage
-        );
+        appTitleList = selectedAppAllTitles
+            .Take(takePerPage)
+            .ToList();
 
-        if (more.Any())
-        {
-            appTitleList.AddRange(more);
-            moreTitlesAvailable = appTitleList.Count < totalAppTitleRecords;
-        }
-        else
-        {
-            moreTitlesAvailable = false;
-        }
-
-        // Re-apply the client-side gap fix if one existed
-        if (_titleGapMinutes > 0.001)
-        {
-            var existingGap = appTitleList.FirstOrDefault(t => t.title == "Unknown / No Window Title" && Math.Abs(t.durationInMinutes - _titleGapMinutes) < 0.001);
-            if (existingGap == null)
-            {
-                appTitleList.Add(new AppTitle
-                {
-                    title = "Unknown / No Window Title",
-                    durationInMinutes = _titleGapMinutes
-                });
-                appTitleList = appTitleList.OrderByDescending(t => t.durationInMinutes).ToList();
-            }
-        }
+        moreTitlesAvailable = appTitleList.Count < totalAppTitleRecords;
 
         StateHasChanged();
+
+        return Task.CompletedTask;
     }
 
     // private void NavigateToSettings()
@@ -2196,31 +2395,48 @@
     //     NavigationManager.NavigateTo($"/rptTime/{userId}", false);
     // }
 
-    private async Task ShowLessTitles()
-    {
-        currentTitlePage = 1;
-        moreTitlesAvailable = true;
-        var initial = await UserService.GetAppTitleDetailsAsync(
-            selectedDate,
-            userId,
-            selectedAppName,
-            page: currentTitlePage,
-            take: takePerPage
-        );
-        appTitleList = new List<AppTitle>(initial);
+    // private async Task ShowLessTitles()
+    // {
+    //     currentTitlePage = 1;
+    //     moreTitlesAvailable = true;
+    //     var initial = await UserService.GetAppTitleDetailsAsync(
+    //         selectedDate,
+    //         userId,
+    //         selectedAppName,
+    //         page: currentTitlePage,
+    //         take: takePerPage
+    //     );
+    //     appTitleList = new List<AppTitle>(initial);
 
-        // Re-apply the client-side gap fix if one existed
-        if (_titleGapMinutes > 0.001)
-        {
-            appTitleList.Add(new AppTitle
-            {
-                title = "Unknown / No Window Title",
-                durationInMinutes = _titleGapMinutes
-            });
-            appTitleList = appTitleList.OrderByDescending(t => t.durationInMinutes).ToList();
-        }
+    //     Re-apply the client-side gap fix if one existed
+    //     if (_titleGapMinutes > 0.001)
+    //     {
+    //         appTitleList.Add(new AppTitle
+    //         {
+    //             title = "Unknown / No Window Title",
+    //             durationInMinutes = _titleGapMinutes
+    //         });
+    //         appTitleList = appTitleList.OrderByDescending(t => t.durationInMinutes).ToList();
+    //     }
+
+    //     StateHasChanged();
+    // }
+
+    private Task LoadMoreTitles()
+    {
+        currentTitlePage++;
+
+        int takeCount = currentTitlePage * takePerPage;
+
+        appTitleList = selectedAppAllTitles
+            .Take(takeCount)
+            .ToList();
+
+        moreTitlesAvailable = appTitleList.Count < totalAppTitleRecords;
 
         StateHasChanged();
+
+        return Task.CompletedTask;
     }
     private async Task OnDateChanged(ChangeEventArgs e)
     {

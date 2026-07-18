@@ -243,6 +243,9 @@
 
     private async Task OnLogoutClicked()
     {
+        bool confirm = await App.Current.MainPage.DisplayAlert("Logout", "Are you sure you want to logout?", "Yes", "No");
+        if (!confirm) return;
+
         // 1. Stop tracking services if they were active
         // if (isOn)
         // {

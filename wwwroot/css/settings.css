@@ -179,7 +179,7 @@ body.dark-theme .card-header {
 
     .settings-container .users-table th:nth-child(1),
     .settings-container .users-table td:nth-child(1) {
-        width: 40%;
+        width: 35%;
     }
 
     .settings-container .users-table th:nth-child(2),
@@ -187,8 +187,10 @@ body.dark-theme .card-header {
     .settings-container .users-table th:nth-child(3),
     .settings-container .users-table td:nth-child(3),
     .settings-container .users-table th:nth-child(4),
-    .settings-container .users-table td:nth-child(4) {
-        width: 20%;
+    .settings-container .users-table td:nth-child(4),
+    .settings-container .users-table th:nth-child(5),
+    .settings-container .users-table td:nth-child(5) {
+        width: 16.25%;
     }
 
     .settings-container .users-table th {
@@ -622,3 +624,5 @@ body.dark-theme .pagination .page-item.disabled .page-link {
 .settings-container .table-headers {
     background: var(--theme-bg-secondary, #f4f5f7) !important;
 }
+
+
