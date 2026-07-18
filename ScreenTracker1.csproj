@@ -22,7 +22,7 @@
 		<ApplicationTitle>ScreenTracker1</ApplicationTitle>
 
 		<!-- App Identifier -->
-		<ApplicationId>com.companyname.screentracker11</ApplicationId>
+		<ApplicationId>com.walstar.screentracker</ApplicationId>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
@@ -30,7 +30,7 @@
 		<Version>1.0.0.2</Version>
 
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">14.2</SupportedOSPlatformVersion>
-		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">14.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.3</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
@@ -50,7 +50,14 @@
 		<MinTargetFrameworkWindows>10.0.17763.0</MinTargetFrameworkWindows>
 	</PropertyGroup>
 
+	<!-- MacCatalyst signing applied for AnyCPU / x64 / Debug / Release -->
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-maccatalyst'">
+		<ApplicationTitle>ScreenTracker1</ApplicationTitle>
+		<ApplicationId>com.walstar.screentracker</ApplicationId>
 
+		<CodesignKey>Apple Development: Pratap Patil (W7HRZPGLA4)</CodesignKey>
+		<EnableCodeSigning>true</EnableCodeSigning>
+	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net8.0-android|AnyCPU'">
 		<ApplicationTitle>Screen Tracker</ApplicationTitle>
@@ -62,6 +69,8 @@
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net8.0-maccatalyst|AnyCPU'">
 		<ApplicationTitle>Screen Tracker</ApplicationTitle>
+		<CodesignKey>Apple Development: Pratap Patil (W7HRZPGLA4)</CodesignKey>
+		<EnableCodeSigning>true</EnableCodeSigning>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net8.0-windows10.0.19041.0|AnyCPU'">
@@ -78,6 +87,8 @@
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net8.0-maccatalyst|AnyCPU'">
 		<ApplicationTitle>Screen Tracker</ApplicationTitle>
+		<CodesignKey>Apple Development: Pratap Patil (W7HRZPGLA4)</CodesignKey>
+		<EnableCodeSigning>true</EnableCodeSigning>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net8.0-windows10.0.19041.0|AnyCPU'">
@@ -117,7 +128,6 @@
 		</Content>
 	</ItemGroup>
 
-
 	<ItemGroup>
 		<PackageReference Include="Blazorise" Version="0.9.0" />
 		<PackageReference Include="Blazorise.Charts" Version="0.9.0" />
@@ -138,9 +148,5 @@
 		<FrameworkReference Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'" Include="Microsoft.WindowsDesktop.App.WindowsForms" />
 
 	</ItemGroup>
-
-
-
-
 
 </Project>

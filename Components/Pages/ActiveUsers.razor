@@ -2,6 +2,7 @@
 @inject UserService UserService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime  // For working with LocalStorage or SessionStorage
+@inject SessionKeepAliveService SessionKeepAliveService
 @using ScreenTracker1.Models
 @using System.Linq
 @using System.IdentityModel.Tokens.Jwt
@@ -62,6 +63,9 @@ else
 
             if (jsonToken != null)
             {
+                // Check and refresh token if expired (handles Mac sleep/wake)
+                await SessionKeepAliveService.CheckAndRefreshNowAsync();
+
                 var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier");
                 if (userIdClaim != null) CurrentAdminId = int.Parse(userIdClaim.Value);
 
@@ -93,7 +97,7 @@ else
             try
             {
                 var adminIdParam = UserRole == "superadmin" ? null : CurrentAdminId;
-                var users = await UserService.GetActiveSessionsAsync(adminIdParam);
+                var users = await UserService.GetActiveSessionsAsync(adminIdParam, suppressUnauthorized: true);
                 activeUsers = users ?? new List<User>();
                 await InvokeAsync(StateHasChanged);
             }

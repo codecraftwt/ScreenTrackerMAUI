@@ -1,0 +1,350 @@
+@page "/permissions"
+@layout MainLayout
+@using ScreenTracker1.Components.Layout
+@using System.Diagnostics;
+@using System.Runtime.InteropServices;
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+
+@* ─── Mac Catalyst only: permissions check & request UI ─── *@
+
+<div class="p-4" style="max-width: 700px; margin: 0 auto;">
+    <div class="d-flex align-items-center mb-4">
+        <button @onclick="GoBack" class="btn btn-outline-secondary me-3">
+            <i class="fa-solid fa-arrow-left me-2"></i>
+            Back
+        </button>
+        <h2 class="mb-0">macOS Permissions</h2>
+    </div>
+
+    @if (!IsMac)
+    {
+        <div class="alert alert-info">
+            <strong>Note:</strong> Permission management is only applicable on macOS.
+        </div>
+    }
+    else
+    {
+        <p class="text-muted mb-4">
+            ScreenTracker requires the following permissions to track applications and windows.
+            Click the button next to each permission to open System Settings.
+        </p>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-1">
+                            @if (accessibilityGranted)
+                            {
+                                <span class="text-success">✅</span>
+                            }
+                            else
+                            {
+                                <span class="text-danger">❌</span>
+                            }
+                            Accessibility
+                        </h5>
+                        <p class="card-text text-muted small mb-0">
+                            Required for reading active window titles and detecting app switches.
+                        </p>
+                        @if (lastAccessibilityCheck.HasValue)
+                        {
+                            <small class="text-muted">Last checked: @lastAccessibilityCheck.Value.ToString("HH:mm:ss")</small>
+                        }
+                    </div>
+                    <div>
+                        <button class="btn btn-primary me-2" @onclick="CheckAccessibilityPermission">
+                            <i class="fa-solid fa-rotate"></i> Check
+                        </button>
+                        <button class="btn btn-outline-primary" @onclick="OpenAccessibilitySettings">
+                            <i class="fa-solid fa-gear"></i> Open Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-1">
+                            @if (screenRecordingGranted)
+                            {
+                                <span class="text-success">✅</span>
+                            }
+                            else
+                            {
+                                <span class="text-danger">❌</span>
+                            }
+                            Screen Recording
+                        </h5>
+                        <p class="card-text text-muted small mb-0">
+                            Required for capturing screenshots and system-wide window detection.
+                        </p>
+                        @if (lastScreenRecordingCheck.HasValue)
+                        {
+                            <small class="text-muted">Last checked: @lastScreenRecordingCheck.Value.ToString("HH:mm:ss")</small>
+                        }
+                    </div>
+                    <div>
+                        <button class="btn btn-primary me-2" @onclick="CheckScreenRecordingPermission">
+                            <i class="fa-solid fa-rotate"></i> Check
+                        </button>
+                        <button class="btn btn-outline-primary" @onclick="OpenScreenRecordingSettings">
+                            <i class="fa-solid fa-gear"></i> Open Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-1">
+                            Notifications
+                        </h5>
+                        <p class="card-text text-muted small mb-0">
+                            Optional: Show tracking status in the menu bar or notifications.
+                        </p>
+                    </div>
+                    <div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="notificationSwitch" checked="@_notificationsEnabled"
+                                   @onchange="ToggleNotifications">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (showPrompt)
+        {
+            <div class="alert alert-warning">
+                <strong>⚠️ After granting permissions:</strong>
+                <ol class="mb-0 mt-2">
+                    <li>Toggle the permission switch <strong>OFF</strong> and <strong>ON</strong> in System Settings</li>
+                    <li>Click <strong>Check</strong> next to each permission above to verify</li>
+                    <li>You may need to restart the app for all changes to take effect</li>
+                </ol>
+            </div>
+        }
+
+        <div class="d-grid gap-2">
+            <button class="btn btn-success" @onclick="CheckAllPermissions">
+                <i class="fa-solid fa-check-double"></i> Re-check All Permissions
+            </button>
+            <button class="btn btn-info" @onclick="OpenPrivacySettings">
+                <i class="fa-solid fa-shield"></i> Open Privacy & Security
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private bool IsMac;
+    private bool accessibilityGranted;
+    private bool screenRecordingGranted;
+    private DateTime? lastAccessibilityCheck;
+    private DateTime? lastScreenRecordingCheck;
+    private bool _notificationsEnabled;
+    private bool showPrompt;
+
+    protected override void OnInitialized()
+    {
+#if __MACCATALYST__
+        IsMac = true;
+        CheckAllPermissions();
+#else
+        IsMac = false;
+#endif
+    }
+
+    private void GoBack() => NavigationManager.NavigateTo("/settings");
+
+    private async Task CheckAccessibilityPermission()
+    {
+#if __MACCATALYST__
+        try
+        {
+            accessibilityGranted = PlatformAccessibilityCheck();
+            lastAccessibilityCheck = DateTime.Now;
+            Console.WriteLine($"[Permissions] Accessibility: {(accessibilityGranted ? "GRANTED" : "DENIED")}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Permissions] Accessibility check error: {ex.Message}");
+            accessibilityGranted = false;
+        }
+#endif
+    }
+
+    private async Task CheckScreenRecordingPermission()
+    {
+#if __MACCATALYST__
+        try
+        {
+            screenRecordingGranted = PlatformScreenRecordingCheck();
+            lastScreenRecordingCheck = DateTime.Now;
+            Console.WriteLine($"[Permissions] Screen Recording: {(screenRecordingGranted ? "GRANTED" : "DENIED")}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Permissions] Screen Recording check error: {ex.Message}");
+            screenRecordingGranted = false;
+        }
+#endif
+    }
+
+    private async Task CheckAllPermissions()
+    {
+        showPrompt = true;
+        await CheckAccessibilityPermission();
+        await CheckScreenRecordingPermission();
+        StateHasChanged();
+    }
+
+#if __MACCATALYST__
+
+    [DllImport("/usr/lib/libSystem.dylib")]
+    private static extern IntPtr dlopen(string path, int mode);
+
+    [DllImport("/usr/lib/libSystem.dylib")]
+    private static extern IntPtr dlsym(IntPtr handle, string symbol);
+
+    [DllImport("/usr/lib/libSystem.dylib")]
+    private static extern int dlclose(IntPtr handle);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate bool AXIsProcessTrustedDelegate();
+
+    private static bool PlatformAccessibilityCheck()
+    {
+        const string axApiPath = "/System/Library/PrivateFrameworks/Accessibility.framework/Accessibility";
+        IntPtr handle = dlopen(axApiPath, 0);
+        if (handle == IntPtr.Zero) return false;
+
+        try
+        {
+            IntPtr ptr = dlsym(handle, "AXIsProcessTrusted");
+            if (ptr == IntPtr.Zero) return false;
+
+            var del = Marshal.GetDelegateForFunctionPointer<AXIsProcessTrustedDelegate>(ptr);
+            return del();
+        }
+        catch { return false; }
+        finally { dlclose(handle); }
+    }
+
+    private static bool PlatformScreenRecordingCheck()
+    {
+        // CGWindowListCopyWindowInfo returns 0 results without Screen Recording permission
+        try
+        {
+            const string cgLib = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
+            const string cfLib = "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
+
+            [DllImport(cgLib)]
+            static extern IntPtr CGWindowListCopyWindowInfo(uint option, uint relativeToWindow);
+
+            [DllImport(cfLib)]
+            static extern long CFArrayGetCount(IntPtr theArray);
+
+            [DllImport(cfLib)]
+            static extern void CFRelease(IntPtr cf);
+
+            const uint kCGWindowListOptionOnScreenOnly = 1;
+            const uint kCGWindowListExcludeDesktopElements = 16;
+            const uint kCGNullWindowID = 0;
+
+            uint option = kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements;
+            IntPtr array = CGWindowListCopyWindowInfo(option, kCGNullWindowID);
+            if (array == IntPtr.Zero) return false;
+
+            try
+            {
+                long count = CFArrayGetCount(array);
+                return count > 0;
+            }
+            finally { CFRelease(array); }
+        }
+        catch { return false; }
+    }
+
+#endif
+
+    private static void OpenAccessibilitySettings()
+    {
+        try
+        {
+            using var proc = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "open",
+                    Arguments = "\"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+            proc.Start();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Permissions] Error opening Accessibility settings: {ex.Message}");
+        }
+    }
+
+    private static void OpenScreenRecordingSettings()
+    {
+        try
+        {
+            using var proc = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "open",
+                    Arguments = "\"x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+            proc.Start();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Permissions] Error opening Screen Recording settings: {ex.Message}");
+        }
+    }
+
+    private static void OpenPrivacySettings()
+    {
+        try
+        {
+            using var proc = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "open",
+                    Arguments = "\"x-apple.systempreferences:com.apple.preference.security\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+            proc.Start();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Permissions] Error opening Privacy settings: {ex.Message}");
+        }
+    }
+
+    private void ToggleNotifications(ChangeEventArgs e)
+    {
+        _notificationsEnabled = (bool)(e.Value ?? false);
+        Preferences.Set("notifications_enabled", _notificationsEnabled ? "true" : "false");
+    }
+}

@@ -1,6 +1,11 @@
 ﻿@import url('app.css');
 
-body, select, input, button, h3, h4 {
+body,
+select,
+input,
+button,
+h3,
+h4 {
     font-family: "Poppins", sans-serif !important;
     font-weight: 500 !important;
 }
@@ -14,7 +19,7 @@ body, select, input, button, h3, h4 {
     background: #fafafa;
     padding: 20px;
     border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 
@@ -24,7 +29,8 @@ body, select, input, button, h3, h4 {
     height: 276px;
 }
 
-.stitch-nav-btn, .stitch-refresh-btn {
+.stitch-nav-btn,
+.stitch-refresh-btn {
     background-color: #1a73e8;
     color: white;
     border: none;
@@ -40,27 +46,27 @@ body, select, input, button, h3, h4 {
     margin-bottom: 1.5rem;
 }
 
-    .stitch-info h4 {
-        color: #2d3748;
-        font-size: 1.1rem;
-        font-weight: 600;
-        margin-bottom: 0.75rem;
-    }
+.stitch-info h4 {
+    color: #2d3748;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
 
 .info-row {
     display: flex;
     gap: 2rem;
 }
 
-    .info-row span {
-        color: #475569;
-        font-size: 0.95rem;
-    }
+.info-row span {
+    color: #475569;
+    font-size: 0.95rem;
+}
 
-    .info-row strong {
-        color: #1e293b;
-        font-weight: 600;
-    }
+.info-row strong {
+    color: #1e293b;
+    font-weight: 600;
+}
 
 .stitch-tabs {
     display: flex;
@@ -77,10 +83,10 @@ body, select, input, button, h3, h4 {
     border-bottom: 3px solid transparent;
 }
 
-    .stitch-tab.active {
-        border-color: #1a73e8;
-        color: #1a73e8;
-    }
+.stitch-tab.active {
+    border-color: #1a73e8;
+    color: #1a73e8;
+}
 
 .stitch-summary-grid {
     display: grid;
@@ -92,7 +98,7 @@ body, select, input, button, h3, h4 {
     background: white;
     padding: 20px;
     border-radius: 10px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .stitch-bar {
@@ -106,78 +112,78 @@ body, select, input, button, h3, h4 {
     cursor: pointer;
 }
 
-    .stitch-bar .fill {
-        height: 100%;
-    }
+.stitch-bar .fill {
+    height: 100%;
+}
 
-    .stitch-bar .label {
-        position: absolute;
-        left: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 1rem;
-        font-weight: 500;
-        color: #202124;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: calc(100% - 100px);
-        cursor: default;
-        z-index: 1;
-    }
+.stitch-bar .label {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1rem;
+    font-weight: 500;
+    color: #202124;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: calc(100% - 100px);
+    cursor: default;
+    z-index: 1;
+}
 
-        .stitch-bar .label:hover {
-            overflow: visible;
-            z-index: 100;
-        }
+.stitch-bar .label:hover {
+    overflow: visible;
+    z-index: 100;
+}
 
-        .stitch-bar .label .label-text {
-            display: block;
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
+.stitch-bar .label .label-text {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
-        /* Default tooltip ABOVE for all bars */
-        .stitch-bar .label[data-tooltip]:hover::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 0;
-            background: #333;
-            color: white;
-            padding: 8px 12px;
-            font-size: 14px;
-            white-space: normal;
-            width: auto;
-            max-width: 300px;
-            z-index: 100;
-            pointer-events: none;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            margin-bottom: 8px;
-        }
+/* Default tooltip ABOVE for all bars */
+.stitch-bar .label[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background: #333;
+    color: white;
+    padding: 8px 12px;
+    font-size: 14px;
+    white-space: normal;
+    width: auto;
+    max-width: 300px;
+    z-index: 100;
+    pointer-events: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    margin-bottom: 8px;
+}
 
-    /* First bar tooltip BELOW */
-    .stitch-bar.first-bar .label[data-tooltip]:hover::after {
-        bottom: auto;
-        top: 100%;
-        margin-bottom: 0;
-        margin-top: 8px;
-    }
+/* First bar tooltip BELOW */
+.stitch-bar.first-bar .label[data-tooltip]:hover::after {
+    bottom: auto;
+    top: 100%;
+    margin-bottom: 0;
+    margin-top: 8px;
+}
 
 
-    .stitch-bar .time {
-        position: absolute;
-        right: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 1rem;
-        font-weight: 500;
-        color: #202124;
-        white-space: nowrap;
-        z-index: 1;
-    }
+.stitch-bar .time {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1rem;
+    font-weight: 500;
+    color: #202124;
+    white-space: nowrap;
+    z-index: 1;
+}
 
 .chart-wrapper {
     height: 350px;
@@ -231,8 +237,10 @@ body, select, input, button, h3, h4 {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
     /*    border: 1px solid #e0e0e0;*/
     /* KEY CHANGE for horizontal sizing */
-    min-width: 250px; /* Ensures all cards are a consistent, readable width */
-    flex-shrink: 0; /* Prevents cards from shrinking when space is tight */
+    min-width: 250px;
+    /* Ensures all cards are a consistent, readable width */
+    flex-shrink: 0;
+    /* Prevents cards from shrinking when space is tight */
 
     background-color: var(--color-secondary);
     color: var(--color-text-color);
@@ -342,12 +350,15 @@ body, select, input, button, h3, h4 {
 
 .toolbar-container {
     display: grid;
-    grid-template-columns: 1fr auto; /* left and right columns */
-    grid-template-rows: auto auto; /* two rows */
+    grid-template-columns: 1fr auto;
+    /* left and right columns */
+    grid-template-rows: auto auto;
+    /* two rows */
     grid-template-areas:
         "tracking tracking"
         "left right";
-    gap: 0.75rem; /* space between rows and columns */
+    gap: 0.75rem;
+    /* space between rows and columns */
     align-items: center;
     width: 100%;
 }
@@ -355,13 +366,15 @@ body, select, input, button, h3, h4 {
 /* First row (Tracking Status) */
 .toolbar-center {
     grid-area: tracking;
-    justify-self: end; /* right-align */
+    justify-self: end;
+    /* right-align */
 }
 
 /* Second row - left side (Date + Auto Refresh) */
 .toolbar-left {
     grid-area: left;
-    justify-self: start; /* left-align */
+    justify-self: start;
+    /* left-align */
     display: flex;
     align-items: center;
     gap: 1rem;
@@ -370,7 +383,8 @@ body, select, input, button, h3, h4 {
 /* Second row - right side (Refresh + Screen) */
 .toolbar-right {
     grid-area: right;
-    justify-self: end; /* right-align */
+    justify-self: end;
+    /* right-align */
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -387,7 +401,8 @@ body, select, input, button, h3, h4 {
 
 /* If extra control needed over column/row spanning */
 .toolbar-center {
-    grid-column: 1 / 3; /* makes it span full width (top row) */
+    grid-column: 1 / 3;
+    /* makes it span full width (top row) */
 }
 
 .row {
@@ -395,8 +410,11 @@ body, select, input, button, h3, h4 {
     margin-bottom: 0;
 }
 
-.col-md-6, .col-sm-12, .col-sm-6 {
-    padding: 10px; /* Adjust this value (e.g., 10px or 15px) for the desired gap/spacing */
+.col-md-6,
+.col-sm-12,
+.col-sm-6 {
+    padding: 10px;
+    /* Adjust this value (e.g., 10px or 15px) for the desired gap/spacing */
 }
 
 
@@ -442,16 +460,16 @@ body, select, input, button, h3, h4 {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-    .stitch-user-select:hover {
-        border-color: #6366F1;
-        box-shadow: 0 2px 6px rgba(99, 102, 241, 0.15);
-    }
+.stitch-user-select:hover {
+    border-color: #6366F1;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.15);
+}
 
-    .stitch-user-select:focus {
-        outline: none;
-        border-color: #6366F1;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-    }
+.stitch-user-select:focus {
+    outline: none;
+    border-color: #6366F1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
 
 
 .stitch-toolbar {
@@ -493,11 +511,11 @@ body, select, input, button, h3, h4 {
     margin-right: -35px;
 }
 
-    .stitch-date-picker:focus {
-        outline: none;
-        border-color: var(--color-accent);
-        box-shadow: 0 0 0 3px var(--color-accent-light);
-    }
+.stitch-date-picker:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-light);
+}
 
 .stitch-refresh-btn {
     background-color: #6366F1;
@@ -557,10 +575,10 @@ body, select, input, button, h3, h4 {
     position: relative;
 }
 
-    .chart-container canvas {
-        max-width: 100%;
-        display: block;
-    }
+.chart-container canvas {
+    max-width: 100%;
+    display: block;
+}
 
 .stitch-info {
     background-color: #F8FAFC;
@@ -571,27 +589,27 @@ body, select, input, button, h3, h4 {
     margin-right: 7%;
 }
 
-    .stitch-info h4 {
-        color: #2D3748;
-        font-size: 1.1rem;
-        font-weight: 600;
-        margin-bottom: 0.75rem;
-    }
+.stitch-info h4 {
+    color: #2D3748;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
 
 .info-row {
     display: flex;
     gap: 2rem;
 }
 
-    .info-row span {
-        color: #475569;
-        font-size: 0.95rem;
-    }
+.info-row span {
+    color: #475569;
+    font-size: 0.95rem;
+}
 
-    .info-row strong {
-        color: #1E293B;
-        font-weight: 600;
-    }
+.info-row strong {
+    color: #1E293B;
+    font-weight: 600;
+}
 
 .stitch-tabs {
     display: flex;
@@ -608,20 +626,20 @@ body, select, input, button, h3, h4 {
     transition: all 0.2s ease;
 }
 
-    .stitch-tab.active {
-        color: #6366F1;
-        font-weight: 600;
-    }
+.stitch-tab.active {
+    color: #6366F1;
+    font-weight: 600;
+}
 
-        .stitch-tab.active::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background-color: #6366F1;
-        }
+.stitch-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: #6366F1;
+}
 
 .stitch-summary-grid {
     display: grid;
@@ -642,13 +660,13 @@ body, select, input, button, h3, h4 {
     overflow-y: auto;
 }
 
-    .stitch-card h4 {
-        /*        color: #2D3748;*/
-        color: var( --color-text-color);
-        font-size: 1.1rem;
-        font-weight: 600;
-        margin-bottom: 1rem;
-    }
+.stitch-card h4 {
+    /*        color: #2D3748;*/
+    color: var(--color-text-color);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
 
 .stitch-bar {
     position: relative;
@@ -663,14 +681,14 @@ body, select, input, button, h3, h4 {
 
 
 
-    .stitch-bar .time {
-        position: absolute;
-        right: 8px;
-        color: red;
-        font-size: 14px;
-        font-weight: 500;
-        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
-    }
+.stitch-bar .time {
+    position: absolute;
+    right: 8px;
+    color: red;
+    font-size: 14px;
+    font-weight: 500;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+}
 
 .stitch-button-row {
     display: flex;
@@ -765,13 +783,13 @@ body {
     transition: transform 0.3s ease;
 }
 
-    .stitch-refresh-btn i.fa-toggle-on {
-        transform: rotate(0deg);
-    }
+.stitch-refresh-btn i.fa-toggle-on {
+    transform: rotate(0deg);
+}
 
-    .stitch-refresh-btn i.fa-toggle-off {
-        transform: rotate(180deg);
-    }
+.stitch-refresh-btn i.fa-toggle-off {
+    transform: rotate(180deg);
+}
 
 .dark-theme-btn {
     display: flex;
@@ -796,9 +814,9 @@ body {
     transition: background-color 0.2s ease;
 }
 
-    .toolbar-section:hover {
-        background-color: rgba(99, 102, 241, 0.05);
-    }
+.toolbar-section:hover {
+    background-color: rgba(99, 102, 241, 0.05);
+}
 
 
 
@@ -858,12 +876,12 @@ body {
     transition: none;
 }
 
-    /* Remove hover effect from profile icon */
-    .user-menu-button:hover {
-        color: #333;
-        background-color: transparent !important;
-        background: none !important;
-    }
+/* Remove hover effect from profile icon */
+.user-menu-button:hover {
+    color: #333;
+    background-color: transparent !important;
+    background: none !important;
+}
 
 /*.user-menu-dropdown {
     list-style: none;
@@ -884,12 +902,12 @@ body {
     padding: 10px 15px;
 }
 
-    .user-menu-dropdown li a {
-        text-decoration: none;
-        /*            color: #333;*/
-        color: var(--color-text-color);
-        display: block;
-    }
+.user-menu-dropdown li a {
+    text-decoration: none;
+    /*            color: #333;*/
+    color: var(--color-text-color);
+    display: block;
+}
 
 /*        .user-menu-dropdown li:hover {
             background-color: #f5f5f5;
@@ -999,15 +1017,15 @@ body.dark-theme {
     padding-right: 2.5rem;
 }
 
-    .theme-dropdown:hover {
-        border-color: #6366f1;
-    }
+.theme-dropdown:hover {
+    border-color: #6366f1;
+}
 
-    .theme-dropdown:focus {
-        outline: none;
-        border-color: #6366f1;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-    }
+.theme-dropdown:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
 
 
 .theme-toggle-btn {
@@ -1026,15 +1044,15 @@ body.dark-theme {
     flex-shrink: 0;
 }
 
-    .theme-toggle-btn:hover {
-        background-color: var(--button-hover-bg);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px var(--shadow-light);
-    }
+.theme-toggle-btn:hover {
+    background-color: var(--button-hover-bg);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px var(--shadow-light);
+}
 
-    .theme-toggle-btn:active {
-        transform: translateY(0);
-    }
+.theme-toggle-btn:active {
+    transform: translateY(0);
+}
 
 .theme-back-btn {
     width: 100%;
@@ -1049,15 +1067,15 @@ body.dark-theme {
     transition: all 0.2s ease;
 }
 
-    .theme-back-btn:hover {
-        background-color: var(--button-hover-bg);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px var(--shadow-light);
-    }
+.theme-back-btn:hover {
+    background-color: var(--button-hover-bg);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px var(--shadow-light);
+}
 
-    .theme-back-btn:active {
-        transform: translateY(0);
-    }
+.theme-back-btn:active {
+    transform: translateY(0);
+}
 
 
 .theme-container,
@@ -1065,6 +1083,70 @@ body.dark-theme {
 .theme-toggle-btn,
 .theme-back-btn {
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.logout-confirm-container {
+    max-width: 320px;
+    text-align: center;
+}
+
+.logout-confirm-text {
+    margin: 1.25rem 0;
+    font-size: 0.95rem;
+    color: var(--text-color);
+    line-height: 1.5;
+}
+
+.logout-confirm-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+}
+
+.logout-btn-yes {
+    flex: 1;
+    padding: 0.65rem 1rem;
+    background-color: #dc3545;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.logout-btn-yes:hover {
+    background-color: #c82333;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.logout-btn-yes:active {
+    transform: translateY(0);
+}
+
+.logout-btn-cancel {
+    flex: 1;
+    padding: 0.65rem 1rem;
+    background-color: var(--button-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+/* .logout-btn-cancel:hover {
+        background-color: var(--button-hover-bg);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px var(--shadow-light);
+    } */
+
+.logout-btn-cancel:active {
+    transform: translateY(0);
 }
 
 
@@ -1109,10 +1191,10 @@ body.dark-theme {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-    .tracking-toggle:disabled:hover {
-        transform: none !important;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
+.tracking-toggle:disabled:hover {
+    transform: none !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
 
 .tracking-indicator {
     width: 12px;
@@ -1168,19 +1250,19 @@ body {
     border-radius: 8px;
 }
 
-    .select2-container .select2-selection--single {
-        padding: 5px;
-        height: unset;
-        background-color: #EEE8FF;
-    }
+.select2-container .select2-selection--single {
+    padding: 5px;
+    height: unset;
+    background-color: #EEE8FF;
+}
 
 .select2-container--default .select2-selection--single {
     border-radius: 8px;
 }
 
-    .select2-container--default .select2-selection--single .select2-selection__arrow {
-        top: 7px
-    }
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    top: 7px
+}
 
 .tooltip-superadmin {
     bottom: -83px;
@@ -1195,13 +1277,18 @@ body {
 }
 
 .card-container {
-    display: flex; /* Key change for horizontal layout */
-    gap: 15px; /* Spacing between cards */
+    display: flex;
+    /* Key change for horizontal layout */
+    gap: 15px;
+    /* Spacing between cards */
     padding: 10px;
     /* Optional properties for a horizontal row: */
-    overflow-x: auto; /* Allows horizontal scrolling if cards exceed screen width */
-    white-space: nowrap; /* Prevents cards from wrapping to the next line */
-    align-items: flex-start; /* Ensures all cards start at the same top position */
+    overflow-x: auto;
+    /* Allows horizontal scrolling if cards exceed screen width */
+    white-space: nowrap;
+    /* Prevents cards from wrapping to the next line */
+    align-items: flex-start;
+    /* Ensures all cards start at the same top position */
 }
 
 /* Base style for the card - IMPORTANT: Add min-width for consistent sizing */
@@ -1242,9 +1329,9 @@ body {
     display: flex;
 }
 
-    .toolbar-section-tracker .label {
-        white-space: nowrap;
-    }
+.toolbar-section-tracker .label {
+    white-space: nowrap;
+}
 
 
 
@@ -1261,6 +1348,6 @@ body {
     background-color: #EEE8FF;
 }
 
-    .select2-container--default .select2-search--dropdown .select2-search__field {
-        background-color: #F5E1FA;
-    }
+.select2-container--default .select2-search--dropdown .select2-search__field {
+    background-color: #F5E1FA;
+}

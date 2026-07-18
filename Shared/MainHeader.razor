@@ -134,6 +134,7 @@
             isOn = false;
             await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
             appUsageTrackerService.Stop();
+            appUsageTrackerService.ClearUserData();
             desktopAutoCaptureService.StopTimer();
             afkTrackerService.Stop();
             await UserService.EndDailyTrackerAsync();

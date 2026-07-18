@@ -6,6 +6,8 @@
 @inject KeyboardMouseService KeyboardMouseService
 @inject UserService UserService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@implements IDisposable
 
 <style>
     .image-container {
@@ -68,9 +70,22 @@ else
                             </button>
                         }
 
-                        <img src="@screenshots.imageUrl" alt="Screenshot"
-                             class="img-fluid screenshot-image"
-                             style="max-width: 80%; height: auto; border: 1px solid var(--border-color); border-radius: 4px; padding: 4px;" />
+                        @if (_isDetailImageLoading && _detailImageBlobUrl == null)
+                        {
+                            <div class="text-center p-5">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading image...</span>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <img src="@(_detailImageBlobUrl ?? string.Empty)"
+                                 alt="Screenshot"
+                                 class="img-fluid screenshot-image"
+                                 data-detail-img="1"
+                                 style="max-width: 80%; height: auto; border: 1px solid var(--border-color); border-radius: 4px; padding: 4px;" />
+                        }
 
                         @if (hasNextScreenshot)
                         {
@@ -160,6 +175,12 @@ else
     private bool hasNextScreenshot;
     private bool hasPreviousScreenshot;
 
+    // Blob URL for the detail image (bypasses WKWebView data URI size limitation)
+    private string? _detailImageBlobUrl = null;
+    private bool _isDetailImageLoading = false;
+    // Static HttpClient: avoids creating/destroying NSUrlSession on macOS
+    private static readonly HttpClient _detailHttp = new HttpClient();
+
     // FIX 1: Change 'loggedInUserId' to 'userId' in the TargetUserId property
     // This property correctly determines if we should view the SELECTED user (App.SelectedUserId)
     // or the LOGGED-IN Admin (userId).
@@ -198,6 +219,110 @@ else
         await CheckForRelativeScreenshotsAsync();
     }
 
+    private async Task LoadDetailImageAsync()
+    {
+        if (screenshots == null)
+            return;
+
+        // Reset stale image before loading new one
+        await RevokeDetailBlobUrlAsync();
+        _detailImageBlobUrl = null;
+        _isDetailImageLoading = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            string? dataToProcess = null;
+            string mimeType = "image/jpeg";
+
+            // Step 1: Check if the model already has embedded base64 data
+            string? embeddedBase64 = screenshots.GetBase64ImageUri();
+            if (!string.IsNullOrEmpty(embeddedBase64))
+            {
+                dataToProcess = embeddedBase64;
+                Console.WriteLine($"[DetailImage] Using embedded base64 for screenshot #{screenshots.id}");
+            }
+            // Step 2: Check if imageUrl is already a data URI
+            else if (!string.IsNullOrEmpty(screenshots.imageUrl) &&
+                     screenshots.imageUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                dataToProcess = screenshots.imageUrl;
+                Console.WriteLine($"[DetailImage] Using imageUrl data URI for screenshot #{screenshots.id}");
+            }
+            // Step 3: Download image from server via native HttpClient (supports auth headers)
+            else
+            {
+                string fullUrl = App.GetFullImageUrl(screenshots.imageUrl);
+                if (string.IsNullOrEmpty(fullUrl))
+                {
+                    Console.WriteLine($"[DetailImage] No image URL for screenshot #{screenshots.id}");
+                    return;
+                }
+
+                var request = new HttpRequestMessage(HttpMethod.Get, fullUrl);
+                string? authToken = Preferences.Get("authToken", "");
+                if (!string.IsNullOrWhiteSpace(authToken))
+                    request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+
+                var response = await _detailHttp.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"[DetailImage] HTTP {(int)response.StatusCode} for '{screenshots.imageUrl}'");
+                    return;
+                }
+
+                var bytes = await response.Content.ReadAsByteArrayAsync();
+                var base64 = Convert.ToBase64String(bytes);
+
+                if (fullUrl.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || fullUrl.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+                    mimeType = "image/jpeg";
+                else if (fullUrl.EndsWith(".gif", StringComparison.OrdinalIgnoreCase))
+                    mimeType = "image/gif";
+                else if (fullUrl.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
+                    mimeType = "image/webp";
+                else if (fullUrl.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                    mimeType = "image/png";
+
+                dataToProcess = $"data:{mimeType};base64,{base64}";
+                Console.WriteLine($"[DetailImage] Downloaded {bytes.Length} bytes for screenshot #{screenshots.id}");
+            }
+
+            // Create blob URL from the data via JavaScript interop (bypasses WKWebView data URI limitation)
+            if (!string.IsNullOrEmpty(dataToProcess))
+            {
+                // Determine MIME type from data URI if not already set
+                if (dataToProcess.StartsWith("data:image/png", StringComparison.OrdinalIgnoreCase))
+                    mimeType = "image/png";
+                else if (dataToProcess.StartsWith("data:image/gif", StringComparison.OrdinalIgnoreCase))
+                    mimeType = "image/gif";
+                else if (dataToProcess.StartsWith("data:image/webp", StringComparison.OrdinalIgnoreCase))
+                    mimeType = "image/webp";
+
+                var blobUrl = await JSRuntime.InvokeAsync<string>(
+                    "createScreenshotBlobUrl", screenshots.id, dataToProcess, mimeType);
+
+                if (!string.IsNullOrEmpty(blobUrl))
+                {
+                    _detailImageBlobUrl = blobUrl;
+                    Console.WriteLine($"[DetailImage] Created blob URL for screenshot #{screenshots.id}");
+                }
+                else
+                {
+                    Console.WriteLine($"[DetailImage] Failed to create blob URL for screenshot #{screenshots.id}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DetailImage] Error: {ex.Message}");
+        }
+        finally
+        {
+            _isDetailImageLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
     private async Task LoadImageDataAsync()
     {
         try
@@ -210,6 +335,12 @@ else
                 errorMessage = "No data found for the selected screenshot.";
                 return;
             }
+
+            var generatedUrl = App.GetFullImageUrl(screenshots.imageUrl);
+            Console.WriteLine($"[ScreenshotDetails] Loaded screenshot #{screenshots.id}: imageUrl='{screenshots.imageUrl}', image_path='{screenshots.image_path}', fullUrl='{generatedUrl}'");
+
+            // Start loading image as blob URL (bypasses WKWebView data URI rendering limitation)
+            _ = LoadDetailImageAsync();
 
             if (!string.IsNullOrWhiteSpace(screenshots.minuteActivityData))
             {
@@ -303,4 +434,31 @@ else
 
     private string FormatTimestamp(DateTime? timestamp) => timestamp?.ToLocalTime().ToString("h:mm:ss tt") ?? "N/A";
     private string FormatTimeOnly(DateTime? timestamp) => timestamp?.ToLocalTime().ToString("h:mm:ss") ?? "N/A";
+
+    /// <summary>
+    /// Revokes the detail image blob URL to prevent memory leaks.
+    /// </summary>
+    private async Task RevokeDetailBlobUrlAsync()
+    {
+        if (!string.IsNullOrEmpty(_detailImageBlobUrl))
+        {
+            try
+            {
+                // Revoke using the screenshot ID if we have one
+                if (screenshots?.id > 0)
+                {
+                    await JSRuntime.InvokeVoidAsync("revokeScreenshotBlobUrl", screenshots.id);
+                }
+            }
+            catch { }
+            _detailImageBlobUrl = null;
+        }
+    }
+
+    public void Dispose()
+    {
+        // Blob URLs are scoped to the document and are automatically cleaned up
+        // when the WebView navigates away. No explicit JS cleanup needed here.
+        _detailImageBlobUrl = null;
+    }
 }
