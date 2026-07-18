@@ -1,48 +1,60 @@
 ﻿@page "/userreport/{UserId:int}"
+@inject IJSRuntime JSRuntime
 @inject UserService UserService
 @inject NavigationManager NavigationManager
+
 @using ScreenTracker1.DTOS
 @using ScreenTracker1.Services
 @using ScreenTracker1.Models
-@using System.IdentityModel.Tokens.Jwt;
-@using System.Security.Claims;
-@using Microsoft.Maui.ApplicationModel;
+@using System.IdentityModel.Tokens.Jwt
+@using System.Security.Claims
+@using Microsoft.Maui.ApplicationModel
+@using Microsoft.JSInterop
 
 <div class="report-container">
-    <div class="report-header">
-        <button @onclick="NavigateToHome" class="back-btn">
-            <i class="fa-solid fa-house me-2"></i>
-            Home
-        </button>
-    </div>
-
     <div class="card">
-        <h2 class="title">Daily Tracker History</h2>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <button class="btn-back" @onclick="GoBack" title="Go Back">
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
+
+            <h2 class="title mb-0">Daily Tracker History</h2>
+
+            <div></div>
+        </div>
 
         <div class="filters">
-           @*   <label>Date Range</label> *@
             <div class="filters-row">
                 <InputDate @bind-Value="FromDate" class="input-date" />
                 <span class="to-text">to</span>
                 <InputDate @bind-Value="ToDate" class="input-date" />
-                <button class="btn-load" @onclick="() => LoadHistory(1)">
-             
-                    <i class="fas fa-cloud-download-alt"></i> Load
-                  
-                    
+
+                <button class="btn-load" @onclick="() => LoadHistory(1)" disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span> Loading...</span>
+                    }
+                    else
+                    {
+                        <i class="fas fa-cloud-download-alt"></i>
+                        <span> Load</span>
+                    }
                 </button>
             </div>
         </div>
 
-        @if (Trackers == null)
+        @if (isLoading && Trackers?.Any() != true)
         {
             <div class="loading">Loading...</div>
         }
-        else if (!Trackers.Any())
+        else if (Trackers?.Any() != true)
         {
             <div class="no-data-container" style="text-align:center; padding: 20px;">
                 <div class="no-data">No tracker data found.</div>
-                <small class="text-muted">Note: Sessions shorter than 10 minutes are not recorded in this report.</small>
+                <small class="text-muted">
+                    Note: Sessions shorter than 10 minutes are not recorded in this report.
+                </small>
             </div>
         }
         else
@@ -52,39 +64,48 @@
                     <thead>
                         <tr>
                             <th>Date</th>
-                            <th>First Name</th>
-                            <th>Last Name</th>
+                            <th>Name</th>
                             <th>Start Time</th>
                             <th>End Time</th>
                             <th>Type</th>
                             <th>Duration</th>
                         </tr>
                     </thead>
+
                     <tbody>
                         @foreach (var trackerDto in Trackers)
                         {
-                            var tz = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+                            var tz = GetIndiaTimeZone();
                             var tracker = trackerDto.Tracker;
 
                             <tr>
-                                <td>@TimeZoneInfo.ConvertTimeFromUtc(tracker.Date, tz).ToString("MMM dd, yyyy")</td>
-                                <td>@trackerDto.User?.firstName</td>
-                                <td>@trackerDto.User?.lastName</td>
+                                <td>
+                                    @ConvertFromUtcSafe(tracker.Date, tz).ToString("MMM dd, yyyy")
+                                </td>
+
+                                <td>
+                                    @(trackerDto.User?.firstName + " " + trackerDto.User?.lastName)
+                                </td>
+
                                 <td>
                                     @(tracker.StartTracker.HasValue
-                                        ? TimeZoneInfo.ConvertTimeFromUtc(tracker.StartTracker.Value, tz).ToString("hh:mm tt")
+                                        ? ConvertFromUtcSafe(tracker.StartTracker.Value, tz).ToString("hh:mm tt")
                                         : "-")
                                 </td>
+
                                 <td>
                                     @(tracker.EndTracker.HasValue
-                                        ? TimeZoneInfo.ConvertTimeFromUtc(tracker.EndTracker.Value, tz).ToString("hh:mm tt")
+                                        ? ConvertFromUtcSafe(tracker.EndTracker.Value, tz).ToString("hh:mm tt")
                                         : "-")
                                 </td>
+
                                 <td>@trackerDto.Tracker.StartMode</td>
+
                                 <td class="duration">
                                     @if (tracker.StartTracker.HasValue && tracker.EndTracker.HasValue)
                                     {
                                         var duration = tracker.EndTracker.Value - tracker.StartTracker.Value;
+
                                         <span @onclick="() => NavigateToScreenshots(trackerDto.User?.id ?? 0, tracker.Date, tracker.StartTracker.Value, tracker.EndTracker.Value)"
                                               style="cursor: pointer; text-decoration: underline;"
                                               title="View screenshots for this time period">
@@ -107,14 +128,18 @@
                 <nav aria-label="Page navigation example" class="d-flex justify-content-center mt-4">
                     <ul class="pagination">
                         <li class="page-item @(CurrentPage == 1 ? "disabled" : "")">
-                            <a class="page-link" href="#" @onclick="PreviousPage" @onclick:preventDefault aria-label="Previous">
+                            <a class="page-link"
+                               href="#"
+                               @onclick="PreviousPage"
+                               @onclick:preventDefault
+                               aria-label="Previous">
                                 <span aria-hidden="true">&laquo;</span>
                             </a>
                         </li>
 
                         @foreach (var pageNumber in GetPageNumbers())
                         {
-                            @if (pageNumber == -1) 
+                            @if (pageNumber == -1)
                             {
                                 <li class="page-item disabled">
                                     <a class="page-link" href="#">...</a>
@@ -123,7 +148,10 @@
                             else
                             {
                                 <li class="page-item @(pageNumber == CurrentPage ? "active" : "")">
-                                    <a class="page-link" href="#" @onclick="() => LoadHistory(pageNumber)" @onclick:preventDefault>
+                                    <a class="page-link"
+                                       href="#"
+                                       @onclick="() => LoadHistory(pageNumber)"
+                                       @onclick:preventDefault>
                                         @pageNumber
                                     </a>
                                 </li>
@@ -131,7 +159,11 @@
                         }
 
                         <li class="page-item @(CurrentPage == TotalPages ? "disabled" : "")">
-                            <a class="page-link" href="#" @onclick="NextPage" @onclick:preventDefault aria-label="Next">
+                            <a class="page-link"
+                               href="#"
+                               @onclick="NextPage"
+                               @onclick:preventDefault
+                               aria-label="Next">
                                 <span aria-hidden="true">&raquo;</span>
                             </a>
                         </li>
@@ -140,199 +172,331 @@
             }
 
             <div class="summary flex justify-between p-2 bg-gray-100 rounded-lg mt-4">
-                <span>Showing <b>@Trackers.Count</b> of <b>@TotalRecords</b> records</span>
-                <span><b>@FormatDuration(GetTotalDuration())</b> total</span>
+                <span>
+                    Showing <b>@Trackers.Count</b> of <b>@TotalRecords</b> records
+                </span>
+
+                <span>
+                    <b>@FormatDuration(GetTotalDuration())</b> total
+                </span>
             </div>
         }
     </div>
 </div>
 
 @code {
-        @code {
-        [Parameter] public int UserId { get; set; } // This is the ID from the route /userreport/{UserId:int}
+    [Parameter] public int UserId { get; set; }
 
-        private DateTime FromDate { get; set; } = DateTime.Now.Date.AddDays(-7);
-        private DateTime ToDate { get; set; } = DateTime.Now.Date;
-        private List<DailyTrackerWithUserDto> Trackers { get; set; } = new();
-        private string? UserRole;
-        private string SearchString { get; set; } = string.Empty;
-        private int loggedInUserId; // This variable will no longer be used for loading history
+    private DateTime FromDate { get; set; } = DateTime.Now.Date.AddDays(-30);
+    private DateTime ToDate { get; set; } = DateTime.Now.Date;
 
-        // Pagination
-        private int CurrentPage { get; set; } = 1;
-        private int PageSize { get; set; } = 10;
-        private int TotalRecords { get; set; }
-        private int TotalPages => (int)Math.Ceiling((double)TotalRecords / PageSize);
-        private int PaginationDisplaySize { get; set; } = 5;
+    private List<DailyTrackerWithUserDto> Trackers { get; set; } = new();
 
-        private void NavigateToHome() => NavigationManager.NavigateTo("/active-users");
+    private string? UserRole;
+    private int loggedInUserId;
 
-        private void NavigateToScreenshots(int userId, DateTime date, DateTime startTime, DateTime endTime)
+    private int CurrentPage { get; set; } = 1;
+    private int PageSize { get; set; } = 10;
+    private int TotalRecords { get; set; }
+    private int TotalPages => (int)Math.Ceiling((double)TotalRecords / PageSize);
+    private int PaginationDisplaySize { get; set; } = 5;
+
+    private bool isLoading = false;
+    private bool isHistoryRequestRunning = false;
+
+    private void GoBack()
+    {
+        try
         {
-            var tz = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
-
-            // 1. Ensure we are working with IST
-            var istDate = TimeZoneInfo.ConvertTimeFromUtc(date, tz);
-            var istStartTime = TimeZoneInfo.ConvertTimeFromUtc(startTime, tz);
-            var istEndTime = TimeZoneInfo.ConvertTimeFromUtc(endTime, tz);
-
-            // 2. Format: yyyy-MM-dd and HH:mm
-            var dateStr = istDate.ToString("yyyy-MM-dd");
-            var startTimeStr = istStartTime.ToString("HH:mm"); // Results in "15:50"
-            var endTimeStr = istEndTime.ToString("HH:mm");   // Results in "15:51"
-
-            // 3. Use lowercase keys in the URL to match the API parameters
-            NavigationManager.NavigateTo($"/screenshots/{dateStr}?ViewedUserId={userId}&startTime={startTimeStr}&endTime={endTimeStr}");
+            JSRuntime.InvokeVoidAsync("history.back");
         }
-
-        protected override async Task OnInitializedAsync()
+        catch (Exception ex)
         {
-            // Keep this to load the logged-in user's role/ID, which is important for authorization
-            // or other page logic, but it won't be used for the history query itself.
-            await LoadUserDataAndRoleAsync();
+            Console.WriteLine($"GoBack error: {ex.Message}");
+            NavigationManager.NavigateTo("/active-users");
+        }
+    }
 
-            // Pass the UserId from the route parameter to LoadHistory
+    private void NavigateToHome()
+    {
+        NavigationManager.NavigateTo("/active-users");
+    }
+
+    private void NavigateToScreenshots(int userId, DateTime date, DateTime startTime, DateTime endTime)
+    {
+        try
+        {
+            var tz = GetIndiaTimeZone();
+
+            var istDate = ConvertFromUtcSafe(date, tz);
+            var istStartTime = ConvertFromUtcSafe(startTime, tz);
+            var istEndTime = ConvertFromUtcSafe(endTime, tz);
+
+            var dateStr = istDate.ToString("yyyy-MM-dd");
+            var startTimeStr = istStartTime.ToString("HH:mm");
+            var endTimeStr = istEndTime.ToString("HH:mm");
+
+            NavigationManager.NavigateTo(
+                $"/screenshots/{dateStr}?viewedUserId={userId}&startTime={startTimeStr}&endTime={endTimeStr}"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"NavigateToScreenshots error: {ex.Message}");
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadUserDataAndRoleAsync();
             await LoadHistory(1);
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OnInitializedAsync error: {ex.Message}");
 
-        private async Task LoadUserDataAndRoleAsync()
+            isLoading = false;
+            isHistoryRequestRunning = false;
+            Trackers = new List<DailyTrackerWithUserDto>();
+            TotalRecords = 0;
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task LoadUserDataAndRoleAsync()
+    {
+        try
         {
             var token = Preferences.Get("authToken", null);
-            if (!string.IsNullOrEmpty(token))
+
+            if (string.IsNullOrEmpty(token))
             {
-                var handler = new JwtSecurityTokenHandler();
-                var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+                UserRole = null;
+                loggedInUserId = 0;
+                return;
+            }
 
-                if (jwtToken != null)
+            var handler = new JwtSecurityTokenHandler();
+
+            if (handler.ReadToken(token) is JwtSecurityToken jwtToken)
+            {
+                UserRole = jwtToken.Claims
+                    .FirstOrDefault(c => c.Type == ClaimTypes.Role)
+                    ?.Value;
+
+                var userIdClaim = jwtToken.Claims
+                    .FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)
+                    ?.Value;
+
+                if (int.TryParse(userIdClaim, out int id))
                 {
-                    UserRole = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-                    var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+                    loggedInUserId = id;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"LoadUserDataAndRoleAsync error: {ex.Message}");
 
-                    if (int.TryParse(userIdClaim, out int id))
-                        loggedInUserId = id;
+            UserRole = null;
+            loggedInUserId = 0;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private async Task LoadHistory(int pageNumber = 1)
+    {
+        if (isHistoryRequestRunning)
+        {
+            return;
+        }
+
+        isHistoryRequestRunning = true;
+        isLoading = true;
+        CurrentPage = pageNumber;
+
+        Trackers = new List<DailyTrackerWithUserDto>();
+        TotalRecords = 0;
+
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            if (FromDate.Date > ToDate.Date)
+            {
+                Trackers = new List<DailyTrackerWithUserDto>();
+                TotalRecords = 0;
+                return;
+            }
+
+            var loadTask = FetchHistoryDataAsync();
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
+
+            var completedTask = await Task.WhenAny(loadTask, timeoutTask);
+
+            if (completedTask == timeoutTask)
+            {
+                Console.WriteLine("LoadHistory timeout after 30 seconds.");
+
+                Trackers = new List<DailyTrackerWithUserDto>();
+                TotalRecords = 0;
+                return;
+            }
+
+            await loadTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"LoadHistory error: {ex.Message}");
+
+            Trackers = new List<DailyTrackerWithUserDto>();
+            TotalRecords = 0;
+        }
+        finally
+        {
+            isLoading = false;
+            isHistoryRequestRunning = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task FetchHistoryDataAsync()
+    {
+        var pagedResult = await UserService.GetTodayDailyTrackerAsync(
+            UserId,
+            FromDate.Date,
+            ToDate.Date.AddDays(1).AddTicks(-1),
+            string.Empty,
+            CurrentPage,
+            PageSize
+        );
+
+        Trackers = pagedResult?.Items ?? new List<DailyTrackerWithUserDto>();
+        TotalRecords = pagedResult?.TotalCount ?? 0;
+
+        Trackers ??= new List<DailyTrackerWithUserDto>();
+    }
+
+    private TimeZoneInfo GetIndiaTimeZone()
+    {
+        try
+        {
+            if (OperatingSystem.IsMacCatalyst() || OperatingSystem.IsMacOS())
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("Asia/Kolkata");
+            }
+
+            return TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Timezone error: {ex.Message}");
+            return TimeZoneInfo.Local;
+        }
+    }
+
+    private DateTime ConvertFromUtcSafe(DateTime value, TimeZoneInfo timezone)
+    {
+        try
+        {
+            var utcValue = value.Kind == DateTimeKind.Utc
+                ? value
+                : DateTime.SpecifyKind(value, DateTimeKind.Utc);
+
+            return TimeZoneInfo.ConvertTimeFromUtc(utcValue, timezone);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Date convert error: {ex.Message}");
+            return value;
+        }
+    }
+
+    private IEnumerable<int> GetPageNumbers()
+    {
+        var pageNumbers = new List<int>();
+
+        var startPage = Math.Max(
+            1,
+            CurrentPage - (int)Math.Floor(PaginationDisplaySize / 2.0)
+        );
+
+        var endPage = Math.Min(
+            TotalPages,
+            startPage + PaginationDisplaySize - 1
+        );
+
+        for (int i = startPage; i <= endPage; i++)
+        {
+            pageNumbers.Add(i);
+        }
+
+        if (startPage > 1)
+        {
+            pageNumbers.Insert(0, -1);
+        }
+
+        if (endPage < TotalPages)
+        {
+            pageNumbers.Add(-1);
+        }
+
+        return pageNumbers;
+    }
+
+    private async Task PreviousPage()
+    {
+        if (CurrentPage > 1)
+        {
+            await LoadHistory(CurrentPage - 1);
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (CurrentPage < TotalPages)
+        {
+            await LoadHistory(CurrentPage + 1);
+        }
+    }
+
+    private string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalDays >= 1)
+        {
+            return $"{(int)duration.TotalDays} days {duration.Hours} hours {duration.Minutes} minutes";
+        }
+
+        return $"{duration.Hours} hours {duration.Minutes} minutes";
+    }
+
+    private TimeSpan GetTotalDuration()
+    {
+        if (Trackers == null || !Trackers.Any())
+        {
+            return TimeSpan.Zero;
+        }
+
+        var totalDuration = TimeSpan.Zero;
+
+        foreach (var trackerDto in Trackers)
+        {
+            if (trackerDto?.Tracker?.StartTracker.HasValue == true &&
+                trackerDto.Tracker.EndTracker.HasValue)
+            {
+                var duration = trackerDto.Tracker.EndTracker.Value - trackerDto.Tracker.StartTracker.Value;
+
+                if (duration.TotalSeconds > 0)
+                {
+                    totalDuration += duration;
                 }
             }
         }
 
-        // private async Task LoadHistory(int pageNumber = 1)
-        // {
-        //     try
-        //     {
-        //         CurrentPage = pageNumber;
-
-        //         // *** CRITICAL CHANGE HERE: Use the UserId parameter instead of loggedInUserId ***
-        //         var pagedResult = await UserService.GetTodayDailyTrackerAsync(
-        //             UserId, FromDate, ToDate, SearchString, CurrentPage, PageSize);
-
-        //         Trackers = pagedResult.Items;
-        //         TotalRecords = pagedResult.TotalCount;
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         Console.WriteLine($"Error loading history: {ex.Message}");
-        //         Trackers = new List<DailyTrackerWithUserDto>();
-        //         TotalRecords = 0;
-        //     }
-        // }
-
-        private async Task LoadHistory(int pageNumber = 1)
-        {
-            try
-            {
-                CurrentPage = pageNumber;
-                Trackers = null; // Triggers the "Loading..." UI state
-                StateHasChanged();
-
-                var pagedResult = await UserService.GetTodayDailyTrackerAsync(
-                    UserId, FromDate, ToDate, SearchString, CurrentPage, PageSize);
-
-                // Ensure we don't assign a null to the list
-                Trackers = pagedResult?.Items ?? new List<DailyTrackerWithUserDto>();
-                TotalRecords = pagedResult?.TotalCount ?? 0;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error loading history: {ex.Message}");
-                Trackers = new List<DailyTrackerWithUserDto>();
-                TotalRecords = 0;
-            }
-            finally
-            {
-                StateHasChanged(); // Refresh UI after data arrives
-            }
-        }
-
-
-
-        private async Task NextPage()
-        {
-            if (CurrentPage < TotalPages)
-                await LoadHistory(CurrentPage + 1);
-        }
-
-        private async Task PreviousPage()
-        {
-            if (CurrentPage > 1)
-                await LoadHistory(CurrentPage - 1);
-        }
-
-        private IEnumerable<int> GetPageNumbers()
-        {
-            var pageNumbers = new List<int>();
-            var startPage = Math.Max(1, CurrentPage - (int)Math.Floor(PaginationDisplaySize / 2.0));
-            var endPage = Math.Min(TotalPages, startPage + PaginationDisplaySize - 1);
-
-            for (int i = startPage; i <= endPage; i++)
-            {
-                pageNumbers.Add(i);
-            }
-
-            if (startPage > 1)
-            {
-                pageNumbers.Insert(0, -1);
-            }
-
-            if (endPage < TotalPages)
-            {
-                pageNumbers.Add(-1);
-            }
-
-            return pageNumbers;
-        }
-
-        private string FormatDuration(TimeSpan duration)
-        {
-            int totalMinutes = (int)duration.TotalMinutes;
-            int seconds = duration.Seconds;
-            return $"{totalMinutes}m {seconds}s";
-        }
-
-        private TimeSpan GetTotalDuration()
-        {
-            if (Trackers == null || !Trackers.Any()) return TimeSpan.Zero;
-
-            Console.WriteLine($"[Duration Debug] === Calculating total from {Trackers.Count} trackers ===");
-
-            var valid = Trackers
-                .Where(t => t.Tracker.StartTracker.HasValue &&
-                            t.Tracker.EndTracker.HasValue)
-                .Select(t =>
-                {
-                    var d = t.Tracker.EndTracker.Value - t.Tracker.StartTracker.Value;
-                    int sec = (int)d.TotalSeconds;
-                    Console.WriteLine($"[Duration Debug] Raw: {(int)d.TotalMinutes}m {d.Seconds}s => {sec}s");
-                    return sec;
-                })
-                .ToList();
-
-            long totalSec = valid.Sum(x => (long)x);
-            Console.WriteLine($"[Duration Debug] Running total seconds: {totalSec}s");
-
-            int finalMinutes = (int)(totalSec / 60);
-            int finalSeconds = (int)(totalSec % 60);
-            Console.WriteLine($"[Duration Debug] Final total: {finalMinutes}m {finalSeconds}s");
-
-            return TimeSpan.FromSeconds(totalSec);
-        }
+        return totalDuration;
     }
 }

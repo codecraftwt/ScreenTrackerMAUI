@@ -101,13 +101,22 @@ namespace ScreenTracker1.Services
         {
             try
             {
-                // Ensure your token is added if needed for authentication
-                // _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "YOUR_TOKEN_HERE");
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{App.URL}Image/{imageId}");
 
-                using var response = await _httpClient.GetAsync($"Image/{imageId}").ConfigureAwait(false);
+                // Add auth token from Preferences
+                var token = Preferences.Get("authToken", string.Empty);
+                if (!string.IsNullOrEmpty(token))
+                {
+                    request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                }
+
+                using var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
 
                 if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"GetImageActivityDataAsync({imageId}) returned {response.StatusCode}");
                     return null;
+                }
 
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 return JsonSerializer.Deserialize<Screenshots>(content, _serializerOptions);

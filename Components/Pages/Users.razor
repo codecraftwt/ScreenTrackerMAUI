@@ -15,9 +15,11 @@
 @inject AppUsageTracker appUsageTrackerService
 @inject SystemThemeService SystemThemeService
 @inject UserSelectionStateService UserStateService
+@inject SessionKeepAliveService SessionKeepAliveService
 @using NEvaldas.Blazor.Select2
 @using System.Diagnostics
 @using System.Linq
+
 @* <NavMenu OnLogoutTriggered="PerformLogout" />
 @layout ScreenTracker1.Components.Layout.NoNavLayout *@
 
@@ -35,6 +37,7 @@
                 {
                     <div class="toolbar-section">
                         <label class="label">Select Admin</label>
+                     
                         <div class="tooltip-container">
                             <select id="admin-select" @onchange="OnSelectedAdminChanged" class="stitch-user-select" value="@selectedAdminUsername">
                                 <option value="">Select Admin</option>
@@ -126,6 +129,7 @@
                                max="@maxSelectableDate"
                                class="stitch-date-picker" />
                         <span class="tooltip-text">Select a Date</span>
+                           <!-- <img src="http://10.0.3.55:90/uploads/14/18/82d5d2f9-08d4-4dc0-9e5f-6a3efa241267.png"> -->
                     </div>
 
                     <div class="tooltip-container-Auto-Refresh">
@@ -254,7 +258,7 @@
                                         <span class="card-options">...</span>
                                     </div>
                                     <div class="card-body">
-                                        <div class="main-value">@FormatDuration(totalAfkMinutes)</div>
+                                        <div class="main-value">@FormatDuration(DisplayedAfkMinutes)</div>
                                         <div class="sub-text">Time Away from Keyboard</div>
                                     </div>
                                 </div>
@@ -268,9 +272,7 @@
                                         <span class="card-options">...</span>
                                     </div>
                                     <div class="card-body">
-                                        @* <div class="main-value">@FormatDuration(totalTimeInMinutes - totalAfkMinutes)</div>  *@
-
-                                        <div class="main-value">@FormatDuration(totalActiveAppMinutes)</div>
+                                        <div class="main-value">@FormatDuration(TotalActiveAppMinutes)</div>
                                         <div class="sub-text">Time On Task</div>
                                     </div>
                                 </div>
@@ -284,9 +286,7 @@
                                         <span class="card-options">...</span>
                                     </div>
                                     <div class="card-body">
-                                        @* <div class="main-value">@FormatDuration(totalTimeInMinutes)</div> *@
-
-                                        <div class="main-value">@FormatDuration(totalActiveAppMinutes + totalAfkMinutes)</div>
+                                        <div class="main-value">@FormatDuration(TotalActiveAppMinutes + DisplayedAfkMinutes)</div>
                                         <div class="sub-text">Total Shift Duration</div>
                                     </div>
                                 </div>
@@ -339,10 +339,10 @@
                             }
                             else if (appUsageList != null && appUsageList.Any())
                             {
-                                var totalAppTime = appUsageList.Sum(a => a.durationInMinutes);
+                                var maxAppTime = appUsageList.Max(a => a.durationInMinutes);
                                 foreach (var app in appUsageList)
                                 {
-                                    var percent = (app.durationInMinutes / totalAppTime) * 100;
+                                    var percent = maxAppTime > 0 ? (app.durationInMinutes / maxAppTime) * 100 : 0;
                                     <div class="stitch-bar" @onclick="() => OnAppClick(app.appName)">
                                         <div style="width:@percent%;background-color:@GetDynamicColor(app.appName);height:100%;"></div>
                                         <div class="progress-bar-fill" style="width:@percent%;background-color:@GetDynamicColor(app.appName);"></div>
@@ -397,14 +397,14 @@
                                 <h4>Top Window Titles "@selectedAppName"</h4>
                                 @if (appTitleList != null && appTitleList.Any())
                                 {
-                                    var totalTitleTime = appTitleList.Sum(t => t.durationInMinutes);
+                                    var maxTitleTime = appTitleList.Max(t => t.durationInMinutes);
                                     <div class="title-list-container">
                                         @{
                                             var titleIndex = 0;
                                         }
-                                        @*     @foreach (var title in appTitleList)
-                                         {
-                                             var percent = (title.durationInMinutes / totalTitleTime) * 100;
+                                     @*     @foreach (var title in appTitleList)
+                                          {
+                                              var percent = maxTitleTime > 0 ? (title.durationInMinutes / maxTitleTime) * 100 : 0;
                                              var isFirst = titleIndex == 0;
                                              <div class="stitch-bar @(isFirst ? "first-bar" : "")">
                                                  <div style="width:@percent%;background-color:@GetDynamicColor(title.title);height:100%;"></div>
@@ -416,7 +416,7 @@
 
                                         @foreach (var title in appTitleList)
                                         {
-                                            var percent = (title.durationInMinutes / totalTitleTime) * 100;
+                                            var percent = maxTitleTime > 0 ? (title.durationInMinutes / maxTitleTime) * 100 : 0;
                                             var isFirst = titleIndex == 0;
                                             <div class="stitch-bar @(isFirst ? "first-bar" : "")">
                                                 <div style="width:@percent%;background-color:@GetDynamicColor(title.title);height:100%;"></div>
@@ -504,6 +504,11 @@
     private const int appUsagePageSize = 5;
     private bool moreAppUsageAvailable = true;
     private List<AppUsage> initialAppUsageList = new();
+    private List<AppUsage> _allGroupedAppUsage = new(); // Full grouped list for client-side pagination
+    private List<AppTitle> _allScaledAppTitles = new();
+    private List<AppTitle> _allAppTitleRowsForSelectedDate = new();
+    private double TotalActiveAppMinutes => _allGroupedAppUsage.Sum(a => a.durationInMinutes);
+    private double DisplayedAfkMinutes => Math.Round(totalAfkMinutes * 60, MidpointRounding.AwayFromZero) / 60d;
 
     private int currentCategoryPage = 1;
     private const int categoryPageSize = 5;
@@ -535,14 +540,16 @@
     private const int takePerPage = 5;
     private string? LoginTime;
     private string? CheckinTime;
-    private double _titleGapMinutes = 0; // Gap between Top App total and Window Titles total (client-side fix)
 
     private List<Screenshots> screenshots = new();
     private bool showScreenshots = false;
 
     private bool isOn = false;
-    private bool? isManualTrackingAllowed = false;
-    private bool? isAutoTrackingAllowed = false;
+    // null means that permissions have not been loaded yet. Keep this distinct
+    // from an explicit false value returned by the server so startup can retry
+    // temporary API/session failures.
+    private bool? isManualTrackingAllowed;
+    private bool? isAutoTrackingAllowed;
 
     private double totalAfkMinutes;
 
@@ -777,6 +784,224 @@
             return string.Empty;
         }
     }
+#elif MACCATALYST || MACOS
+    private string GetAppIconClass(string appName)
+    {
+        try
+        {
+            string appPath = GetMacAppPath(appName);
+            if (string.IsNullOrEmpty(appPath))
+                return GetDefaultAppIcon();
+
+            string iconPath = GetMacIconPath(appPath);
+            if (!string.IsNullOrEmpty(iconPath) && File.Exists(iconPath))
+            {
+                string ext = Path.GetExtension(iconPath).ToLowerInvariant();
+                if (ext == ".png")
+                {
+                    byte[] bytes = File.ReadAllBytes(iconPath);
+                    return "data:image/png;base64," + Convert.ToBase64String(bytes);
+                }
+                if (ext == ".icns")
+                {
+                    string pngData = ExtractPngFromIcns(iconPath);
+                    if (pngData != null)
+                        return pngData;
+                }
+            }
+
+            return GetDefaultAppIcon();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error extracting macOS icon: {ex.Message}");
+            return GetDefaultAppIcon();
+        }
+    }
+
+    private string GetMacAppPath(string appName)
+    {
+        try
+        {
+            var cleanName = appName.Trim();
+            if (!cleanName.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
+                cleanName += ".app";
+
+            var searchPaths = new[]
+            {
+                "/Applications",
+                "/System/Applications",
+                "/System/Applications/Utilities",
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Applications"
+            };
+
+            foreach (var dir in searchPaths)
+            {
+                if (Directory.Exists(dir))
+                {
+                    var found = Directory.GetDirectories(dir, cleanName, SearchOption.TopDirectoryOnly)
+                        .FirstOrDefault();
+                    if (found != null)
+                        return found;
+                }
+            }
+
+            foreach (var dir in searchPaths)
+            {
+                if (Directory.Exists(dir))
+                {
+                    var found = Directory.GetDirectories(dir, "*" + cleanName, SearchOption.TopDirectoryOnly)
+                        .FirstOrDefault();
+                    if (found != null)
+                        return found;
+                }
+            }
+
+            foreach (var dir in searchPaths)
+            {
+                if (Directory.Exists(dir))
+                {
+                    var found = Directory.GetDirectories(dir, cleanName.Replace(".app", "") + "*", SearchOption.TopDirectoryOnly)
+                        .FirstOrDefault();
+                    if (found != null)
+                        return found;
+                }
+            }
+
+            return string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private string GetMacIconPath(string appPath)
+    {
+        try
+        {
+            // Read Info.plist to find the icon file name
+            string plistPath = Path.Combine(appPath, "Contents", "Info.plist");
+            if (!File.Exists(plistPath))
+            {
+                // Fallback: look for any .icns or .png in Resources
+                return FindIconInResources(appPath);
+            }
+
+            // Try to read CFBundleIconFile from plist
+            string iconName = null;
+            try
+            {
+                var plist = Foundation.NSDictionary.FromFile(plistPath);
+                if (plist != null)
+                {
+                    iconName = plist.ObjectForKey(new Foundation.NSString("CFBundleIconFile")) as Foundation.NSString;
+                    if (iconName != null)
+                    {
+                        string iconPath = Path.Combine(appPath, "Contents", "Resources", iconName + ".icns");
+                        if (File.Exists(iconPath))
+                            return iconPath;
+                    }
+                }
+            }
+            catch { }
+
+            // Fallback: look for icon files in Resources
+            return FindIconInResources(appPath);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string FindIconInResources(string appPath)
+    {
+        try
+        {
+            string resourcesPath = Path.Combine(appPath, "Contents", "Resources");
+            if (!Directory.Exists(resourcesPath))
+                return null;
+
+            // Look for .icns files first
+            var icnsFiles = Directory.GetFiles(resourcesPath, "*.icns");
+            if (icnsFiles.Length > 0)
+                return icnsFiles[0];
+
+            // Then look for .png files
+            var pngFiles = Directory.GetFiles(resourcesPath, "*.png");
+            if (pngFiles.Length > 0)
+                return pngFiles[0];
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string ExtractPngFromIcns(string icnsPath)
+    {
+        try
+        {
+            byte[] data = File.ReadAllBytes(icnsPath);
+            if (data.Length < 8) return null;
+
+            // Check magic: 'icns'
+            if (data[0] != 0x69 || data[1] != 0x63 || data[2] != 0x6E || data[3] != 0x73)
+                return null;
+
+            int offset = 8;
+            string bestType = null;
+            byte[] bestData = null;
+
+            while (offset + 8 <= data.Length)
+            {
+                string iconType = System.Text.Encoding.ASCII.GetString(data, offset, 4);
+                int entrySize = (data[offset + 4] << 24) | (data[offset + 5] << 16) | (data[offset + 6] << 8) | data[offset + 7];
+
+                if (entrySize < 8 || offset + entrySize > data.Length)
+                    break;
+
+                byte[] entryData = new byte[entrySize - 8];
+                Buffer.BlockCopy(data, offset + 8, entryData, 0, entryData.Length);
+
+                // ic07=128, ic08=256, ic09=512, ic10=1024 - these are PNG formats
+                // Also ic04=16, ic05=32, ic06=64 (JPEG 2000, skip)
+                if (iconType == "ic07" || iconType == "ic08" || iconType == "ic09" || iconType == "ic10")
+                {
+                    // Prefer larger sizes
+                    if (bestType == null || 
+                        (iconType == "ic10") ||
+                        (iconType == "ic09" && bestType != "ic10") ||
+                        (iconType == "ic08" && bestType == "ic07"))
+                    {
+                        bestType = iconType;
+                        bestData = entryData;
+                    }
+                }
+
+                offset += entrySize;
+            }
+
+            if (bestData != null)
+            {
+                return "data:image/png;base64," + Convert.ToBase64String(bestData);
+            }
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string GetDefaultAppIcon()
+    {
+        return "/images/default-app.png";
+    }
 #else
     private string GetAppIconClass(string appName)
     {
@@ -794,6 +1019,22 @@
             // LoadUserTrackingPermissions() should have already set the correct isOn state
             if (App.first)
             {
+                // A macOS login item can reach this page before networking/session
+                // recovery is fully ready. A single failed user lookup leaves both
+                // permission values null; previously that permanently stopped every
+                // collector for this process. Retry only this indeterminate startup
+                // state, without changing any established permission or mode rules.
+                for (int attempt = 1;
+                     isManualTrackingAllowed == null &&
+                     isAutoTrackingAllowed == null &&
+                     attempt <= 5;
+                     attempt++)
+                {
+                    Console.WriteLine($"Tracking permissions unavailable during startup; retry {attempt}/5.");
+                    await Task.Delay(TimeSpan.FromSeconds(2));
+                    await LoadUserTrackingPermissions();
+                }
+
                 // Check if we already set isOn based on permissions
                 if (isManualTrackingAllowed == null && isAutoTrackingAllowed == null)
                 {
@@ -819,12 +1060,12 @@
                     // Start appropriate tracking based on permissions
                     if (isManualTrackingAllowed == true && isAutoTrackingAllowed != true)
                     {
-                        // Case 1: Manual only - start manual tracking (isOn should be true)
+                        // Match Windows: manual-only users start in ON/manual mode.
                         if (isOn)
                         {
                             Console.WriteLine("Case 1: Starting MANUAL tracking");
                             StopAll();
-                            StartAll("manual");
+                            await StartAll("manual");
                         }
                     }
                     else if (isManualTrackingAllowed != true && isAutoTrackingAllowed == true)
@@ -832,24 +1073,14 @@
                         // Case 2: Auto only - start automatic tracking
                         Console.WriteLine("Case 2: Starting AUTOMATIC tracking");
                         StopAll();
-                        StartAll("automatic");
+                        await StartAll("automatic");
                     }
                     else if (isManualTrackingAllowed == true && isAutoTrackingAllowed == true)
                     {
-                        // Case 3: Both allowed - start based on isOn state
-                        Console.WriteLine($"Case 3: Checking isOn state - isOn={isOn}");
-                        if (isOn)
-                        {
-                            Console.WriteLine("Case 3: isOn=true - Switching to MANUAL tracking mode");
-                            StopAll();
-                            StartAll("manual");
-                        }
-                        else
-                        {
-                            Console.WriteLine("Case 3: isOn=false - Switching to AUTOMATIC tracking mode");
-                            StopAll();
-                            StartAll("automatic");
-                        }
+                        // Match Windows: OFF means automatic mode and ON means manual.
+                        Console.WriteLine($"Case 3: Starting {(isOn ? "MANUAL" : "AUTOMATIC")} tracking");
+                        StopAll();
+                        await StartAll(isOn ? "manual" : "automatic");
                     }
                     else
                     {
@@ -919,6 +1150,28 @@
                     // Case 4: No permissions - OFF
                     isOn = false;
                     Console.WriteLine("Case 4: No permissions - button hidden");
+                }
+
+                // macOS login items can reuse an existing Catalyst process. App.first
+                // may therefore be false even when logout, navigation, or an earlier
+                // startup failure left one or more local collectors stopped.
+                bool trackingAllowed = isManualTrackingAllowed == true ||
+                                       isAutoTrackingAllowed == true;
+                bool allCollectorsRunning = appUsageTrackerService.IsRunning &&
+                                            desktopAutoCaptureService.IsRunning &&
+                                            afkTrackerService.IsRunning;
+
+                if (trackingAllowed && !allCollectorsRunning)
+                {
+                    string resumeMode = isManualTrackingAllowed == true &&
+                                        isAutoTrackingAllowed != true
+                        ? "manual"
+                        : isManualTrackingAllowed == true && isAutoTrackingAllowed == true && isOn
+                            ? "manual"
+                            : "automatic";
+
+                    Console.WriteLine($"Tracking collectors were stopped; restarting missing collectors in {resumeMode} mode.");
+                    await StartAll(resumeMode);
                 }
                 StateHasChanged();
             }
@@ -1000,7 +1253,11 @@
 
             try
             {
-                SyncSelectedDateGraphToCards();
+                // LoadDataAsync initially fills these arrays from the aggregate
+                // endpoint. A delayed render can otherwise overwrite the exact
+                // selected-day values rendered by UpdateChart(). Synchronize at
+                // the final JS boundary so Chart.js always receives card values.
+                SyncSelectedDateChartWithSummaryCards();
 
                 // Call the NEW JavaScript function name with all four lists
                 await JSRuntime.InvokeVoidAsync("renderGroupedBarChart",
@@ -1066,7 +1323,7 @@
                 // Turn ON manual tracking - Create NEW manual entry
                 Console.WriteLine("Case 1: Starting manual tracking (ON) - Creating new manual entry");
                 StopAll();
-                StartAll("manual");
+                await StartAll("manual");
             }
             else
             {
@@ -1105,14 +1362,14 @@
                 // Switching to manual tracking
                 Console.WriteLine("Case 3: Switching to manual tracking mode");
                 StopAll();
-                StartAll("manual");
+                await StartAll("manual");
             }
             else
             {
                 // Switching to automatic tracking
                 Console.WriteLine("Case 3: Switching to automatic tracking mode");
                 StopAll();
-                StartAll("automatic");
+                await StartAll("automatic");
             }
             StateHasChanged();
             return;
@@ -1220,9 +1477,65 @@
             return;
         }
 
+        // Create the server-side tracking/check-in row first. Screenshot or
+        // accessibility permission prompts must not prevent DailyTracker from
+        // starting when automatic mode is selected.
+        int trackingUserId = loggedInUserId > 0 ? loggedInUserId : userId;
+        UserService.SetUserId(trackingUserId);
+        appUsageTrackerService.SetUserId(trackingUserId);
+
         try
         {
-            appUsageTrackerService.Start(startMode);
+            // Auto-login creates the automatic DailyTracker row before navigation so
+            // page rendering/JS initialization cannot prevent the daily check-in.
+            // Consume the flag once while still starting all local tracking services.
+            bool startedDuringAutoLogin = startMode == "automatic" &&
+                                          App.DailyTrackerStartedDuringAutoLogin;
+            App.DailyTrackerStartedDuringAutoLogin = false;
+
+            var dailyTracker = startedDuringAutoLogin
+                ? new DailyTracker()
+                : await UserService.StartDailyTrackerAsync(startMode);
+
+            if (dailyTracker == null)
+            {
+                Console.WriteLine($"Daily Tracker failed to start for user {trackingUserId} in {startMode} mode.");
+            }
+            else
+            {
+                Console.WriteLine(startedDuringAutoLogin
+                    ? $"Daily Tracker was already started during auto-login for user {trackingUserId}."
+                    : $"Daily Tracker started for user {trackingUserId} in {startMode} mode.");
+                await LoadCheckinTime(trackingUserId);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine($"Error starting Daily Tracker: {ex.Message}");
+        }
+
+#if MACCATALYST
+        // macOS: Verify Screen Recording permission before starting screenshots.
+        // DesktopScreenshotService.EnsureScreenRecordingPermissionAtLoginAsync() calls
+        // CGPreflightScreenCaptureAccess(), requests permission if needed, and sets
+        // the internal _screenRecordingReady flag so CaptureDesktop() works.
+        bool screenRecordingOk = await ScreenTracker1.Platforms.MacCatalyst.DesktopScreenshotService.EnsureScreenRecordingPermissionAtLoginAsync();
+
+        if (!screenRecordingOk)
+        {
+            Console.WriteLine("macOS: Screen Recording permission not granted — screenshot tracking disabled.");
+        }
+        else
+        {
+            Console.WriteLine("macOS: Screen Recording permission confirmed.");
+        }
+#endif
+
+        try
+        {
+            if (!appUsageTrackerService.IsRunning)
+                appUsageTrackerService.Start(startMode);
         }
         catch (System.Exception ex)
         {
@@ -1231,7 +1544,8 @@
 
         try
         {
-            desktopAutoCaptureService.Start(startMode);
+            if (!desktopAutoCaptureService.IsRunning)
+                desktopAutoCaptureService.Start(startMode);
         }
         catch (System.Exception ex)
         {
@@ -1240,29 +1554,14 @@
 
         try
         {
-            afkTrackerService.Start(userId, startMode);
+            if (!afkTrackerService.IsRunning)
+                afkTrackerService.Start(trackingUserId, startMode);
         }
         catch (System.Exception ex)
         {
             Console.WriteLine($"Error starting AfkTrackerService: {ex.Message}");
         }
 
-        try
-        {
-            var dailyTracker = await UserService.StartDailyTrackerAsync(startMode);
-            if (dailyTracker != null)
-            {
-                Console.WriteLine("Daily Tracker started successfully.");
-            }
-            else
-            {
-                Console.WriteLine("Error starting Daily Tracker.");
-            }
-        }
-        catch (System.Exception ex)
-        {
-            Console.WriteLine($"Error starting Daily Tracker: {ex.Message}");
-        }
     }
 
     private async void StopAll()
@@ -1326,6 +1625,11 @@
                     LoginTime = loginTimeClaim;
                 }
             }
+
+            // Check and refresh token if expired (handles Mac sleep/wake where timers don't fire)
+            await SessionKeepAliveService.CheckAndRefreshNowAsync();
+
+            SessionKeepAliveService.Start();
         }
 
         // Load user's tracking permissions from database (with caching)
@@ -1563,8 +1867,8 @@
             // localStorage and StartAll will be handled in OnAfterRenderAsync
             if (isManualTrackingAllowed == true && isAutoTrackingAllowed != true)
             {
-                // Case 1: ONLY Manual tracking allowed - Start with ON, user can toggle ON/OFF
-                Console.WriteLine("Case 1: Manual tracking only - Setting isOn = true (user can toggle ON/OFF)");
+                // Match Windows: manual-only starts ON and can be toggled off.
+                Console.WriteLine("Case 1: Manual tracking only - Setting isOn = true");
                 isOn = true;
             }
             else if (isManualTrackingAllowed != true && isAutoTrackingAllowed == true)
@@ -1575,9 +1879,9 @@
             }
             else if (isManualTrackingAllowed == true && isAutoTrackingAllowed == true)
             {
-                // Case 3: BOTH allowed - Read from Preferences to preserve state across navigation
-                // After logout, Preferences is cleared, so it will default to false (OFF/automatic)
-                bool savedState = Preferences.Get("IsOnState", false); // Default to false (automatic) for fresh login
+                // Login initializes this to false. During normal page navigation the
+                // preference preserves a mode the user explicitly selected.
+                bool savedState = Preferences.Get("IsOnState", false);
                 Console.WriteLine($"Case 3: LoadUserTrackingPermissions - Read from Preferences: isOn={savedState}");
                 isOn = savedState; // Use the saved state (or false if cleared)
 
@@ -1595,9 +1899,11 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading user tracking permissions: {ex.Message}");
-            // Default to false if we can't load permissions
-            isManualTrackingAllowed = false;
-            isAutoTrackingAllowed = false;
+            // Leave permissions indeterminate so OnAfterRenderAsync can retry.
+            // Treating an API/session failure as explicit false permanently
+            // disables tracking for the lifetime of this app process.
+            isManualTrackingAllowed = null;
+            isAutoTrackingAllowed = null;
             isOn = false;
         }
     }
@@ -1606,6 +1912,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        SessionKeepAliveService.Stop();
         if (_refreshTimer != null)
         {
             _refreshTimer.Dispose();
@@ -1615,53 +1922,43 @@
     private async Task OnAppClick(string appName)
     {
         selectedAppName = appName;
-
-        appTitleList = null;
+        appTitleList = new List<AppTitle>();
+        _allScaledAppTitles.Clear();
         categoryKeywordGroups = null;
         currentTitlePage = 1;
         currentCategoryPage = 1;
-        moreTitlesAvailable = true;
-        selectedAppAllTitles = new List<AppTitle>();
-
+        moreTitlesAvailable = false;
         StateHasChanged();
 
-        // Get selected Top Application duration
-        var selectedAppInList = appUsageList?
-            .FirstOrDefault(a => a.appName?.Equals(appName, StringComparison.OrdinalIgnoreCase) == true);
-
-        double topAppDuration = selectedAppInList?.durationInMinutes ?? 0;
-
-        // Get all titles for selected app
         var allTitles = await UserService.GetAppTitleDetailsAsync(
-            selectedDate,
-            userId,
-            appName,
-            page: 1,
-            take: int.MaxValue
-        );
+            selectedDate, userId, appName, page: 1, take: int.MaxValue);
 
-        allTitles = allTitles ?? new List<AppTitle>();
-
-        // IMPORTANT:
-        // Do not show full-day AppTitle duration.
-        // Match Window Titles total with selected Top Application duration.
-        selectedAppAllTitles = GetTitlesMatchingTopAppDuration(allTitles, topAppDuration);
-
-        totalAppTitleRecords = selectedAppAllTitles.Count;
-
-        appTitleList = selectedAppAllTitles
-            .Take(takePerPage)
+        // Match the web app fallback: AppDetails can return no rows because of
+        // app-name encoding/casing or endpoint pagination. Reuse the full title
+        // collection already loaded for this user and selected date.
+        var cachedTitles = _allAppTitleRowsForSelectedDate
+            .Where(t => AppNamesMatch(t.appName, appName))
             .ToList();
 
-        initialAppTitleList = new List<AppTitle>(appTitleList);
+        bool apiHasRealTitles = allTitles?.Any(t =>
+            !IsUnknownWindowTitle(t.title) && t.durationInMinutes > 0) == true;
+        bool cacheHasRealTitles = cachedTitles.Any(t =>
+            !IsUnknownWindowTitle(t.title) && t.durationInMinutes > 0);
+        if ((allTitles == null || allTitles.Count == 0 || !apiHasRealTitles) && cacheHasRealTitles)
+        {
+            allTitles = cachedTitles;
+        }
 
+        var selectedApp = _allGroupedAppUsage.FirstOrDefault(a =>
+            a.appName?.Equals(appName, StringComparison.OrdinalIgnoreCase) == true);
+        double topAppDuration = selectedApp?.durationInMinutes ?? 0;
+
+        // Use the same whole-second proportional calculation as the web app.
+        _allScaledAppTitles = GetTitlesMatchingTopAppDuration(allTitles, topAppDuration, appName);
+        totalAppTitleRecords = _allScaledAppTitles.Count;
+        initialAppTitleList = _allScaledAppTitles.Take(titlePageSize).ToList();
+        appTitleList = new List<AppTitle>(initialAppTitleList);
         moreTitlesAvailable = appTitleList.Count < totalAppTitleRecords;
-
-        Console.WriteLine("========================================");
-        Console.WriteLine($"[DEBUG OnAppClick] Selected App: {appName}");
-        Console.WriteLine($"[DEBUG OnAppClick] Top App duration: {topAppDuration:F2} min ({FormatDuration(topAppDuration)})");
-        Console.WriteLine($"[DEBUG OnAppClick] Window Titles filtered total: {selectedAppAllTitles.Sum(t => t.durationInMinutes):F2} min ({FormatDuration(selectedAppAllTitles.Sum(t => t.durationInMinutes))})");
-        Console.WriteLine("========================================");
 
         var categories = await UserService.GetCategoryByAppNameAsync(appName);
         categoryKeywordGroups = new List<CategoryKeywordGroup>(categories ?? new List<CategoryKeywordGroup>());
@@ -1745,6 +2042,7 @@
             isOn = false;
             await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
             appUsageTrackerService.Stop();
+            appUsageTrackerService.ClearUserData();
             desktopAutoCaptureService.StopTimer();
             afkTrackerService.Stop();
             await UserService.EndDailyTrackerAsync();
@@ -1792,6 +2090,7 @@
         isSelect2UserInitialized = false;
         isSelect2UsageTypeInitialized = false;
 
+        SessionKeepAliveService.Stop();
         StateHasChanged();
 
         NavigationManager.NavigateTo("/login");
@@ -1852,6 +2151,7 @@
         isSelect2UserInitialized = false;
         isSelect2UsageTypeInitialized = false;
 
+        SessionKeepAliveService.Stop();
         StateHasChanged();
 
         NavigationManager.NavigateTo("/login");
@@ -1861,20 +2161,48 @@
     {
         try
         {
-            StateHasChanged();
-            if (labels.Any() && data.Any())
+            SyncSelectedDateChartWithSummaryCards();
+
+            if (labels.Any())
             {
-                await JSRuntime.InvokeVoidAsync("renderBarChart", labels, data);
+                await JSRuntime.InvokeVoidAsync("renderGroupedBarChart",
+                    labels, totalData, afkData, activeData);
             }
             else
             {
-                await JSRuntime.InvokeVoidAsync("renderBarChart", new List<string>(), new List<double>());
+                await JSRuntime.InvokeVoidAsync("renderGroupedBarChart",
+                    Array.Empty<string>(), Array.Empty<double>(),
+                    Array.Empty<double>(), Array.Empty<double>());
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error rendering chart: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// The summary cards use the detailed application rows for Active Time and
+    /// the corrected AFK logs for Ideal Time. Use those same values for the
+    /// selected date so its graph bars cannot disagree with the cards.
+    /// </summary>
+    private void SyncSelectedDateChartWithSummaryCards()
+    {
+        string selectedDateStr = selectedDate.ToString("yyyy-MM-dd");
+        int index = labels.FindIndex(label => label == selectedDateStr);
+        if (index < 0 || index >= totalData.Count ||
+            index >= afkData.Count || index >= activeData.Count)
+        {
+            return;
+        }
+
+        double activeMinutes = TotalActiveAppMinutes;
+        double afkMinutes = DisplayedAfkMinutes;
+
+        activeData[index] = activeMinutes;
+        afkData[index] = afkMinutes;
+        totalData[index] = activeMinutes + afkMinutes;
+        totalTimeInMinutes = totalData[index];
     }
 
     private async Task LoadDataAsync(int id)
@@ -2070,110 +2398,108 @@
 
     private string FormatDuration(double minutes)
     {
-        int totalSeconds = (int)Math.Round(minutes * 60);
-
+        int totalSeconds = Math.Max(0, (int)Math.Round(minutes * 60, MidpointRounding.AwayFromZero));
         int hours = totalSeconds / 3600;
         int remainingMinutes = (totalSeconds % 3600) / 60;
         int seconds = totalSeconds % 60;
-
         return $"{hours}h {remainingMinutes}m {seconds}s";
     }
 
-    private void SyncSelectedDateGraphToCards()
+    private static List<AppTitle> GetTitlesMatchingTopAppDuration(
+        IEnumerable<AppTitle>? titles, double topAppDuration, string appName)
     {
-        // Graph-only synchronization: copy the existing displayed card values
-        // into the selected date's datasets. Never update a card from graph data.
-        string selectedDateKey = selectedDate.ToString("yyyy-MM-dd");
-        int index = labels.FindIndex(label => label == selectedDateKey);
-        if (index < 0 || index >= activeData.Count ||
-            index >= afkData.Count || index >= totalData.Count)
-        {
-            return;
-        }
-
-        double activeCardMinutes = totalActiveAppMinutes;
-        double idealCardMinutes = totalAfkMinutes;
-
-        activeData[index] = activeCardMinutes;
-        afkData[index] = idealCardMinutes;
-        totalData[index] = activeCardMinutes + idealCardMinutes;
-    }
-
-
-    private List<AppTitle> GetTitlesMatchingTopAppDuration(List<AppTitle> titles, double topAppDuration)
-    {
-        if (titles == null || !titles.Any() || topAppDuration <= 0)
-        {
+        int targetSeconds = Math.Max(0,
+            (int)Math.Round(topAppDuration * 60, MidpointRounding.AwayFromZero));
+        if (targetSeconds == 0)
             return new List<AppTitle>();
-        }
 
-        var groupedTitles = titles
+        var grouped = (titles ?? Enumerable.Empty<AppTitle>())
             .Where(t => t.durationInMinutes > 0)
-            .GroupBy(t => string.IsNullOrWhiteSpace(t.title) ? "Unknown / No Window Title" : t.title)
-            .Select(g => new
-            {
-                Title = g.Key,
-                Duration = g.Sum(x => x.durationInMinutes)
-            })
-            .Where(t => t.Duration > 0)
-            .OrderByDescending(t => t.Duration)
+            .GroupBy(t => string.IsNullOrWhiteSpace(t.title)
+                ? "Unknown / No Window Title"
+                : t.title.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => new { Title = g.Key, Minutes = g.Sum(t => t.durationInMinutes) })
+            .Where(t => t.Minutes > 0)
             .ToList();
 
-        double titlesTotal = groupedTitles.Sum(t => t.Duration);
+        // Older tracking samples can contain an Unknown row alongside valid titles.
+        // When real titles exist, distribute the complete application duration only
+        // across those titles instead of showing the synthetic Unknown row.
+        var realTitles = grouped
+            .Where(t => !IsUnknownWindowTitle(t.Title))
+            .ToList();
+        if (realTitles.Count > 0)
+            grouped = realTitles;
 
-        if (titlesTotal <= 0)
+        if (grouped.Count == 0)
         {
-            return new List<AppTitle>();
+            return new List<AppTitle>
+            {
+                new()
+                {
+                    appName = appName,
+                    title = "Unknown / No Window Title",
+                    durationInMinutes = targetSeconds / 60d
+                }
+            };
         }
 
-        int targetTotalSeconds = (int)Math.Round(topAppDuration * 60);
-
-        var scaledTitles = groupedTitles
-            .Select(t =>
-            {
-                double scaledSeconds = (t.Duration / titlesTotal) * targetTotalSeconds;
-
-                return new
-                {
-                    t.Title,
-                    RawSeconds = scaledSeconds,
-                    FloorSeconds = (int)Math.Floor(scaledSeconds),
-                    Remainder = scaledSeconds - Math.Floor(scaledSeconds)
-                };
-            })
-            .ToList();
-
-        int usedSeconds = scaledTitles.Sum(t => t.FloorSeconds);
-        int remainingSeconds = targetTotalSeconds - usedSeconds;
-
-        var finalSecondMap = scaledTitles
-            .Select(t => new
+        double sourceTotal = grouped.Sum(t => t.Minutes);
+        var scaled = grouped.Select(t =>
+        {
+            double exactSeconds = t.Minutes / sourceTotal * targetSeconds;
+            int floorSeconds = (int)Math.Floor(exactSeconds);
+            return new
             {
                 t.Title,
-                Seconds = t.FloorSeconds,
-                t.Remainder
-            })
+                FloorSeconds = floorSeconds,
+                Remainder = exactSeconds - floorSeconds
+            };
+        }).ToList();
+
+        int remainingSeconds = targetSeconds - scaled.Sum(t => t.FloorSeconds);
+        var bonusTitles = scaled
             .OrderByDescending(t => t.Remainder)
-            .ToList();
+            .Take(remainingSeconds)
+            .Select(t => t.Title)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var adjustedSeconds = finalSecondMap
-            .Select((t, index) => new
-            {
-                t.Title,
-                Seconds = t.Seconds + (index < remainingSeconds ? 1 : 0)
-            })
-            .Where(t => t.Seconds > 0)
-            .OrderByDescending(t => t.Seconds)
-            .ToList();
-
-        return adjustedSeconds
+        return scaled
             .Select(t => new AppTitle
             {
+                appName = appName,
                 title = t.Title,
-                durationInMinutes = t.Seconds / 60.0
+                durationInMinutes = (t.FloorSeconds + (bonusTitles.Contains(t.Title) ? 1 : 0)) / 60d
             })
+            .Where(t => t.durationInMinutes > 0)
+            .OrderByDescending(t => t.durationInMinutes)
             .ToList();
     }
+
+    private static bool IsUnknownWindowTitle(string? title)
+    {
+        return string.IsNullOrWhiteSpace(title) ||
+               title.Equals("Unknown", StringComparison.OrdinalIgnoreCase) ||
+               title.Equals("Unknown / No Window Title", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool AppNamesMatch(string? left, string? right)
+    {
+        string Normalize(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+            return new string(value
+                .Where(char.IsLetterOrDigit)
+                .Select(char.ToLowerInvariant)
+                .ToArray())
+                .Replace("microsoft", string.Empty, StringComparison.Ordinal);
+        }
+
+        string normalizedLeft = Normalize(left);
+        string normalizedRight = Normalize(right);
+        return normalizedLeft.Length > 0 && normalizedLeft == normalizedRight;
+    }
+
     private string GetDynamicColor(string key)
     {
         var hash = key.GetHashCode();
@@ -2247,66 +2573,32 @@
 
         try
         {
-            // Top Applications - first page for UI display
-            var appUsageTask = UserService.GetAppUsageByUserIdAsync(
-                userId,
-                selectedDate,
-                page: 1,
-                take: appUsagePageSize,
-                usageType: selectedUsageType,
-                userRole: userRole
-            );
+            // ==================== PART 1: Top Applications (from API with usageType filter) ====================
+            var appUsageRecords = await UserService.GetAppUsageByUserIdAsync(
+                userId, selectedDate, page: 1, take: int.MaxValue / 2,
+                usageType: selectedUsageType, userRole: userRole);
 
-            // Top Applications - all records for exact Active Time calculation
-            var allAppUsageTask = UserService.GetAppUsageByUserIdAsync(
-                userId,
-                selectedDate,
-                page: 1,
-                take: int.MaxValue,
-                usageType: selectedUsageType,
-                userRole: userRole
-            );
+            if (appUsageRecords != null && appUsageRecords.Any())
+            {
+                _allGroupedAppUsage = appUsageRecords
+                    .GroupBy(r => r.appName ?? "Unknown")
+                    .Select(g => new AppUsage
+                    {
+                        appName = g.Key,
+                        durationInMinutes = Math.Round(
+                            g.Sum(r => r.durationInMinutes) * 60,
+                            MidpointRounding.AwayFromZero) / 60d
+                    })
+                    .OrderByDescending(a => a.durationInMinutes)
+                    .ToList();
+            }
+            else
+            {
+                _allGroupedAppUsage = new List<AppUsage>();
+            }
 
-            // Count for Show More button
-            var usageCountTask = UserService.GetDayUsageCountAsync(
-                selectedDate,
-                userId,
-                selectedUsageType
-            );
-
-            // Window title total count
-            var allTitlesTask = UserService.GetAppTitleByDateAsync(
-                selectedDate,
-                userId,
-                page: 1,
-                take: int.MaxValue
-            );
-
-            // Window title first page
-            var appTitlesTask = UserService.GetAppTitleByDateAsync(
-                selectedDate,
-                userId,
-                page: 1,
-                take: takePerPage
-            );
-
-            // Categories
-            var categoriesTask = UserService.GetGroupedCategoryKeywordsAsync(
-                userId,
-                selectedDate
-            );
-
-            await Task.WhenAll(
-                appUsageTask,
-                allAppUsageTask,
-                usageCountTask,
-                allTitlesTask,
-                appTitlesTask,
-                categoriesTask
-            );
-
-            // Top Applications - UI list
-            initialAppUsageList = appUsageTask.Result ?? new List<AppUsage>();
+            totalAppUsageRecords = _allGroupedAppUsage.Count;
+            initialAppUsageList = _allGroupedAppUsage.Take(appUsagePageSize).ToList();
             appUsageList = new List<AppUsage>(initialAppUsageList);
 
             // Active Time should come from same AppUsage data
@@ -2317,22 +2609,57 @@
 
             totalAppUsageRecords = usageCountTask.Result;
             moreAppUsageAvailable = appUsageList.Count < totalAppUsageRecords;
+            currentAppUsagePage = 1;
 
-            // Window Titles
-            var allTitles = allTitlesTask.Result ?? new List<AppTitle>();
-            totalAppTitleRecords = allTitles.Count;
+            // ==================== PART 2: Window Titles (from API) ====================
+            var titleRecords = await UserService.GetAllAppTitlesByUserAsync(userId);
 
-            initialAppTitleList = appTitlesTask.Result ?? new List<AppTitle>();
-            appTitleList = new List<AppTitle>(initialAppTitleList);
+            if (titleRecords != null && titleRecords.Any())
+            {
+                var allTitlesForDate = titleRecords
+                    .Where(r => r.startTime < selectedDate.Date.AddDays(1) &&
+                                r.endTime >= selectedDate.Date)
+                    .Select(r => new AppTitle
+                    {
+                        title = r.title ?? string.Empty,
+                        appName = r.appName ?? string.Empty,
+                        startTime = r.startTime,
+                        endTime = r.endTime,
+                        durationInMinutes = Math.Max(0, (r.endTime - r.startTime).TotalMinutes)
+                    })
+                    .OrderByDescending(t => t.durationInMinutes)
+                    .ToList();
 
-            currentTitlePage = 1;
-            moreTitlesAvailable = appTitleList.Count < totalAppTitleRecords;
+                _allAppTitleRowsForSelectedDate = allTitlesForDate;
 
-            // Categories
-            initialCategoryList = categoriesTask.Result ?? new List<CategoryKeywordGroup>();
-            categoryKeywordGroups = new List<CategoryKeywordGroup>(initialCategoryList);
+                totalAppTitleRecords = allTitlesForDate.Count;
+                initialAppTitleList = allTitlesForDate.Take(takePerPage).ToList();
+                appTitleList = new List<AppTitle>(initialAppTitleList);
+                moreTitlesAvailable = true;
+                currentTitlePage = 1;
+            }
+            else
+            {
+                _allAppTitleRowsForSelectedDate = new List<AppTitle>();
+                totalAppTitleRecords = 0;
+                appTitleList = new List<AppTitle>();
+                moreTitlesAvailable = false;
+                currentTitlePage = 1;
+            }
 
-            totalCategoryRecords = categoryKeywordGroups.Count;
+            // Categories from API (this endpoint might work)
+            try
+            {
+                var categories = await UserService.GetGroupedCategoryKeywordsAsync(userId, selectedDate);
+                totalCategoryRecords = categories.Count;
+                initialCategoryList = categories;
+                categoryKeywordGroups = new List<CategoryKeywordGroup>(initialCategoryList);
+            }
+            catch
+            {
+                totalCategoryRecords = 0;
+                categoryKeywordGroups = new List<CategoryKeywordGroup>();
+            }
             currentCategoryPage = 1;
             moreCategoriesAvailable = categoryKeywordGroups.Count < totalCategoryRecords;
         }
@@ -2366,18 +2693,15 @@
         }
     }
 
-    private Task ShowLessTitles()
+    private Task LoadMoreTitles()
     {
-        currentTitlePage = 1;
-
-        appTitleList = selectedAppAllTitles
-            .Take(takePerPage)
+        currentTitlePage++;
+        appTitleList = _allScaledAppTitles
+            .Take(currentTitlePage * titlePageSize)
             .ToList();
-
         moreTitlesAvailable = appTitleList.Count < totalAppTitleRecords;
 
         StateHasChanged();
-
         return Task.CompletedTask;
     }
 
@@ -2395,47 +2719,13 @@
     //     NavigationManager.NavigateTo($"/rptTime/{userId}", false);
     // }
 
-    // private async Task ShowLessTitles()
-    // {
-    //     currentTitlePage = 1;
-    //     moreTitlesAvailable = true;
-    //     var initial = await UserService.GetAppTitleDetailsAsync(
-    //         selectedDate,
-    //         userId,
-    //         selectedAppName,
-    //         page: currentTitlePage,
-    //         take: takePerPage
-    //     );
-    //     appTitleList = new List<AppTitle>(initial);
-
-    //     Re-apply the client-side gap fix if one existed
-    //     if (_titleGapMinutes > 0.001)
-    //     {
-    //         appTitleList.Add(new AppTitle
-    //         {
-    //             title = "Unknown / No Window Title",
-    //             durationInMinutes = _titleGapMinutes
-    //         });
-    //         appTitleList = appTitleList.OrderByDescending(t => t.durationInMinutes).ToList();
-    //     }
-
-    //     StateHasChanged();
-    // }
-
-    private Task LoadMoreTitles()
+    private Task ShowLessTitles()
     {
-        currentTitlePage++;
-
-        int takeCount = currentTitlePage * takePerPage;
-
-        appTitleList = selectedAppAllTitles
-            .Take(takeCount)
-            .ToList();
-
+        currentTitlePage = 1;
+        appTitleList = _allScaledAppTitles.Take(titlePageSize).ToList();
         moreTitlesAvailable = appTitleList.Count < totalAppTitleRecords;
 
         StateHasChanged();
-
         return Task.CompletedTask;
     }
     private async Task OnDateChanged(ChangeEventArgs e)
@@ -2452,6 +2742,15 @@
 
     private async Task OnRefreshClicked()
     {
+#if MACCATALYST
+        // Run the same normal foreground check used by the timer. This only saves when
+        // the active app genuinely changed; repeated Refresh clicks create no records.
+        if (userId == loggedInUserId)
+        {
+            await appUsageTrackerService.CaptureActiveAppNowAsync();
+        }
+#endif
+
         await LoadDataAsync(userId);
         await LoadAppUsageData();
         await LoadAfkDataAsync(userId);
@@ -2464,18 +2763,16 @@
         if (!moreAppUsageAvailable) return;
         try
         {
-            var more = await UserService.GetAppUsageByUserIdAsync(
-                userId,
-                selectedDate,
-                page: currentAppUsagePage + 1,
-                take: appUsagePageSize,
-                usageType: selectedUsageType,
-                userRole: userRole);
+            // Use client-side pagination from the full grouped list (no API call needed)
+            currentAppUsagePage++;
+            var more = _allGroupedAppUsage
+                .Skip((currentAppUsagePage - 1) * appUsagePageSize)
+                .Take(appUsagePageSize)
+                .ToList();
 
             if (more.Any())
             {
                 appUsageList.AddRange(more);
-                currentAppUsagePage++;
                 moreAppUsageAvailable = appUsageList.Count < totalAppUsageRecords;
             }
             else
@@ -2526,3 +2823,4 @@
     }
 
 }
+

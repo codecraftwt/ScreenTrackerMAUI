@@ -1,33 +1,27 @@
-﻿@page "/screenshots"
+@page "/screenshots"
 @page "/screenshots/{date:datetime?}"
+
 @inject NavigationManager NavigationManager
 @inject UserService UserService
 @inject KeyboardMouseService KeyboardMouseService
 @inject IJSRuntime JSRuntime
+
 @using ScreenTracker1.Models
 @using ScreenTracker1.Services
 @using System.IdentityModel.Tokens.Jwt
 @using Microsoft.JSInterop
+@using Microsoft.Maui.Storage
 @using ScreenTracker1
 @using ScreenTracker1.Components.Layout
+@using System.Timers
+
+@implements IDisposable
 @layout MainLayout
-@using NEvaldas.Blazor.Select2
-
-
-<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
 
 <div class="container mt-3" @onclick="CloseCustomCalendar">
     <div class="card shadow-sm">
-        @* --- START: ALIGNED CARD HEADER --- *@
-       <div class="card-header d-flex align-items-center justify-content-between mb-2 p-2">
 
-            @* 1. Back Button *@
-            @* <button @onclick="GoBack" class="btn btn-outline-secondary me-3">
-                <i class="fa-solid fa-arrow-left me-2"></i>
-                Back
-            </button> *@
-
-            @* 2. Date Picker and Custom Calendar (Crucial Fix: Added d-flex align-items-center to the inner container) *@
+        <div class="card-header d-flex align-items-center justify-content-between mb-2 p-2">
             <div class="position-relative d-flex align-items-center">
                 <div class="screenshots-page d-flex align-items-center">
                     <input type="date"
@@ -39,7 +33,9 @@
                            @ref="dateInputRef" />
                 </div>
 
-                <button class="calendar-toggle-btn ms-2" @onclick:stopPropagation @onclick="ToggleCustomCalendar">
+                <button class="calendar-toggle-btn ms-2"
+                        @onclick:stopPropagation
+                        @onclick="ToggleCustomCalendar">
                     <i class="fa fa-calendar"></i>
                 </button>
 
@@ -49,12 +45,30 @@
                         <div class="custom-calendar">
                             <div class="calendar-header">
                                 <button @onclick="PrevMonth" class="calendar-nav-btn">&lt;</button>
-                                <span class="calendar-month">@currentCalendarDate.ToString("MMMM yyyy")</span>
-                                <button @onclick="NextMonth" class="calendar-nav-btn" disabled="@(currentCalendarDate.Date.Year > DateTime.Today.Year || (currentCalendarDate.Date.Year == DateTime.Today.Year && currentCalendarDate.Date.Month >= DateTime.Today.Month))">&gt;</button>
+
+                                <span class="calendar-month">
+                                    @currentCalendarDate.ToString("MMMM yyyy")
+                                </span>
+
+                                <button @onclick="NextMonth"
+                                        class="calendar-nav-btn"
+                                        disabled="@(currentCalendarDate.Date.Year > DateTime.Today.Year ||
+                                                    (currentCalendarDate.Date.Year == DateTime.Today.Year &&
+                                                     currentCalendarDate.Date.Month >= DateTime.Today.Month))">
+                                    &gt;
+                                </button>
                             </div>
+
                             <div class="calendar-weekdays">
-                                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                                <div>Sun</div>
+                                <div>Mon</div>
+                                <div>Tue</div>
+                                <div>Wed</div>
+                                <div>Thu</div>
+                                <div>Fri</div>
+                                <div>Sat</div>
                             </div>
+
                             <div class="calendar-days">
                                 @foreach (var day in calendarDays)
                                 {
@@ -65,13 +79,30 @@
                                     var isFutureDate = day.Date > DateTime.Today;
 
                                     var dayClass = "calendar-day";
-                                    if (!isCurrentMonth) dayClass += " other-month";
-                                    if (isSelected) dayClass += " selected";
-                                    if (isToday) dayClass += " today";
-                                    if (isFutureDate) dayClass += " disabled";
+
+                                    if (!isCurrentMonth)
+                                    {
+                                        dayClass += " other-month";
+                                    }
+
+                                    if (isSelected)
+                                    {
+                                        dayClass += " selected";
+                                    }
+
+                                    if (isToday)
+                                    {
+                                        dayClass += " today";
+                                    }
+
+                                    if (isFutureDate)
+                                    {
+                                        dayClass += " disabled";
+                                    }
 
                                     <div class="@dayClass" @onclick="() => SelectDate(day)">
                                         @day.Day
+
                                         @if (isAvailable && isCurrentMonth && !isFutureDate)
                                         {
                                             <span class="day-dot">•</span>
@@ -84,46 +115,27 @@
                 }
             </div>
 
-            @* 3. Refresh Button *@
-
-
-
-            @* 4. Usage Type Dropdown (Pushed to the right) *@
-          @*    @if (userRole == "Admin" || userRole == "superadmin")
-             {
-                 <div class="toolbar-section ms-auto d-flex align-items-center">
-                     <div class="tooltip-container">
-                         <select id="usage-type-select" class="stitch-user-select ms-2" value="@usageType">
-                             <option value="all">All</option>
-                             <option value="manual">Manual</option>
-                             <option value="automatic">Automatic</option>
-                         </select>
-                         <span class="tooltip-text">Filter data by usage type</span>
-                     </div>
-                 </div>
-             } *@
-
-            @* 5. Refresh Button *@
             <div class="d-flex align-items-center">
                 <button class="stitch-refresh-btn"
                         @onclick="OnRefreshClicked"
                         disabled="@isLoading">
                     @if (isLoading)
                     {
-                        <i class="fas fa-spinner fa-spin me-2"></i> <span>Loading...</span>
+                        <i class="fas fa-spinner fa-spin me-2"></i>
+                        <span>Loading...</span>
                     }
                     else
                     {
-                        <i class="fas fa-sync-alt me-2"></i> <span>Refresh</span>
+                        <i class="fas fa-sync-alt me-2"></i>
+                        <span>Refresh</span>
                     }
                 </button>
             </div>
         </div>
-        @* --- END: ALIGNED CARD HEADER --- *@
 
-        @if (isLoading)
+        @if (isLoading && screenshots?.Any() != true)
         {
-            <div class="d-flex justify-content-center">
+            <div class="d-flex justify-content-center my-4">
                 <div class="spinner-border" role="status">
                     <span class="visually-hidden">Loading...</span>
                 </div>
@@ -131,7 +143,6 @@
         }
         else if (screenshots?.Any() == true)
         {
-            @* Display Total Duration *@
             @if (totalDuration > TimeSpan.Zero)
             {
                 <div class="total-duration-banner">
@@ -140,33 +151,48 @@
                 </div>
             }
 
-            <div class="row">
+            <div class="row" id="screenshot-grid">
                 @foreach (var screenshot in screenshots)
                 {
                     <div class="col-6 col-sm-4 col-md-2 screenshot-item">
                         <div class="image-container">
-                            <img src="@screenshot.imageUrl" alt="Screenshot" class="img-fluid screenshot-image"
-                                 @onclick="() => NavigateToDetailsPage(screenshot.id)" />
+                            <img src="@GetImageUrl(screenshot)"
+                                 alt="Screenshot"
+                                 style="max-width: 100%; max-height: 150px; border: 2px solid #007bff; border-radius: 4px;"
+                                 @onclick="() => NavigateToDetailsPage(screenshot.id)"
+                                 onerror="this.style.border='2px solid red'; this.alt='Failed to load'; console.error('Failed image:', this.src);"
+                                 onload="console.log('Loaded image:', this.src);" />
                         </div>
+
                         <div class="screenshot-info">
                             <p>@ConvertToIST(screenshot.captureTime)</p>
+
                             @{
                                 int activeBlocks = GetActiveBlocks(screenshot);
                             }
+
                             <div class="activity-blocks">
                                 @for (int i = 1; i <= 10; i++)
                                 {
                                     <span class="block @(i <= activeBlocks ? "active" : "")"></span>
                                 }
                             </div>
+
                             <p>@CalculateActivityScore(screenshot)%</p>
+
                             @{
-                                bool canDelete = userRole == "Admin" || userRole == "superadmin" ||
-                                    (userRole == "User" && loggedInUser?.isSelected == true && loggedInUserId == screenshot.userId);
+                                bool canDelete =
+                                    userRole == "Admin" ||
+                                    userRole == "superadmin" ||
+                                    (userRole == "User" &&
+                                     loggedInUser?.isSelected == true &&
+                                     loggedInUserId == screenshot.userId);
                             }
+
                             @if (canDelete)
                             {
-                                <button @onclick="() => ConfirmAndDeleteScreenshot(screenshot.id)" class="delete-btn">
+                                <button @onclick="() => ConfirmAndDeleteScreenshot(screenshot.id)"
+                                        class="delete-btn">
                                     <i class="fa fa-trash"></i>
                                 </button>
                             }
@@ -174,18 +200,21 @@
                     </div>
                 }
             </div>
-            @* NOTE: The bottom pagination block is REMOVED to prevent duplication. *@@*
-        <div class="d-flex justify-content-center mt-4">
-        <button @onclick="PreviousPage" class="btn btn-secondary" disabled="@(!CanGoToPreviousPage)">Previous</button>
-        <span class="mx-3">Page @currentPage</span>
-        <button @onclick="NextPage" class="btn btn-secondary" disabled="@(!CanGoToNextPage)">Next</button>
-        </div>
-        *@
         }
         else
         {
             <p class="no-screenshots">No screenshots found for this date.</p>
         }
+
+        @* Enable only while debugging *@
+        @* 
+        @if (!string.IsNullOrEmpty(diagnosticMessage))
+        {
+            <div style="margin-top: 16px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; font-size: 11px; font-family: monospace; color: #333; white-space: pre-wrap; max-height: 300px; overflow: auto;">
+                @diagnosticMessage
+            </div>
+        }
+        *@
     </div>
 </div>
 
@@ -199,184 +228,329 @@
 
     [Parameter]
     [SupplyParameterFromQuery]
-    public string startTime { get; set; }
+    public string? startTime { get; set; }
 
     [Parameter]
     [SupplyParameterFromQuery]
-    public string endTime { get; set; }
+    public string? endTime { get; set; }
 
-    @using System.Timers
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string usageType { get; set; } = "all";
 
-    private List<Screenshots> screenshots;
+    private List<Screenshots> screenshots = new List<Screenshots>();
     private List<DateTime> availableDates = new List<DateTime>();
-    private string token;
+
+    private string? token;
     private int userId = 0;
-    private DateTime selectedDate;
-    private bool isLoading;
-    private User currentUser;
+    private DateTime selectedDate = DateTime.Today;
+    private bool isLoading = false;
+    private bool isScreenshotRequestRunning = false;
+
+    private User? currentUser;
     private int loggedInUserId;
-    private User loggedInUser;
-    private string userRole;
+    private User? loggedInUser;
+    private string userRole = "";
+
     private string maxSelectableDate = DateTime.Today.ToString("yyyy-MM-dd");
     private TimeSpan totalDuration = TimeSpan.Zero;
 
     private bool showCustomCalendar = false;
-    private DateTime currentCalendarDate;
+    private DateTime currentCalendarDate = DateTime.Today;
     private List<DateTime> calendarDays = new List<DateTime>();
     private ElementReference dateInputRef;
 
-    private System.Timers.Timer activityTimer;
-    private DotNetObjectReference<ScreenshotsPage> objRef;
+    private System.Timers.Timer? activityTimer;
+    private DotNetObjectReference<ScreenshotsPage>? objRef;
 
     private bool isSelect2UsageTypeInitialized = false;
     private bool isTimeFiltered = false;
     private TimeSpan? filterStartTime;
     private TimeSpan? filterEndTime;
 
-    [Parameter]
-    [SupplyParameterFromQuery]
-    public string usageType { get; set; } = "all";
+    private string diagnosticMessage = string.Empty;
+
+    private const string BaseImageUrl = "http://10.0.3.55:90/uploads/";
 
     protected override async Task OnInitializedAsync()
     {
-        selectedDate = Date ?? DateTime.Today;
-        currentCalendarDate = selectedDate;
-
-        Console.WriteLine($"ScreenshotsPage OnInitializedAsync - Date: {selectedDate:yyyy-MM-dd}, ViewedUserId: {ViewedUserId}, StartTime: {startTime}, EndTime: {endTime}");
-
-        token = Preferences.Get("authToken", null);
-        if (!string.IsNullOrEmpty(token))
+        try
         {
-            var handler = new JwtSecurityTokenHandler();
-            if (handler.ReadToken(token) is JwtSecurityToken jwtToken)
+            selectedDate = Date ?? DateTime.Today;
+            currentCalendarDate = selectedDate;
+
+            token = Preferences.Get("authToken", null);
+
+            if (!string.IsNullOrEmpty(token))
             {
-                // Get the logged-in user's ID from JWT token (default/fallback)
-                var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
-                if (int.TryParse(userIdClaim, out int id))
+                var handler = new JwtSecurityTokenHandler();
+
+                if (handler.ReadToken(token) is JwtSecurityToken jwtToken)
                 {
-                    userId = id;
-                    loggedInUserId = id;
+                    var userIdClaim = jwtToken.Claims
+                        .FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")
+                        ?.Value;
+
+                    if (int.TryParse(userIdClaim, out int id))
+                    {
+                        userId = id;
+                        loggedInUserId = id;
+                    }
+
+                    var roleClaim = jwtToken.Claims
+                        .FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
+                        ?.Value;
+
+                    if (!string.IsNullOrEmpty(roleClaim))
+                    {
+                        userRole = roleClaim;
+                    }
                 }
 
-                var roleClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
-                if (!string.IsNullOrEmpty(roleClaim))
+                if (loggedInUserId != 0)
                 {
-                    userRole = roleClaim;
+                    loggedInUser = await UserService.GetUserByIdAsync(loggedInUserId);
                 }
             }
 
-            // Load the logged-in user's full profile (for isSelected check)
-            if (loggedInUserId != 0)
-            {
-                loggedInUser = await UserService.GetUserByIdAsync(loggedInUserId);
-            }
+            activityTimer = new System.Timers.Timer(60000);
+            activityTimer.Elapsed += HandleMinuteTick;
+            activityTimer.AutoReset = true;
+            activityTimer.Enabled = true;
         }
-        else
+        catch (Exception ex)
         {
-            Console.WriteLine("User not authenticated.");
+            Console.WriteLine($"[OnInitializedAsync] Error: {ex.Message}");
+            diagnosticMessage = $"OnInitializedAsync Error: {ex.Message}";
+            isLoading = false;
+            await InvokeAsync(StateHasChanged);
         }
-
-        // --- TIMER INITIALIZATION AND START ---
-        // This runs the HandleMinuteTick method every 60 seconds (1 minute).
-        activityTimer = new System.Timers.Timer(60000);
-        activityTimer.Elapsed += HandleMinuteTick;
-        activityTimer.AutoReset = true;
-        activityTimer.Enabled = true;
-        // --------------------------------------
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        Console.WriteLine($"ScreenshotsPage OnParametersSetAsync - Date: {Date}, ViewedUserId: {ViewedUserId}, StartTime: {startTime}, EndTime: {endTime}");
-
-        // Update selected date if Date parameter changed
-        if (Date.HasValue)
+        try
         {
-            selectedDate = Date.Value;
-            currentCalendarDate = selectedDate;
-        }
-
-        // Parse time filter parameters if provided
-        if (!string.IsNullOrEmpty(startTime) && !string.IsNullOrEmpty(endTime))
-        {
-            if (TimeSpan.TryParse(startTime, out TimeSpan start) && TimeSpan.TryParse(endTime, out TimeSpan end))
+            if (Date.HasValue)
             {
-                filterStartTime = start;
-                filterEndTime = end;
-                isTimeFiltered = true;
-                Console.WriteLine($"Time filter applied: {start} to {end}");
+                selectedDate = Date.Value;
+                currentCalendarDate = selectedDate;
+            }
+
+            if (!string.IsNullOrWhiteSpace(startTime) && !string.IsNullOrWhiteSpace(endTime))
+            {
+                if (TimeSpan.TryParse(startTime, out TimeSpan start) &&
+                    TimeSpan.TryParse(endTime, out TimeSpan end))
+                {
+                    filterStartTime = start;
+                    filterEndTime = end;
+                    isTimeFiltered = true;
+                }
+                else
+                {
+                    isTimeFiltered = false;
+                    filterStartTime = null;
+                    filterEndTime = null;
+                }
             }
             else
             {
-                Console.WriteLine($"Failed to parse time parameters: startTime={startTime}, endTime={endTime}");
+                isTimeFiltered = false;
+                filterStartTime = null;
+                filterEndTime = null;
             }
-        }
-        else
-        {
-            isTimeFiltered = false;
-            filterStartTime = null;
-            filterEndTime = null;
-            Console.WriteLine("No time filter parameters provided");
-        }
 
-        // Priority 1: If ViewedUserId is provided from URL (e.g., from Report or AdminUsers page), use it FIRST
-        // This is the most explicit and should override everything else
-        if (ViewedUserId != 0)
-        {
-            userId = ViewedUserId;
-            Console.WriteLine($"Using ViewedUserId from URL: {userId}");
-        }
-        // Priority 2: If App.SelectedUserId is set, use it (for internal navigation)
-        else if (App.SelectedUserId != 0)
-        {
-            userId = App.SelectedUserId;
-            Console.WriteLine($"Using App.SelectedUserId: {userId}");
-        }
-
-        // Load data if we have a valid userId
-        if (userId != 0 && token != null)
-        {
-            currentUser = await UserService.GetUserByIdAsync(userId);
-            StateHasChanged();
-            if (currentUser != null)
+            if (ViewedUserId != 0)
             {
-                Console.WriteLine($"Current User Role: {currentUser.role}");
+                userId = ViewedUserId;
             }
-            availableDates = await UserService.GetAvailableDatesAsync(userId);
-            await LoadScreenshotsAsync(usageType);
+            else if (App.SelectedUserId != 0)
+            {
+                userId = App.SelectedUserId;
+            }
+
             GenerateCalendarDays();
+
+            if (userId != 0 && !string.IsNullOrEmpty(token))
+            {
+                currentUser = await UserService.GetUserByIdAsync(userId);
+                availableDates = await UserService.GetAvailableDatesAsync(userId);
+
+                await LoadScreenshotsAsync(usageType);
+            }
+            else
+            {
+                diagnosticMessage = $"Cannot load data. userId={userId}, token={(string.IsNullOrEmpty(token) ? "empty" : "found")}";
+                isLoading = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            diagnosticMessage = $"OnParametersSetAsync Error: {ex.Message}";
+            Console.WriteLine($"[OnParametersSetAsync] Error: {ex.Message}");
+            isLoading = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
-    private async Task OnRefreshClicked()
-    {
-        await LoadScreenshotsAsync(usageType);
-    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        try
         {
-            await JSRuntime.InvokeVoidAsync("eval", $@"document.getElementById('DashboardactivityDate').setAttribute('max', '{maxSelectableDate}');");
+            if (firstRender)
+            {
+                await JSRuntime.InvokeVoidAsync(
+                    "eval",
+                    $@"document.getElementById('DashboardactivityDate')?.setAttribute('max', '{maxSelectableDate}');"
+                );
+            }
+
+            if (userRole == "Admin" || userRole == "superadmin")
+            {
+                if (objRef == null)
+                {
+                    objRef = DotNetObjectReference.Create(this);
+                }
+
+                if (!isSelect2UsageTypeInitialized)
+                {
+                    try
+                    {
+                        await JSRuntime.InvokeVoidAsync("initializeSelect2", "usage-type-select", objRef);
+                        isSelect2UsageTypeInitialized = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error initializing Usage Type Select2: {ex.Message}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[OnAfterRenderAsync] Error: {ex.Message}");
+        }
+    }
+
+    private async Task LoadScreenshotsAsync(string usageType = "all")
+    {
+        if (isScreenshotRequestRunning)
+        {
+            return;
         }
 
-        if (userRole == "Admin" || userRole == "superadmin")
+        isScreenshotRequestRunning = true;
+        isLoading = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
         {
-            if (objRef == null)
+            if (userId == 0)
             {
-                objRef = DotNetObjectReference.Create(this);
+                diagnosticMessage += "❌ User ID is 0. Cannot load screenshots.\n";
+                screenshots = new List<Screenshots>();
+                totalDuration = TimeSpan.Zero;
+                return;
             }
 
-            if (!isSelect2UsageTypeInitialized)
+            var startTimeFilter = isTimeFiltered && filterStartTime.HasValue
+                ? filterStartTime.Value.ToString(@"hh\:mm")
+                : null;
+
+            var endTimeFilter = isTimeFiltered && filterEndTime.HasValue
+                ? filterEndTime.Value.ToString(@"hh\:mm")
+                : null;
+
+            diagnosticMessage +=
+                $"Calling GetImagesByDateAsync for userId={userId}, date={selectedDate:yyyy-MM-dd}, " +
+                $"start={startTimeFilter}, end={endTimeFilter}, usageType={usageType}\n";
+
+            Console.WriteLine(
+                $"Loading screenshots: userId={userId}, date={selectedDate:yyyy-MM-dd}, " +
+                $"isTimeFiltered={isTimeFiltered}, start={startTimeFilter}, end={endTimeFilter}, usageType={usageType}"
+            );
+
+            var basicScreenshots = await UserService.GetImagesByDateAsync(
+                userId,
+                selectedDate,
+                1,
+                10000,
+                usageType,
+                startTimeFilter,
+                endTimeFilter
+            );
+
+            diagnosticMessage += $"API returned. Count: {basicScreenshots?.Count ?? 0}\n";
+
+            if (basicScreenshots?.Any() != true)
             {
-                try
-                {
-                    await JSRuntime.InvokeVoidAsync("initializeSelect2", "usage-type-select", objRef);
-                    isSelect2UsageTypeInitialized = true;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error initializing Usage Type Select2: {ex.Message}");
-                }
+                screenshots = new List<Screenshots>();
+                totalDuration = TimeSpan.Zero;
+                return;
             }
+
+            screenshots = basicScreenshots
+                .AsEnumerable()
+                .Reverse()
+                .ToList();
+
+            CalculateTotalDurationFromScreenshots();
+
+            foreach (var shot in screenshots)
+            {
+                Console.WriteLine(
+                    $"Screenshot #{shot.id}: {GetImageUrl(shot)} | UTC: {shot.captureTime:o} | IST: {ConvertToIST(shot.captureTime)}"
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            diagnosticMessage += $"❌ LoadScreenshotsAsync Error: {ex.Message}\n";
+            Console.WriteLine($"[LoadScreenshotsAsync] Error: {ex.Message}");
+            Console.WriteLine(ex.StackTrace);
+
+            screenshots = new List<Screenshots>();
+            totalDuration = TimeSpan.Zero;
+        }
+        finally
+        {
+            isLoading = false;
+            isScreenshotRequestRunning = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string GetImageUrl(Screenshots screenshot)
+    {
+        if (screenshot == null || string.IsNullOrEmpty(screenshot.imageUrl))
+        {
+            return string.Empty;
+        }
+
+        string url = screenshot.imageUrl;
+
+        if (url.StartsWith("http", StringComparison.OrdinalIgnoreCase) ||
+            url.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return url;
+        }
+
+        return BaseImageUrl + url;
+    }
+
+    private async Task OnRefreshClicked()
+    {
+        try
+        {
+            await LoadScreenshotsAsync(usageType);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[OnRefreshClicked] Error: {ex.Message}");
+            diagnosticMessage = $"Refresh Error: {ex.Message}";
+            isLoading = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -385,34 +559,44 @@
     {
         if (elementId == "usage-type-select")
         {
-            isLoading = true;
-            StateHasChanged();
             usageType = value;
             await LoadScreenshotsAsync(usageType);
-            isLoading = false;
-            StateHasChanged();
         }
     }
 
-    public void Dispose()
+    private async Task OnDateChanged(ChangeEventArgs e)
     {
-        objRef?.Dispose();
-
-        // --- TIMER DISPOSE LOGIC ADDED ---
-        if (activityTimer != null)
+        try
         {
-            activityTimer.Elapsed -= HandleMinuteTick; // Unsubscribe
-            activityTimer.Stop();
-            activityTimer.Dispose();
+            if (DateTime.TryParse(e.Value?.ToString(), out var newDate))
+            {
+                selectedDate = newDate;
+
+                isTimeFiltered = false;
+                filterStartTime = null;
+                filterEndTime = null;
+                startTime = null;
+                endTime = null;
+
+                await LoadScreenshotsAsync(usageType);
+            }
         }
-        // ---------------------------------
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[OnDateChanged] Error: {ex.Message}");
+            diagnosticMessage = $"Date Change Error: {ex.Message}";
+            isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private void GenerateCalendarDays()
     {
         calendarDays.Clear();
+
         var firstDay = new DateTime(currentCalendarDate.Year, currentCalendarDate.Month, 1);
         var lastDay = firstDay.AddMonths(1).AddDays(-1);
+
         var startDate = firstDay.AddDays(-(int)firstDay.DayOfWeek);
         var endDate = lastDay.AddDays(6 - (int)lastDay.DayOfWeek);
 
@@ -425,6 +609,7 @@
     private void ToggleCustomCalendar()
     {
         showCustomCalendar = !showCustomCalendar;
+
         if (showCustomCalendar)
         {
             currentCalendarDate = selectedDate;
@@ -455,32 +640,57 @@
         {
             selectedDate = date;
             showCustomCalendar = false;
-            
-            // Clear time filters when date is selected from custom calendar
+
             isTimeFiltered = false;
             filterStartTime = null;
             filterEndTime = null;
             startTime = null;
             endTime = null;
-            
+
             await LoadScreenshotsAsync(usageType);
         }
     }
-    // In ScreenshotsPage.razor @code block
+
     private void NavigateToDetailsPage(int screenshotId)
     {
-        NavigationManager.NavigateTo($"/screenshot-details/{screenshotId}?date={selectedDate:yyyy-MM-dd}&usageType={usageType}&viewedUserId={userId}"); // <--- ADD THIS
+        NavigationManager.NavigateTo(
+            $"/screenshot-details/{screenshotId}?date={selectedDate:yyyy-MM-dd}&usageType={usageType}&viewedUserId={userId}"
+        );
     }
 
-    private async Task GoBack()
+    private async Task ConfirmAndDeleteScreenshot(int screenshotId)
     {
-        await JSRuntime.InvokeVoidAsync("history.back");
+        try
+        {
+            bool confirmed = await JSRuntime.InvokeAsync<bool>(
+                "confirm",
+                "Are you sure you want to delete this screenshot?"
+            );
+
+            if (!confirmed)
+            {
+                return;
+            }
+
+            bool deleted = await UserService.DeleteScreenshotAsync(screenshotId);
+
+            if (deleted)
+            {
+                await LoadScreenshotsAsync(usageType);
+            }
+            else
+            {
+                Console.WriteLine("Failed to delete screenshot.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ConfirmAndDeleteScreenshot] Error: {ex.Message}");
+        }
     }
 
     private void CalculateTotalDurationFromScreenshots()
     {
-        // Each screenshot represents 10 minutes of tracking
-        // Total duration = number of screenshots × 10 minutes
         if (screenshots != null && screenshots.Any())
         {
             int totalMinutes = screenshots.Count * 10;
@@ -498,147 +708,102 @@
         {
             return $"{(int)duration.TotalDays}d {(int)duration.Hours}h {duration.Minutes}m";
         }
-        else if (duration.TotalHours >= 1)
+
+        if (duration.TotalHours >= 1)
         {
             return $"{(int)duration.TotalHours}h {duration.Minutes}m";
         }
-        else
-        {
-            return $"{(int)duration.TotalMinutes}m";
-        }
+
+        return $"{(int)duration.TotalMinutes}m";
     }
 
-    private void NavigateHome() => NavigationManager.NavigateTo("/users");
-
-    private async Task LoadScreenshotsAsync(string usageType = "all")
+    private TimeZoneInfo GetIndiaTimeZone()
     {
-        isLoading = true;
-        // Notify the UI to show the loading spinner immediately
-        StateHasChanged();
-
         try
         {
-            // Fetch ALL screenshots for the selected date (no pagination)
-            // Using a large take value to get all records
-            var basicScreenshots = await UserService.GetImagesByDateAsync(
-                userId,
-                selectedDate,
-                1,      // skip
-                10000,  // take - large number to get all screenshots
-                usageType,
-                startTime,
-                endTime
-            );
-
-            Console.WriteLine($"[LoadScreenshots] Fetched {basicScreenshots?.Count ?? 0} basic screenshots from API");
-
-            // Create a temporary list to hold the detailed, processed results
-            var newScreenshots = new List<Screenshots>();
-
-            if (basicScreenshots?.Any() == true)
+            return TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        }
+        catch
+        {
+            try
             {
-                // Reverse the order to show oldest first (FCFS - First Come First Serve)
-                var reversedScreenshots = basicScreenshots.AsEnumerable().Reverse().ToList();
-                
-                Console.WriteLine($"[LoadScreenshots] Reversed list has {reversedScreenshots.Count} screenshots");
-                
-                // Process the detailed data, adding results to the temporary list
-                foreach (var shot in reversedScreenshots)
-                {
-                    var detailed = await KeyboardMouseService.GetImageActivityDataAsync(shot.id);
-                    if (detailed == null)
-                    {
-                        Console.WriteLine($"[LoadScreenshots] Screenshot ID {shot.id} returned null from GetImageActivityDataAsync, using original");
-                    }
-                    newScreenshots.Add(detailed ?? shot);
-                }
-                
-                Console.WriteLine($"[LoadScreenshots] Final processed screenshots count: {newScreenshots.Count}");
+                return TimeZoneInfo.FindSystemTimeZoneById("Asia/Kolkata");
             }
-
-            // Update the component's state list ONLY after all processing is complete
-            screenshots = newScreenshots;
-
-            // Calculate total duration based on number of screenshots (each = 10 minutes)
-            CalculateTotalDurationFromScreenshots();
+            catch
+            {
+                return TimeZoneInfo.Local;
+            }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading screenshots: {ex.Message}");
-            // Optionally clear the list on error
-            screenshots = new List<Screenshots>();
-            totalDuration = TimeSpan.Zero;
-        }
-        finally
-        {
-            isLoading = false;
-            // Notify the UI to hide the spinner and display the new data
-            StateHasChanged();
-        }
-    }
-
-    private async Task OnDateChanged(ChangeEventArgs e)
-    {
-        if (DateTime.TryParse(e.Value?.ToString(), out var newDate))
-        {
-            selectedDate = newDate;
-            
-            // Clear time filters when date changes manually
-            isTimeFiltered = false;
-            filterStartTime = null;
-            filterEndTime = null;
-            startTime = null;
-            endTime = null;
-            
-            await LoadScreenshotsAsync(usageType);
-        }
-    }
-
-
-
-    private async Task ConfirmAndDeleteScreenshot(int screenshotId)
-    {
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this screenshot?");
-        if (!confirmed)
-            return;
-
-        if (await UserService.DeleteScreenshotAsync(screenshotId))
-        {
-            await LoadScreenshotsAsync(usageType);
-        }
-        else
-        {
-            Console.WriteLine("Failed to delete screenshot.");
-        }
-    }
-
-    private void HandleMinuteTick(object sender, ElapsedEventArgs e)
-    {
-
-        var (keyboardClicks, mouseClicks) = KeyboardMouseService.GetAndResetClicks();
-
-        Console.WriteLine($"Minute Tick: Logging activity for user {userId}. Keyboard: {keyboardClicks}, Mouse: {mouseClicks}");
-
     }
 
     private string ConvertToIST(DateTime captureTime)
     {
-        var istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
-        var utcTime = DateTime.SpecifyKind(captureTime, DateTimeKind.Utc);
-        return TimeZoneInfo.ConvertTimeFromUtc(utcTime, istZone).ToString("hh:mm tt");
+        try
+        {
+            var istZone = GetIndiaTimeZone();
+
+            DateTime utcTime = captureTime.Kind == DateTimeKind.Utc
+                ? captureTime
+                : DateTime.SpecifyKind(captureTime, DateTimeKind.Utc);
+
+            return TimeZoneInfo
+                .ConvertTimeFromUtc(utcTime, istZone)
+                .ToString("hh:mm tt");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ConvertToIST] Error: {ex.Message}");
+            return captureTime.ToString("hh:mm tt");
+        }
     }
 
     private int CalculateActivityScore(Screenshots screenshot)
     {
-        // int score = (int)((double)(screenshot.keyboardClicks + screenshot.mouseClicks) / 1000 * 100);
-          int score = (int)((double)(screenshot.keyboardClicks + screenshot.mouseClicks) / 300 * 100);
+        if (screenshot == null)
+        {
+            return 0;
+        }
+
+        int score = (int)((double)(screenshot.keyboardClicks + screenshot.mouseClicks) / 300 * 100);
         return Math.Clamp(score, 0, 100);
     }
 
     private int GetActiveBlocks(Screenshots screenshot)
     {
-        // int blocks = (int)Math.Round((double)(screenshot.keyboardClicks + screenshot.mouseClicks) / 1000 * 10);
+        if (screenshot == null)
+        {
+            return 0;
+        }
+
         int blocks = (int)((double)(screenshot.keyboardClicks + screenshot.mouseClicks) / 300 * 10);
         return Math.Clamp(blocks, 0, 10);
+    }
+
+    private void HandleMinuteTick(object? sender, ElapsedEventArgs e)
+    {
+        try
+        {
+            var (keyboardClicks, mouseClicks) = KeyboardMouseService.GetAndResetClicks();
+
+            Console.WriteLine(
+                $"Minute Tick: User {userId}, Keyboard: {keyboardClicks}, Mouse: {mouseClicks}"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[HandleMinuteTick] Error: {ex.Message}");
+        }
+    }
+
+    public void Dispose()
+    {
+        objRef?.Dispose();
+
+        if (activityTimer != null)
+        {
+            activityTimer.Elapsed -= HandleMinuteTick;
+            activityTimer.Stop();
+            activityTimer.Dispose();
+        }
     }
 }

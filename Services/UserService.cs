@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using System.Text;
@@ -15,6 +16,7 @@ namespace ScreenTracker1.Services
 		private readonly HttpClient _httpClient;
 		private NavigationManager? _navigationManager;
 		private bool _isPopupShown = false;
+		private bool _isIntentionalLogout;
 		private int uid;
 		public UserService(HttpClient httpClient)
 		{
@@ -23,18 +25,122 @@ namespace ScreenTracker1.Services
 		}
 		public void SetUserId(int userId)
 		{
+			_isIntentionalLogout = false;
+			Preferences.Remove("isLoggingOut");
 			uid = userId;
+		}
+
+		public void BeginIntentionalLogout()
+		{
+			_isIntentionalLogout = true;
+			Preferences.Set("isLoggingOut", true);
 		}
 		public void SetNavigationManager(NavigationManager navigationManager)
 		{
 			_navigationManager = navigationManager;
 		}
+		public async Task<bool> TryHeartbeatRecoveryAsync()
+		{
+			try
+			{
+				if (_isIntentionalLogout || Preferences.Get("isLoggingOut", false))
+					return false;
+
+				Console.WriteLine("[UserService] Attempting session recovery via heartbeat...");
+
+				var token = Preferences.Get("authToken", "");
+				if (string.IsNullOrEmpty(token))
+				{
+					Console.WriteLine("[UserService] No token found for recovery.");
+					return false;
+				}
+
+				var request = new HttpRequestMessage(HttpMethod.Post, $"{App.URL}Auth/heartbeat");
+				request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+				var response = await _httpClient.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					Console.WriteLine("[UserService] Heartbeat recovery succeeded.");
+					return true;
+				}
+
+				if (response.StatusCode == HttpStatusCode.Unauthorized)
+				{
+					Console.WriteLine("[UserService] Heartbeat 401, trying token refresh...");
+
+					var refreshPayload = System.Text.Json.JsonSerializer.Serialize(new { token });
+					var refreshContent = new StringContent(refreshPayload, System.Text.Encoding.UTF8, "application/json");
+					var refreshResponse = await _httpClient.PostAsync($"{App.URL}auth/refresh-token", refreshContent);
+
+					if (refreshResponse.IsSuccessStatusCode)
+					{
+						if (_isIntentionalLogout || Preferences.Get("isLoggingOut", false))
+							return false;
+
+						var body = await refreshResponse.Content.ReadAsStringAsync();
+						using var doc = JsonDocument.Parse(body);
+						string? newToken = null;
+						if (doc.RootElement.TryGetProperty("token", out var t))
+							newToken = t.GetString();
+						else if (doc.RootElement.TryGetProperty("accessToken", out var at))
+							newToken = at.GetString();
+						else if (doc.RootElement.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.Object)
+						{
+							if (d.TryGetProperty("token", out var dt))
+								newToken = dt.GetString();
+						}
+
+						if (!string.IsNullOrEmpty(newToken))
+						{
+							if (_isIntentionalLogout || Preferences.Get("isLoggingOut", false))
+								return false;
+
+							Preferences.Set("authToken", newToken);
+							Console.WriteLine("[UserService] Token refreshed during recovery. Verifying with heartbeat...");
+
+							var verifyRequest = new HttpRequestMessage(HttpMethod.Post, $"{App.URL}Auth/heartbeat");
+							verifyRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", newToken);
+							var verifyResponse = await _httpClient.SendAsync(verifyRequest);
+
+							if (verifyResponse.IsSuccessStatusCode)
+							{
+								Console.WriteLine("[UserService] Recovery heartbeat OK after token refresh.");
+								return true;
+							}
+						}
+					}
+				}
+
+				Console.WriteLine("[UserService] Session recovery failed.");
+				return false;
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"[UserService] Session recovery error: {ex.Message}");
+				return false;
+			}
+		}
+
 		private async void HandleUnauthorized()
 		{
-			if (_isPopupShown) return;
+			if (_isPopupShown || _isIntentionalLogout) return;
+
+			bool recovered = await TryHeartbeatRecoveryAsync();
+			if (_isIntentionalLogout) return;
+			if (recovered)
+			{
+				Console.WriteLine("[UserService] 401 suppressed — session recovered (Mac sleep wake).");
+				return;
+			}
 
 			_isPopupShown = true;
+			_isIntentionalLogout = true;
+			Preferences.Set("isLoggingOut", true);
 			Preferences.Remove("authToken");
+			Preferences.Remove("auth_token");
+			SecureStorage.Remove("authToken");
+			SecureStorage.Remove("auth_token");
 			SecureStorage.RemoveAll();
 			await MainThread.InvokeOnMainThreadAsync(async () =>
 			{
@@ -288,12 +394,13 @@ namespace ScreenTracker1.Services
 
 				
 				var response = await _httpClient.SendAsync(request);
-
-				
-				response.EnsureSuccessStatusCode();
-
-				
 				var responseString = await response.Content.ReadAsStringAsync();
+
+				if (!response.IsSuccessStatusCode)
+				{
+					Console.WriteLine($"Error starting daily tracker: HTTP {(int)response.StatusCode} {response.StatusCode}: {responseString}");
+					return null;
+				}
 
 			
 				var dailyTracker = JsonSerializer.Deserialize<DailyTracker>(responseString);
@@ -409,6 +516,43 @@ namespace ScreenTracker1.Services
 				return new List<AppTitle>();
 			}
 		}
+
+        /// <summary>
+        /// Fetches ALL app title records for a user via AppTitle/user/{userId} (not date-filtered).
+        /// This is a frontend-only workaround for the broken AppTitle/day/{date}/{id} endpoint.
+        /// Filtering by the selected date is done client-side.
+        /// Falls back to in-memory tracker data if this endpoint also fails.
+        /// </summary>
+        public async Task<List<AppTitle>> GetAllAppTitlesByUserAsync(int userId)
+        {
+            try
+            {
+                var url = $"{App.URL}AppTitle/user/{userId}";
+
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                AddAuthorizationHeader(request);
+
+                var response = await _httpClient.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"GetAllAppTitlesByUserAsync: HTTP {response.StatusCode}");
+                    return new List<AppTitle>();
+                }
+
+                var responseString = await response.Content.ReadAsStringAsync();
+                var appTitleList = JsonSerializer.Deserialize<List<AppTitle>>(responseString, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+                return appTitleList ?? new List<AppTitle>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching all app titles by user: {ex.Message}");
+                return new List<AppTitle>();
+            }
+        }
 
 		public async Task<List<CategoryKeywordGroup>> GetGroupedCategoryKeywordsAsync(int id, DateTime date, int page = 1, int take = 5)
 		{
@@ -588,44 +732,52 @@ namespace ScreenTracker1.Services
         //}
 
 
-        public async Task<List<Screenshots>> GetImagesByDateAsync(int userId, DateTime date, int skip = 1, int take = 6, string usageType = "all", string startTime = null, string endTime = null)
+        public async Task<List<Screenshots>> GetImagesByDateAsync(int userId, DateTime date, int skip = 1, int take = 6, string usageType = "all", string startTime = null, string endTime = null, CancellationToken cancellationToken = default)
         {
             try
             {
+                // IMPORTANT: Database stores captureTime as timestamptz WITH the local
+                // timezone offset (+05:30 IST). Send the LOCAL date as-is — do NOT
+                // convert to UTC here, the timestamps are not stored in UTC.
                 string formattedDate = date.ToString("yyyy-MM-dd");
                 string url = $"{App.URL}Image/by-date?userId={userId}&date={formattedDate}&skip={skip}&take={take}&usageType={usageType}";
 
-                // Add time filter parameters if provided
                 if (!string.IsNullOrEmpty(startTime))
-                {
                     url += $"&startTime={Uri.EscapeDataString(startTime)}";
-                }
                 if (!string.IsNullOrEmpty(endTime))
-                {
                     url += $"&endTime={Uri.EscapeDataString(endTime)}";
-                }
 
-                Console.WriteLine($"Request URL: {url}");
+                Console.WriteLine($"[GetImagesByDateAsync] Request URL: {url}");
+                Console.WriteLine($"[GetImagesByDateAsync] Date: {formattedDate} (local, not UTC)");
 
                 var request = new HttpRequestMessage(HttpMethod.Get, url);
                 AddAuthorizationHeader(request);
 
-                var response = await _httpClient.SendAsync(request);
+                var response = await _httpClient.SendAsync(request, cancellationToken);
+
+                var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                Console.WriteLine($"[GetImagesByDateAsync] Response status: {response.StatusCode}, body length: {responseBody?.Length ?? 0}");
+                if (responseBody?.Length > 0 && responseBody?.Length < 500)
+                    Console.WriteLine($"[GetImagesByDateAsync] Response body: {responseBody}");
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    Console.WriteLine($"HTTP {response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+                    Console.WriteLine($"[GetImagesByDateAsync] HTTP {response.StatusCode}: {responseBody}");
                     return new List<Screenshots>();
                 }
 
-                var responseString = await response.Content.ReadAsStringAsync();
-                var images = JsonSerializer.Deserialize<List<Screenshots>>(responseString, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
+                var images = JsonSerializer.Deserialize<List<Screenshots>>(responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                Console.WriteLine($"[GetImagesByDateAsync] Deserialized {images?.Count ?? 0} screenshots");
                 return images ?? new List<Screenshots>();
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("[GetImagesByDateAsync] Request was cancelled (timeout)");
+                return new List<Screenshots>();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error fetching images: {ex.Message}");
+                Console.WriteLine($"[GetImagesByDateAsync] Error: {ex.Message}");
                 return new List<Screenshots>();
             }
         }
@@ -1085,6 +1237,9 @@ namespace ScreenTracker1.Services
         {
             try
             {
+                if (_isIntentionalLogout || Preferences.Get("isLoggingOut", false))
+                    return;
+
                 var request = new HttpRequestMessage(HttpMethod.Post, $"{App.URL}Auth/heartbeat");
                 AddAuthorizationHeader(request);
                 await _httpClient.SendAsync(request);
@@ -1095,47 +1250,47 @@ namespace ScreenTracker1.Services
             }
         }
 
-        public async Task<List<User>> GetActiveSessionsAsync(int? adminId = null)
-        {
-            try
-            {
-                var url = $"{App.URL}Auth/active-sessions";
+		public async Task<List<User>> GetActiveSessionsAsync(int? adminId = null, bool suppressUnauthorized = false)
+		{
+			try
+			{
+				var url = $"{App.URL}Auth/active-sessions";
 
-                if (adminId.HasValue)
-                {
-                    url += $"?adminId={adminId.Value}";
-                }
+				if (adminId.HasValue)
+				{
+					url += $"?adminId={adminId.Value}";
+				}
 
-                var request = new HttpRequestMessage(HttpMethod.Get, url);
-                AddAuthorizationHeader(request);
+				var request = new HttpRequestMessage(HttpMethod.Get, url);
+				AddAuthorizationHeader(request);
 
-                var response = await _httpClient.SendAsync(request);
+				var response = await _httpClient.SendAsync(request);
 
-                if (!response.IsSuccessStatusCode)
-                {
-                    if (response.StatusCode == HttpStatusCode.Unauthorized)
-                    {
-                        HandleUnauthorized();
-                    }
+				if (!response.IsSuccessStatusCode)
+				{
+					if (response.StatusCode == HttpStatusCode.Unauthorized && !suppressUnauthorized)
+					{
+						HandleUnauthorized();
+					}
 
-                    Console.WriteLine($"HTTP {response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
-                    return new List<User>();
-                }
+					Console.WriteLine($"HTTP {response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+					return new List<User>();
+				}
 
-                var responseString = await response.Content.ReadAsStringAsync();
-                var activeUsers = JsonSerializer.Deserialize<List<User>>(responseString, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+				var responseString = await response.Content.ReadAsStringAsync();
+				var activeUsers = JsonSerializer.Deserialize<List<User>>(responseString, new JsonSerializerOptions
+				{
+					PropertyNameCaseInsensitive = true
+				});
 
-                return activeUsers ?? new List<User>();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error fetching active sessions: {ex.Message}");
-                return new List<User>();
-            }
-        }
+				return activeUsers ?? new List<User>();
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error fetching active sessions: {ex.Message}");
+				return new List<User>();
+			}
+		}
 
 
 
@@ -1355,6 +1510,28 @@ namespace ScreenTracker1.Services
             {
                 Console.WriteLine($"Exception fetching aggregate data: {ex.Message}");
                 return new DailyTrackerAggregateResponse();
+            }
+        }
+
+        /// <summary>
+        /// Fetches an image from a URL via .NET HttpClient and returns it as a base64 data URI.
+        /// Use this on Mac/iOS where WKWebView blocks http:// image src attributes.
+        /// </summary>
+        public async Task<string> FetchImageAsBase64Async(string imageUrl)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(imageUrl))
+                    return string.Empty;
+
+                var bytes = await _httpClient.GetByteArrayAsync(imageUrl);
+                string base64 = Convert.ToBase64String(bytes);
+                return $"data:image/png;base64,{base64}";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FetchImageAsBase64Async] Error fetching {imageUrl}: {ex.Message}");
+                return string.Empty;
             }
         }
     }

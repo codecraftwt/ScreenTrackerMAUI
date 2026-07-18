@@ -3,81 +3,102 @@ using System.Runtime.InteropServices;
 
 namespace ScreenTracker1.Platforms.MacCatalyst
 {
-    /// <summary>
-    /// Detects user idle time on macOS using Core Graphics events.
-    /// Replacement for the Win32 GetLastInputInfo P/Invoke approach used in AfkTrackerService.cs.
-    /// </summary>
     public static class MacIdleTimeService
     {
         private const string CoreGraphicsLibrary = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
-        private const string CoreFoundationLibrary = "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
-
-        // kCGEventSourceStateCombinedSessionState = -1
-        private const long EventSourceStateCombinedSessionState = -1;
-        // kCGAnyInputEventType = ~0 (all input event types)
-        private const ulong AnyInputEventType = 0xFFFFFFFFFFFFFFFF;
+        // CGEventSourceStateID: 0 = combined session state.
+        private const int EventSourceStateCombinedSessionState = 0;
+        private const uint AnyInputEventType = 0xFFFFFFFF;
+        private const string LastActivityPrefKey = "MacLastActivityTime";
 
         [DllImport(CoreGraphicsLibrary)]
-        private static extern IntPtr CGEventSourceCreate(long stateID);
+        private static extern double CGEventSourceSecondsSinceLastEventType(int stateID, uint eventType);
 
-        [DllImport(CoreGraphicsLibrary)]
-        private static extern double CGEventSourceSecondsSinceLastEventType(IntPtr source, ulong eventType);
+        private static DateTime _lastActivityTime = DateTime.UtcNow;
+        private static readonly object _lock = new object();
 
-        [DllImport(CoreFoundationLibrary)]
-        private static extern void CFRelease(IntPtr cf);
+        static MacIdleTimeService()
+        {
+            DateTime? persisted = GetLastPersistedActivityTime();
+            if (persisted.HasValue)
+            {
+                _lastActivityTime = persisted.Value;
+                Console.WriteLine($"[MacIdleTime] Initialized from persisted: {_lastActivityTime:O}");
+            }
+        }
 
-        /// <summary>
-        /// Returns the number of seconds since the last input event
-        /// (keyboard or mouse) system-wide.
-        /// Returns 0 on error.
-        /// </summary>
+        public static void ReportActivity()
+        {
+            lock (_lock)
+            {
+                _lastActivityTime = DateTime.UtcNow;
+            }
+        }
+
+        public static void SaveActivity()
+        {
+            var now = DateTime.UtcNow;
+            lock (_lock)
+            {
+                _lastActivityTime = now;
+            }
+            Preferences.Set(LastActivityPrefKey, now.ToString("O"));
+        }
+
+        public static DateTime? GetLastPersistedActivityTime()
+        {
+            string saved = Preferences.Get(LastActivityPrefKey, null);
+            if (saved != null && DateTime.TryParse(saved, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+                return dt;
+            return null;
+        }
+
+        public static double GetSleepAwareIdleTimeInSeconds()
+        {
+            DateTime? persisted = GetLastPersistedActivityTime();
+            if (persisted.HasValue)
+            {
+                double seconds = (DateTime.UtcNow - persisted.Value).TotalSeconds;
+                Console.WriteLine($"[MacIdleTime] Sleep-aware idle: {TimeSpan.FromSeconds(seconds):hh\\:mm\\:ss}");
+                return seconds;
+            }
+            return GetIdleTimeInSeconds();
+        }
+
         public static double GetIdleTimeInSeconds()
         {
             try
             {
-                IntPtr eventSource = CGEventSourceCreate(EventSourceStateCombinedSessionState);
-                if (eventSource == IntPtr.Zero)
-                    return 0;
-
-                try
-                {
-                    double seconds = CGEventSourceSecondsSinceLastEventType(
-                        eventSource,
-                        AnyInputEventType
-                    );
+                // This API accepts a CGEventSourceStateID value, not a
+                // CGEventSourceRef pointer. Passing a created event-source pointer
+                // can deadlock SkyLight and display the macOS spinning beachball.
+                double seconds = CGEventSourceSecondsSinceLastEventType(
+                    EventSourceStateCombinedSessionState,
+                    AnyInputEventType);
+                if (seconds >= 0)
                     return seconds;
-                }
-                finally
-                {
-                    CFRelease(eventSource);
-                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[MacIdleTime] Error getting idle time: {ex.Message}");
-                return 0;
+            }
+
+            lock (_lock)
+            {
+                return (DateTime.UtcNow - _lastActivityTime).TotalSeconds;
             }
         }
 
-        /// <summary>
-        /// Returns a TimeSpan of the idle duration.
-        /// </summary>
         public static TimeSpan GetIdleTime()
         {
             return TimeSpan.FromSeconds(GetIdleTimeInSeconds());
         }
 
-        /// <summary>
-        /// Checks if the user has been idle for at least the specified duration.
-        /// </summary>
         public static bool IsIdleFor(TimeSpan duration)
         {
             return GetIdleTimeInSeconds() >= duration.TotalSeconds;
         }
 
-        /// <summary>
-        /// Checks if the user has been idle for at least the specified number of seconds.
-        /// </summary>
         public static bool IsIdleForSeconds(double seconds)
         {
             return GetIdleTimeInSeconds() >= seconds;
