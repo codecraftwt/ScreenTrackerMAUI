@@ -1,6 +1,0 @@
-- Added macOS platform support files: ActiveWindowTrackerService, GlobalInputMonitorService, DesktopScreenshotService, MacIdleTimeService, and MacServicesInitializer using native macOS APIs (NSWorkspace, NSEvent, CGDisplayCreateImage)
-- Configured macOS permissions: NSAccessibilityUsageDescription in Info.plist and Accessibility entitlement in Entitlements.plist
-- Attempted to wire macOS services into shared files using conditional compilation (#if WINDOWS / #elif MACCATALYST) in MauiProgram.cs and .razor files
-- Issue: Merged @inject lines in Login.razor caused Razor compiler error — fixed by adding newline separator
-- Issue: Stale build cache (bin/obj) from partial edits caused "Loading..." on Windows — resolved by reverting all shared files to original state
-- Current state: Windows code is 100% untouched and compiles identically. macOS platform files are ready but need wiring changes applied on a Mac for testing

@@ -160,9 +160,13 @@
                                 }
                             </div>
                             <p>@CalculateActivityScore(screenshot)%</p>
-                            @if (currentUser != null && (currentUser.role != "User" || currentUser.isSelected == true))
+                            @{
+                                bool canDelete = userRole == "Admin" || userRole == "superadmin" ||
+                                    (userRole == "User" && loggedInUser?.isSelected == true && loggedInUserId == screenshot.userId);
+                            }
+                            @if (canDelete)
                             {
-                                <button @onclick="() => DeleteScreenshot(screenshot.id)" class="delete-btn">
+                                <button @onclick="() => ConfirmAndDeleteScreenshot(screenshot.id)" class="delete-btn">
                                     <i class="fa fa-trash"></i>
                                 </button>
                             }
@@ -210,6 +214,8 @@
     private DateTime selectedDate;
     private bool isLoading;
     private User currentUser;
+    private int loggedInUserId;
+    private User loggedInUser;
     private string userRole;
     private string maxSelectableDate = DateTime.Today.ToString("yyyy-MM-dd");
     private TimeSpan totalDuration = TimeSpan.Zero;
@@ -249,6 +255,7 @@
                 if (int.TryParse(userIdClaim, out int id))
                 {
                     userId = id;
+                    loggedInUserId = id;
                 }
 
                 var roleClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
@@ -256,6 +263,12 @@
                 {
                     userRole = roleClaim;
                 }
+            }
+
+            // Load the logged-in user's full profile (for isSelected check)
+            if (loggedInUserId != 0)
+            {
+                loggedInUser = await UserService.GetUserByIdAsync(loggedInUserId);
             }
         }
         else
@@ -583,8 +596,12 @@
 
 
 
-    private async Task DeleteScreenshot(int screenshotId)
+    private async Task ConfirmAndDeleteScreenshot(int screenshotId)
     {
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this screenshot?");
+        if (!confirmed)
+            return;
+
         if (await UserService.DeleteScreenshotAsync(screenshotId))
         {
             await LoadScreenshotsAsync(usageType);

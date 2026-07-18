@@ -98,6 +98,7 @@
                             <th class="text-center table-headers">Manual Tracking</th>
                             <th class="text-center table-headers">Auto Tracking</th>
                             <th class="text-center table-headers">Active Status</th>
+                            <th class="text-center table-headers">Delete Authority</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -130,6 +131,14 @@
                                     <label class="toggle-switch">
                                         <input type="checkbox" checked="@user.isActive"
                                                @onchange="e => UpdateUserActiveStatus(user, e)" />
+                                        <span class="toggle-slider span-color"></span>
+                                    </label>
+                                </td>
+                                <td class="permission-cell">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" checked="@(user.isSelected ?? false)"
+                                               @onchange="e => UpdateUserDeleteAuth(user, e)"
+                                               disabled="@(IsTrackingToggleDisabled(user))" />
                                         <span class="toggle-slider span-color"></span>
                                     </label>
                                 </td>
@@ -652,6 +661,14 @@
 
         // For all other cases, allow control
         return false;
+    }
+
+    private async Task UpdateUserDeleteAuth(User user, ChangeEventArgs e)
+    {
+        bool isSelected = (bool?)e.Value ?? false;
+        user.isSelected = isSelected;
+        user.deleteAuthBy = currentUserId;
+        await UserService.UpdateDeleteAuthAsync(user.id, currentUserId, isSelected);
     }
 
     private async Task GoBack()
