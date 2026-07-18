@@ -1,0 +1,188 @@
+@page "/test"
+@using ScreenTracker1.Models
+@using ScreenTracker1.Services
+@using System.IdentityModel.Tokens.Jwt
+@using Microsoft.Maui.Storage
+@inject UserService UserService
+@inject KeyboardMouseService KeyboardMouseService
+@inject IJSRuntime JSRuntime
+
+<div style="padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <h1>🧪 Test Page - Image Loading</h1>
+    
+    <div style="margin: 20px 0; padding: 15px; background: #f0f0f0; border-radius: 8px;">
+        <h3>Status: @_statusMessage</h3>
+        <p><strong>User ID:</strong> @_userId</p>
+        <p><strong>Date:</strong> @_selectedDate.ToString("yyyy-MM-dd")</p>
+        <p><strong>Screenshots Count:</strong> @_screenshots?.Count</p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+            <button style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;" @onclick='() => LoadImages("2026-06-19")'>Load June 19</button>
+            <button style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;" @onclick='() => LoadImages("2026-06-22")'>Load June 22</button>
+            <button style="padding: 8px 16px; background: #ffc107; color: #212529; border: none; border-radius: 4px; cursor: pointer;" @onclick='() => LoadImages("2026-06-13")'>Load June 13</button>
+            <button style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;" @onclick="ClearImages">Clear</button>
+        </div>
+    </div>
+
+    @if (_screenshots?.Any() == true)
+    {
+        <div style="display: flex; flex-wrap: wrap; gap: 15px;">
+            @foreach (var screenshot in _screenshots)
+            {
+                <div style="border: 1px solid #ccc; padding: 10px; border-radius: 8px; width: 200px; text-align: center; background: #fafafa;">
+                    <p><strong>ID: @screenshot.id</strong></p>
+                    <p style="font-size: 11px; color: #666;">@screenshot.captureTime.ToString("HH:mm:ss")</p>
+                    <img src="@GetImageUrl(screenshot)" 
+                         style="max-width: 100%; max-height: 150px; border: 2px solid #007bff; border-radius: 4px;"
+                         onerror="this.style.border='2px solid red'; this.alt='Failed to load'; console.error('Failed to load image #' + @screenshot.id)"
+                         onload="console.log('✅ Image #' + @screenshot.id + ' loaded')" />
+                    <p style="font-size: 10px; word-break: break-all; margin-top: 5px; color: #888;">
+                        @GetImageUrl(screenshot)?.Substring(0, Math.Min(60, GetImageUrl(screenshot)?.Length ?? 0))...
+                    </p>
+                </div>
+            }
+        </div>
+        
+        <div style="margin-top: 20px; padding: 15px; background: #d4edda; border-radius: 8px;">
+            <h4>✅ All @_screenshots.Count images loaded</h4>
+        </div>
+    }
+    else
+    {
+        <div style="padding: 40px; text-align: center; color: #999;">
+            <h3>No images loaded yet. Click a date button to fetch data.</h3>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Screenshots> _screenshots = new List<Screenshots>();
+    private int _userId = 0;
+    private DateTime _selectedDate = DateTime.Today;
+    private string _statusMessage = "Ready";
+    private const string BaseImageUrl = "http://10.0.3.55:90/uploads/";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var token = Preferences.Get("authToken", null);
+            if (!string.IsNullOrEmpty(token))
+            {
+                var handler = new JwtSecurityTokenHandler();
+                if (handler.ReadToken(token) is JwtSecurityToken jwtToken)
+                {
+                    var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+                    if (int.TryParse(userIdClaim, out int id))
+                    {
+                        _userId = id;
+                    }
+                }
+            }
+            _statusMessage = $"User ID: {_userId} | Token: {(string.IsNullOrEmpty(token) ? "❌ No" : "✅ Yes")}";
+            StateHasChanged();
+            
+            // Auto-load images for June 19
+            await LoadImages("2026-06-19");
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Error: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadImages(string dateString)
+    {
+        try
+        {
+            _statusMessage = $"Loading {dateString}...";
+            StateHasChanged();
+
+            if (_userId == 0)
+            {
+                _statusMessage = "❌ User ID is 0. Please log in first.";
+                StateHasChanged();
+                return;
+            }
+
+            if (!DateTime.TryParseExact(dateString, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateTime selectedDate))
+            {
+                _statusMessage = $"❌ Invalid date: {dateString}";
+                StateHasChanged();
+                return;
+            }
+
+            _selectedDate = selectedDate;
+
+            var basicScreenshots = await UserService.GetImagesByDateAsync(
+                _userId,
+                _selectedDate,
+                1,
+                10000,
+                "all",
+                null,
+                null
+            );
+
+            if (basicScreenshots?.Any() != true)
+            {
+                _statusMessage = $"⚠️ No screenshots found for userId={_userId}, date={_selectedDate:yyyy-MM-dd}";
+                _screenshots = new List<Screenshots>();
+                StateHasChanged();
+                return;
+            }
+
+            var processed = new List<Screenshots>();
+            foreach (var shot in basicScreenshots)
+            {
+                try
+                {
+                    var detailed = await KeyboardMouseService.GetImageActivityDataAsync(shot.id);
+                    processed.Add(detailed ?? shot);
+                }
+                catch
+                {
+                    processed.Add(shot);
+                }
+            }
+
+            _screenshots = processed;
+            
+            Console.WriteLine($"📸 Loaded {_screenshots.Count} screenshots for {_selectedDate:yyyy-MM-dd}");
+            foreach (var shot in _screenshots)
+            {
+                Console.WriteLine($"  #{shot.id}: {GetImageUrl(shot)}");
+            }
+
+            _statusMessage = $"✅ Loaded {_screenshots.Count} screenshots for {_selectedDate:yyyy-MM-dd}!";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"❌ Error: {ex.Message}";
+            Console.WriteLine($"Error: {ex.Message}");
+            Console.WriteLine($"StackTrace: {ex.StackTrace}");
+            StateHasChanged();
+        }
+    }
+
+    private void ClearImages()
+    {
+        _screenshots = new List<Screenshots>();
+        _statusMessage = "Cleared";
+        StateHasChanged();
+    }
+
+    private string GetImageUrl(Screenshots screenshot)
+    {
+        if (screenshot == null || string.IsNullOrEmpty(screenshot.imageUrl))
+            return string.Empty;
+
+        string url = screenshot.imageUrl;
+
+        if (url.StartsWith("http") || url.StartsWith("data:"))
+            return url;
+
+        return BaseImageUrl + url;
+    }
+}

@@ -22,6 +22,7 @@
 
 
     <script src="js/site.js"></script>
+    <script src="js/site.js"></script>
     <script src="js/app.js"></script>
     <script src="js/stitch-scroll.js"></script>
     <script src="js/theme.js"></script>
@@ -53,7 +54,8 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
 
 
     <link href="_content/Radzen.Blazor/css/default.css" rel="stylesheet" />
@@ -107,9 +109,95 @@
 
         document.addEventListener('keydown', disableCtrlR);
 
+        /**
+         * Creates a blob: URL from a base64 data URI and stores it in a managed cache.
+         * This bypasses WKWebView's data URI size limitation on macOS.
+         * Returns the blob URL string, or null on failure.
+         */
+        window.createScreenshotBlobUrl = function (screenshotId, dataUri, mimeType) {
+            try {
+                // Revoke existing blob URL for this ID if any
+                if (window._screenshotBlobUrls && window._screenshotBlobUrls[screenshotId]) {
+                    URL.revokeObjectURL(window._screenshotBlobUrls[screenshotId]);
+                }
 
+                // Extract base64 content (strip the "data:...;base64," prefix)
+                var base64Content = dataUri;
+                var commaIdx = dataUri.indexOf('base64,');
+                if (commaIdx !== -1) {
+                    base64Content = dataUri.substring(commaIdx + 7);
+                }
+
+                // Decode base64 to binary bytes
+                var binaryStr = atob(base64Content);
+                var len = binaryStr.length;
+                var bytes = new Uint8Array(len);
+                for (var i = 0; i < len; i++) {
+                    bytes[i] = binaryStr.charCodeAt(i);
+                }
+
+                // Create Blob and object URL
+                var blob = new Blob([bytes], { type: mimeType || 'image/jpeg' });
+                var blobUrl = URL.createObjectURL(blob);
+
+                // Store in managed cache
+                if (!window._screenshotBlobUrls) window._screenshotBlobUrls = {};
+                window._screenshotBlobUrls[screenshotId] = blobUrl;
+
+                return blobUrl;
+            } catch (e) {
+                console.error('[BlobUrl] createScreenshotBlobUrl error for #' + screenshotId + ':', e.message);
+                return null;
+            }
+        };
+
+        /**
+         * Sets the src of an <img> element by its data-img-id attribute.
+         * Returns true if the element was found and updated.
+         */
+        window.setScreenshotImageSrc = function (screenshotId, blobUrl) {
+            try {
+                var img = document.querySelector('[data-img-id="' + screenshotId + '"]');
+                if (img) {
+                    img.src = blobUrl;
+                    img.dataset.blobSet = '1';
+                    return true;
+                }
+                console.warn('[BlobUrl] No img element found with data-img-id="' + screenshotId + '"');
+                return false;
+            } catch (e) {
+                console.error('[BlobUrl] setScreenshotImageSrc error for #' + screenshotId + ':', e.message);
+                return false;
+            }
+        };
+
+        /**
+         * Revokes all screenshot blob URLs to prevent memory leaks.
+         * Call this when navigating away or before loading new screenshots.
+         */
+        window.revokeAllScreenshotBlobUrls = function () {
+            if (window._screenshotBlobUrls) {
+                for (var id in window._screenshotBlobUrls) {
+                    if (window._screenshotBlobUrls.hasOwnProperty(id)) {
+                        try { URL.revokeObjectURL(window._screenshotBlobUrls[id]); } catch (e) { }
+                    }
+                }
+                window._screenshotBlobUrls = {};
+            }
+        };
+
+        /**
+         * Revokes a single screenshot blob URL by ID.
+         */
+        window.revokeScreenshotBlobUrl = function (screenshotId) {
+            if (window._screenshotBlobUrls && window._screenshotBlobUrls[screenshotId]) {
+                try { URL.revokeObjectURL(window._screenshotBlobUrls[screenshotId]); } catch (e) { }
+                delete window._screenshotBlobUrls[screenshotId];
+            }
+        };
     </script>
 </head>
+
 <body>
     <div id="app">Loading...</div>
     <script src="_framework/blazor.webview.js"></script>

@@ -15,6 +15,9 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI;
 using WinRT.Interop;
 #endif
+#if MACCATALYST
+using ScreenTracker1.Platforms.MacCatalyst;
+#endif
 
 namespace ScreenTracker1
 {
@@ -67,6 +70,13 @@ namespace ScreenTracker1
 #endif
              });
 
+#if MACCATALYST
+            builder.ConfigureMauiHandlers(handlers =>
+            {
+                handlers.AddHandler<IBlazorWebView, CustomBlazorWebViewHandler>();
+            });
+#endif
+
             builder.Services.AddRadzenComponents();
             builder.Services.AddMauiBlazorWebView();
 
@@ -79,6 +89,7 @@ namespace ScreenTracker1
             builder.Services.AddSingleton<AppUsageTracker>();
             builder.Services.AddSingleton<NativeThemeService>();
             builder.Services.AddSingleton<UserService>();
+            builder.Services.AddSingleton<SessionKeepAliveService>();
             builder.Services.AddScoped<LoginService>();
             builder.Services.AddScoped<RegisterService>();
             builder.Services.AddScoped<AppStateService>();
@@ -98,10 +109,21 @@ namespace ScreenTracker1
             builder.Services.AddSingleton<SharedStateService>();
             builder.Services.AddSingleton<UserSelectionStateService>();
             builder.Services.AddSingleton<IWebAuthenticator>(WebAuthenticator.Default);
+            builder.Services.AddSingleton<DeviceIdProvider>();
+            builder.Services.AddTransient<AuthDelegatingHandler>();
 
-            builder.Services.AddScoped(sp => new HttpClient
+            builder.Services.AddScoped(sp =>
             {
-                Timeout = TimeSpan.FromSeconds(30)
+                var handler = sp.GetRequiredService<AuthDelegatingHandler>();
+                handler.InnerHandler = new SocketsHttpHandler
+                {
+                    ConnectTimeout = TimeSpan.FromSeconds(10),
+                    PooledConnectionLifetime = TimeSpan.FromMinutes(1)
+                };
+                return new HttpClient(handler)
+                {
+                    Timeout = TimeSpan.FromSeconds(30)
+                };
             });
 
             builder.Services.AddSingleton<MainPage>();

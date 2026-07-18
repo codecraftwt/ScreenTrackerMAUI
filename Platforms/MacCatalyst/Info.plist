@@ -2,36 +2,66 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- The Mac App Store requires you specify if the app uses encryption. -->
-    <!-- Please consult https://developer.apple.com/documentation/bundleresources/information_property_list/itsappusesnonexemptencryption -->
-    <!-- <key>ITSAppUsesNonExemptEncryption</key> -->
-    <!-- Please indicate <true/> or <false/> here. -->
-
-    <!-- Specify the category for your app here. -->
-    <!-- Please consult https://developer.apple.com/documentation/bundleresources/information_property_list/lsapplicationcategorytype -->
-    <!-- <key>LSApplicationCategoryType</key> -->
-    <!-- <string>public.app-category.YOUR-CATEGORY-HERE</string> -->
-    <!-- Permission: Required for global keyboard/mouse monitoring via NSEvent global monitors -->
+    <!-- Permissions -->
     <key>NSAccessibilityUsageDescription</key>
     <string>ScreenTracker1 requires Accessibility access to monitor global keyboard and mouse activity for productivity tracking.</string>
-    <!-- Permission: Required for screen capture via CGDisplayCreateImage on macOS 10.15+ -->
+    
     <key>NSScreenCaptureDescription</key>
     <string>ScreenTracker1 requires screen recording permission to capture periodic screenshots of your desktop for productivity tracking.</string>
 
+    <!-- 🔥 CRITICAL: Allow HTTP connections -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+        <key>NSAllowsArbitraryLoadsInWebContent</key>
+        <true/>
+        <key>NSAllowsArbitraryLoadsForMedia</key>
+        <true/>
+        <!-- Specific exception for your server IP -->
+        <key>NSExceptionDomains</key>
+        <dict>
+            <key>10.0.3.55</key>
+            <dict>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+                <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+                <key>NSTemporaryExceptionMinimumTLSVersion</key>
+                <string>TLSv1.0</string>
+                <key>NSTemporaryExceptionRequiresForwardSecrecy</key>
+                <false/>
+            </dict>
+            <key>localhost</key>
+            <dict>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+                <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+            </dict>
+        </dict>
+    </dict>
+
+    <!-- Device Family -->
     <key>UIDeviceFamily</key>
     <array>
         <integer>2</integer>
     </array>
+    
     <key>UIRequiredDeviceCapabilities</key>
     <array>
         <string>arm64</string>
     </array>
+    
     <key>UISupportedInterfaceOrientations</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>
         <string>UIInterfaceOrientationLandscapeLeft</string>
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
+    
     <key>UISupportedInterfaceOrientations~ipad</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>
@@ -39,6 +69,7 @@
         <string>UIInterfaceOrientationLandscapeLeft</string>
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
+    
     <key>XSAppIconAssets</key>
     <string>Assets.xcassets/appicon.appiconset</string>
 </dict>

@@ -1,9 +1,12 @@
 ﻿@page "/"
 @page "/login"
+
 @using ScreenTracker1.Models
 @using Microsoft.AspNetCore.Components.Forms
 @using ScreenTracker1.Services
 @using System.IdentityModel.Tokens.Jwt
+@using System.Runtime.InteropServices
+
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject LoginService LoginService
@@ -12,8 +15,9 @@
 @inject AfkTrackerService afkTrackerService
 @inject AppUsageTracker appUsageTrackerService
 @inject UserService UserService
-@layout ScreenTracker1.Components.Layout.NoNavLayout
+@inject UserSelectionStateService UserStateService
 
+@layout ScreenTracker1.Components.Layout.NoNavLayout
 
 <div class="login-container">
     <div class="login-card">
@@ -31,7 +35,11 @@
 
             <div class="form-group">
                 <label class="form-label">Username</label>
-                <input value="@loginModel.username" @oninput="OnUsernameInput" type="text" class="form-input" placeholder="Enter your username " />
+                <input value="@loginModel.username"
+                       @oninput="OnUsernameInput"
+                       type="text"
+                       class="form-input"
+                       placeholder="Enter your username" />
             </div>
 
             <div class="form-group">
@@ -54,6 +62,7 @@
                     <InputCheckbox @bind-Value="loginModel.rememberMe" />
                     <label class="checkbox-label">Remember me</label>
                 </div>
+
                 <a href="/forgot-password" class="forgot-link">Forgot Password?</a>
             </div>
 
@@ -62,7 +71,9 @@
                 <p class="form-hint">Please enter both Username and Password to continue.</p>
             }
 
-            <button type="submit" class="submit-btn" disabled="@(!CanSignIn)">Sign In</button>
+            <button type="submit" class="submit-btn" disabled="@(!CanSignIn)">
+                Sign In
+            </button>
         </EditForm>
 
         <div class="divider">
@@ -71,52 +82,196 @@
             <div class="divider-line"></div>
         </div>
 
-       @*   <button class="google-btn" @onclick="SignInWithGoogle">
-             <svg class="google-icon" viewBox="0 0 24 24">
-                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.26-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.47 8.55 1 10.22 1 12s.47 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-             </svg>
-             Sign in with Google
-         </button> *@
+        @* Google login currently disabled *@
+        @*
+        <button class="google-btn" @onclick="SignInWithGoogle">
+            Sign in with Google
+        </button>
+        *@
 
         @if (!string.IsNullOrEmpty(message))
         {
             <p class="message">@message</p>
         }
+
         @if (!string.IsNullOrEmpty(errorMessage))
         {
             <p class="error-message">@errorMessage</p>
         }
 
         <div class="login-footer">
-            <p class="footer-text">Don't have an account? <a href="#" class="footer-link">Contact your administrator</a></p>
+            <p class="footer-text">
+                Don't have an account?
+                <a href="#" class="footer-link">Contact your administrator</a>
+            </p>
         </div>
     </div>
 </div>
 
 @code {
     private LoginModel loginModel = new();
-    private string message;
-    private string errorMessage;
+
+    private string? message;
+    private string? errorMessage;
+
     private int uid;
+
     private IJSObjectReference? themeModule;
+
     private bool showPassword = false;
+
     private string passwordInputType => showPassword ? "text" : "password";
-    private bool CanSignIn => !string.IsNullOrWhiteSpace(loginModel.username)
+
+    private bool CanSignIn =>
+        !string.IsNullOrWhiteSpace(loginModel.username)
         && !string.IsNullOrWhiteSpace(loginModel.password);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            themeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/theme.js");
-            bool isDarkTheme = await themeModule.InvokeAsync<bool>("getSystemTheme");
-            await themeModule.InvokeVoidAsync("setTheme", isDarkTheme);
-            await themeModule.DisposeAsync();
+            try
+            {
+                themeModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/theme.js");
+
+                bool isDarkTheme = await themeModule.InvokeAsync<bool>("getSystemTheme");
+
+                await themeModule.InvokeVoidAsync("setTheme", isDarkTheme);
+
+                await themeModule.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Theme load error: {ex.Message}");
+            }
         }
     }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // A previous intentional logout or session-expired reset may have
+            // been interrupted when the app was quit. Never auto-login with
+            // credentials left behind by that interrupted cleanup.
+            if (Preferences.Get("isLoggingOut", false))
+            {
+                Preferences.Remove("authToken");
+                Preferences.Remove("auth_token");
+                SecureStorage.Remove("authToken");
+                SecureStorage.Remove("auth_token");
+            }
+
+            string? savedUsername;
+
+#if MACCATALYST
+            savedUsername = Preferences.Get("saved_username", string.Empty);
+#else
+            savedUsername = await SecureStorage.GetAsync("saved_username");
+#endif
+
+            if (!string.IsNullOrEmpty(savedUsername))
+            {
+                loginModel.username = savedUsername;
+                loginModel.rememberMe = true;
+            }
+
+            string? token;
+
+#if MACCATALYST
+            token = Preferences.Get("auth_token", string.Empty);
+
+            if (string.IsNullOrEmpty(token))
+            {
+                token = Preferences.Get("authToken", string.Empty);
+            }
+#else
+            token = await SecureStorage.GetAsync("auth_token");
+#endif
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                var handler = new JwtSecurityTokenHandler();
+
+                try
+                {
+                    var jwt = handler.ReadJwtToken(token);
+
+                    if (jwt.ValidTo > DateTime.UtcNow)
+                    {
+                        Preferences.Set("authToken", token);
+                        Preferences.Set("auth_token", token);
+
+                        var userIdClaim = jwt.Claims
+                            .FirstOrDefault(c =>
+                                c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")
+                            ?.Value;
+
+                        var userRole = jwt.Claims
+                            .FirstOrDefault(c =>
+                                c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
+                            ?.Value;
+
+                        if (int.TryParse(userIdClaim, out int userId))
+                        {
+                            uid = userId;
+                            UserService.SetUserId(userId);
+
+                            // A locally unexpired JWT may already be invalid on
+                            // the server. Validate every role, including
+                            // superadmin, before performing automatic login.
+                            bool sessionValid = await UserService.TryHeartbeatRecoveryAsync();
+                            if (sessionValid && userRole?.ToLower() != "superadmin")
+                            {
+                                sessionValid = await DetermineTrackingStateAsync(userId, userRole);
+                            }
+
+                            if (sessionValid)
+                            {
+                                UserStateService.UserId = 0;
+                                UserStateService.SelectedUsername = null;
+                                UserStateService.SelectedAdminUsername = null;
+                                UserStateService.Admins = new();
+                                UserStateService.Users = new();
+                                UserStateService.SelectedUsageType = "all";
+                                UserStateService.SelectedDate = DateTime.Today;
+
+                                App.first = true;
+                                NavigationManager.NavigateTo("/users");
+                                return;
+                            }
+
+                            // Server rejected the session — clear stale tokens and show login
+                            Preferences.Remove("authToken");
+                            Preferences.Remove("auth_token");
+#if !MACCATALYST
+                            SecureStorage.Remove("auth_token");
+                            SecureStorage.Remove("saved_username");
+#else
+                            Preferences.Remove("saved_username");
+#endif
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Token read error: {ex.Message}");
+
+                    Preferences.Remove("authToken");
+                    Preferences.Remove("auth_token");
+
+#if !MACCATALYST
+                    SecureStorage.Remove("auth_token");
+#endif
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Login initialization error: {ex.Message}");
+        }
+    }
+
     private void OnUsernameInput(ChangeEventArgs e)
     {
         loginModel.username = e.Value?.ToString() ?? string.Empty;
@@ -127,150 +282,10 @@
         loginModel.password = e.Value?.ToString() ?? string.Empty;
     }
 
-
-
     private void TogglePasswordVisibility()
     {
         showPassword = !showPassword;
     }
-
- 
-
-
-
-
-
-
-
-
-
-
-    private async Task SignInWithGoogle ()
-
-    {
-
-        try
-
-        {
-
-            string googleLoginUrl = $"{App.BaseUrl}/api/Auth/google-login";
-
-            var authUrl = new Uri(googleLoginUrl);
-
-            var callbackUrl = new Uri("screentracker://");
-
-
-
-            // Use options to allow insecure (http) requests for local development
-
-            var options = new WebAuthenticatorOptions
-
-                {
-
-                    Url = authUrl,
-
-                    CallbackUrl = callbackUrl,
-
-                    PrefersEphemeralWebBrowserSession = true // Good for testing login multiple times
-
-                };
-
-
-
-            // Note: Some platforms/versions still strictly enforce https even with these options.
-
-            var authResult = await WebAuthenticator.Default.AuthenticateAsync(options);
-
-
-            // ... rest of your token logic
-
-        }
-
-        catch (Exception ex)
-
-        {
-
-            errorMessage = "Connection error. Ensure your API is running and accessible.";
-
-            Console.WriteLine($"Auth Error: {ex.Message}");
-
-        }
-
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    private async Task ProcessSuccessfulLogin(string token)
-
-    {
-
-        // Save token exactly like your manual login does
-
-        Preferences.Set("authToken", token);
-
-        await SecureStorage.SetAsync("auth_token", token);
-
-
-
-        var handler = new JwtSecurityTokenHandler();
-
-        var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
-
-
-
-        if (jwtToken != null)
-
-        {
-
-            var userIdClaim = jwtToken.Claims
-
-                .FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
-
-            var userRole = jwtToken.Claims
-
-                .FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
-
-
-
-            if (int.TryParse(userIdClaim, out int userId))
-
-            {
-
-                uid = userId;
-
-                // Start tracking if not SuperAdmin (matching your existing logic)
-
-                if (userRole?.ToLower() != "superadmin")
-
-                {
-
-                    await DetermineAndStartTracking(userId, userRole);
-
-                }
-
-            }
-
-        }
-
-
-
-        NavigationManager.NavigateTo("/users");
-
-    }
-
-
 
     private async Task HandleLogin()
     {
@@ -281,50 +296,45 @@
 
         try
         {
+            errorMessage = null;
+            message = null;
+
+            /*
+             IMPORTANT:
+             Do not call UserService.LogoutAsync() before login.
+             On macOS this can disturb the backend active-device/session handling
+             and may cause: "You have logged in from another device. Please log in again."
+            */
+
             var result = await LoginService.LoginAsync(loginModel);
 
             if (string.IsNullOrEmpty(result) || result.Contains("Error"))
             {
                 errorMessage = "An unexpected error occurred during login.";
-                message = null;
                 return;
             }
 
             if (result == "You have not Authority to login")
             {
                 errorMessage = "You have not Authority to login";
-                message = null;
                 return;
             }
-            else if (result == "Invalid credentials")
+
+            if (result == "Invalid credentials")
             {
                 errorMessage = "Invalid credentials";
-                message = null;
                 return;
             }
 
-
-
-            if (loginModel.rememberMe)
-
+            if (result.Contains("You have logged in from another device"))
             {
-
-                await SecureStorage.SetAsync("saved_username", loginModel.username);
-
+                errorMessage = "You have logged in from another device. Please log in again.";
+                return;
             }
 
-            else
-
-            {
-
-                SecureStorage.Remove("saved_username");
-
-            }
-
-           
             string token = result;
-            Preferences.Set("authToken", token);
-            await SecureStorage.SetAsync("auth_token", token);
+
+            await SaveLoginDataAsync(token);
 
             var handler = new JwtSecurityTokenHandler();
             var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
@@ -332,28 +342,49 @@
             if (jwtToken != null)
             {
                 var userIdClaim = jwtToken.Claims
-                    .FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+                    .FirstOrDefault(c =>
+                        c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")
+                    ?.Value;
+
+                var userRole = jwtToken.Claims
+                    .FirstOrDefault(c =>
+                        c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
+                    ?.Value;
 
                 if (int.TryParse(userIdClaim, out int userId))
                 {
                     uid = userId;
-                }
+                    UserService.SetUserId(userId);
 
-                // Extract user role from token
-                var userRole = jwtToken.Claims
-                    .FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
+#if MACCATALYST
+                    // macOS permission flow should happen after successful login
+                    // but before screenshot/audio tracking starts.
+                    await RequestMacPermissionsBeforeTracking();
+#endif
 
-                // Only start tracking if user is NOT a SuperAdmin
-                if (userRole?.ToLower() != "superadmin")
-                {
-                    await DetermineAndStartTracking(userId, userRole);
-                }
-                else
-                {
-                    Console.WriteLine("SuperAdmin detected - Skipping automatic tracking.");
+                    if (userRole?.ToLower() != "superadmin")
+                    {
+                        await DetermineTrackingStateAsync(userId, userRole);
+                    }
+                    else
+                    {
+                        Console.WriteLine("SuperAdmin detected - Skipping automatic tracking.");
+                    }
                 }
             }
 
+            UserStateService.UserId = 0;
+            UserStateService.SelectedUsername = null;
+            UserStateService.SelectedAdminUsername = null;
+            UserStateService.Admins = new();
+            UserStateService.Users = new();
+            UserStateService.SelectedUsageType = "all";
+            UserStateService.SelectedDate = DateTime.Today;
+
+            // The Users page is the single owner of starting tracking services.
+            // Reset this for every successful login so auto-only users are started
+            // exactly once and manual-capable users remain stopped until requested.
+            App.first = true;
             NavigationManager.NavigateTo("/users");
         }
         catch (Exception ex)
@@ -364,8 +395,201 @@
         }
     }
 
+    private async Task SaveLoginDataAsync(string token)
+    {
+        Preferences.Set("authToken", token);
+        Preferences.Set("auth_token", token);
+
+#if MACCATALYST
+        if (loginModel.rememberMe)
+        {
+            Preferences.Set("saved_username", loginModel.username);
+        }
+        else
+        {
+            Preferences.Remove("saved_username");
+        }
+#else
+        await SecureStorage.SetAsync("auth_token", token);
+
+        if (loginModel.rememberMe)
+        {
+            await SecureStorage.SetAsync("saved_username", loginModel.username);
+        }
+        else
+        {
+            SecureStorage.Remove("saved_username");
+        }
+#endif
+    }
+
+#if MACCATALYST
+    private async Task RequestMacPermissionsBeforeTracking()
+    {
+        try
+        {
+            /*
+             macOS cannot silently allow Screen Recording / System Audio Recording.
+             The user must allow it from macOS Privacy settings.
+
+             This method checks the actual permission state using CGPreflightScreenCaptureAccess()
+             and AXIsProcessTrusted(), then guides the user to grant any missing permissions.
+            */
+
+            // 1. Check & request Screen Recording permission (needed for screenshots)
+            bool screenRecordingOk = await ScreenTracker1.Platforms.MacCatalyst
+                .DesktopScreenshotService.EnsureScreenRecordingPermissionAtLoginAsync();
+
+            if (!screenRecordingOk)
+            {
+                Console.WriteLine("macOS: Screen Recording permission was not granted — screenshots will be disabled.");
+            }
+            else
+            {
+                Console.WriteLine("macOS: Screen Recording permission confirmed.");
+            }
+
+            // 2. Check & request Accessibility permission (needed for osascript app/window tracking)
+            //    This uses the same AXIsProcessTrusted() check from Permissions.razor.
+            //    osascript with System Events requires Accessibility to detect the active window title.
+            bool accessibilityOk = await CheckMacAccessibilityPermissionAsync();
+
+            if (!accessibilityOk)
+            {
+                Console.WriteLine("macOS: Accessibility permission was not granted — app/window titles may be incomplete.");
+            }
+            else
+            {
+                Console.WriteLine("macOS: Accessibility permission confirmed.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"macOS permission request error: {ex.Message}");
+        }
+    }
+
+    private async Task<bool> CheckMacAccessibilityPermissionAsync()
+    {
+        // Use dlopen/dlsym to check AXIsProcessTrusted() without a direct framework reference
+        try
+        {
+            const string axApiPath = "/System/Library/PrivateFrameworks/Accessibility.framework/Accessibility";
+            IntPtr handle = dlopen(axApiPath, 0);
+            if (handle == IntPtr.Zero) return false;
+
+            try
+            {
+                IntPtr ptr = dlsym(handle, "AXIsProcessTrusted");
+                if (ptr == IntPtr.Zero) return false;
+
+                var del = Marshal.GetDelegateForFunctionPointer<AXIsProcessTrustedDelegate>(ptr);
+                bool isTrusted = del();
+
+                if (!isTrusted && Application.Current?.MainPage != null)
+                {
+                    bool openSettings = await Application.Current.MainPage.DisplayAlert(
+                        "Accessibility Permission Required",
+                        "ScreenTracker needs Accessibility permission to read active window titles.\n\nPlease enable it in System Settings > Privacy & Security > Accessibility and restart the app.",
+                        "Open Settings",
+                        "Continue"
+                    );
+
+                    if (openSettings)
+                    {
+                        await Launcher.Default.OpenAsync(
+                            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+                        );
+                    }
+                }
+
+                return isTrusted;
+            }
+            finally { dlclose(handle); }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Accessibility check error: {ex.Message}");
+            return false;
+        }
+    }
+
+    [DllImport("/usr/lib/libSystem.dylib")]
+    private static extern IntPtr dlopen(string path, int mode);
+
+    [DllImport("/usr/lib/libSystem.dylib")]
+    private static extern IntPtr dlsym(IntPtr handle, string symbol);
+
+    [DllImport("/usr/lib/libSystem.dylib")]
+    private static extern int dlclose(IntPtr handle);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate bool AXIsProcessTrustedDelegate();
+#endif
+
+    private async Task<bool> DetermineTrackingStateAsync(int userId, string? userRole)
+    {
+        try
+        {
+            var user = await UserService.GetUserByIdAsync(userId);
+
+            if (user != null)
+            {
+                bool isManualTrackingAllowed = user.isManualTrackingEnabled.GetValueOrDefault(false);
+                bool isAutoTrackingAllowed = user.isAutoTrackingEnabled.GetValueOrDefault(false);
+
+                Console.WriteLine($"Login - User {userId} tracking permissions - Manual: {isManualTrackingAllowed}, Auto: {isAutoTrackingAllowed}");
+
+                UserService.SetUserId(userId);
+
+                if (isManualTrackingAllowed && !isAutoTrackingAllowed)
+                {
+                    Console.WriteLine("Login - Case 1: Manual-only tracking will start on the Users page");
+                    Preferences.Set("IsOnState", true);
+                }
+                else if (!isManualTrackingAllowed && isAutoTrackingAllowed)
+                {
+                    Console.WriteLine("Login - Case 2: Automatic-only tracking will start on the Users page");
+                    Preferences.Set("IsOnState", false);
+
+                    var dailyTracker = await UserService.StartDailyTrackerAsync("automatic");
+                    App.DailyTrackerStartedDuringAutoLogin = dailyTracker != null;
+                }
+                else if (isManualTrackingAllowed && isAutoTrackingAllowed)
+                {
+                    Console.WriteLine("Login - Case 3: Both modes available; starting automatic tracking");
+                    Preferences.Set("IsOnState", false);
+
+                    var dailyTracker = await UserService.StartDailyTrackerAsync("automatic");
+                    App.DailyTrackerStartedDuringAutoLogin = dailyTracker != null;
+                }
+                else
+                {
+                    Console.WriteLine("Login - Case 4: No tracking permissions - Not starting tracking");
+
+                    Preferences.Set("IsOnState", false);
+                }
+
+                return true;
+            }
+            else
+            {
+                Console.WriteLine($"Login - ERROR: Could not fetch user details for userId {userId}");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in DetermineAndStartTracking: {ex.Message}");
+            return false;
+        }
+    }
+
     private async Task StartAll(string startMode = "automatic")
     {
+        // Tell the tracker which user is logged in so it uses the correct per-user file
+        appUsageTrackerService.SetUserId(uid);
+
         try
         {
             appUsageTrackerService.Start(startMode);
@@ -396,6 +620,7 @@
         try
         {
             var dailyTracker = await UserService.StartDailyTrackerAsync(startMode);
+
             if (dailyTracker != null)
             {
                 Console.WriteLine("Daily Tracker started successfully.");
@@ -405,109 +630,36 @@
                 Console.WriteLine("Error starting Daily Tracker.");
             }
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
             Console.WriteLine($"Error starting Daily Tracker: {ex.Message}");
         }
     }
 
-    private async Task DetermineAndStartTracking(int userId, string userRole)
+    private async Task SignInWithGoogle()
     {
         try
         {
-            var user = await UserService.GetUserByIdAsync(userId);
+            string googleLoginUrl = $"{App.BaseUrl}/api/Auth/google-login";
 
-            if (user != null)
+            var authUrl = new Uri(googleLoginUrl);
+            var callbackUrl = new Uri("screentracker://");
+
+            var options = new WebAuthenticatorOptions
             {
-                bool isManualTrackingAllowed = user.isManualTrackingEnabled.GetValueOrDefault(false);
-                bool isAutoTrackingAllowed = user.isAutoTrackingEnabled.GetValueOrDefault(false);
+                Url = authUrl,
+                CallbackUrl = callbackUrl,
+                PrefersEphemeralWebBrowserSession = true
+            };
 
-                Console.WriteLine($"Login - User {userId} tracking permissions - Manual: {isManualTrackingAllowed}, Auto: {isAutoTrackingAllowed}");
+            var authResult = await WebAuthenticator.Default.AuthenticateAsync(options);
 
-                UserService.SetUserId(userId);
-
-                if (isManualTrackingAllowed && !isAutoTrackingAllowed)
-                {
-                    Console.WriteLine("Login - Case 1: Starting with MANUAL tracking mode");
-                    Preferences.Set("IsOnState", true);
-                    StartAll("manual");
-                }
-                else if (!isManualTrackingAllowed && isAutoTrackingAllowed)
-                {
-                    Console.WriteLine("Login - Case 2: Starting with AUTOMATIC tracking mode");
-                    Preferences.Set("IsOnState", false);
-                    StartAll("automatic");
-                }
-                else if (isManualTrackingAllowed && isAutoTrackingAllowed)
-                {
-                    Console.WriteLine("Login - Case 3: Both permissions - Starting with AUTOMATIC tracking mode");
-                    Preferences.Set("IsOnState", false);
-                    StartAll("automatic");
-                }
-                else
-                {
-                    Console.WriteLine("Login - Case 4: No tracking permissions - Not starting tracking");
-                    Preferences.Set("IsOnState", false);
-                }
-            }
-            else
-            {
-                Console.WriteLine($"Login - ERROR: Could not fetch user details for userId {userId}");
-            }
+            // Add your Google token processing here if required.
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in DetermineAndStartTracking: {ex.Message}");
-        }
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-
-        var savedUsername = await SecureStorage.GetAsync("saved_username");
-
-        if (!string.IsNullOrEmpty(savedUsername))
-
-        {
-
-            loginModel.username = savedUsername;
-
-            loginModel.rememberMe = true;
-
-        }
-
-        var token = await SecureStorage.GetAsync("auth_token");
-
-        if (!string.IsNullOrEmpty(token))
-        {
-            var handler = new JwtSecurityTokenHandler();
-            try
-            {
-                var jwt = handler.ReadJwtToken(token);
-
-                if (jwt.ValidTo > DateTime.UtcNow)
-                {
-                    Preferences.Set("authToken", token);
-
-                    var userIdClaim = jwt.Claims
-                        .FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
-
-                    var userRole = jwt.Claims
-                        .FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
-
-                    if (userRole?.ToLower() != "superadmin" && int.TryParse(userIdClaim, out int userId))
-                    {
-                        await DetermineAndStartTracking(userId, userRole);
-                    }
-
-                    NavigationManager.NavigateTo("/users");
-                    return;
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
+            errorMessage = "Connection error. Ensure your API is running and accessible.";
+            Console.WriteLine($"Auth Error: {ex.Message}");
         }
     }
 }

@@ -12,6 +12,7 @@
 @inject NativeThemeService NativeThemeService
 @inject SystemThemeService SystemThemeService
 @inject UserSelectionStateService UserStateService
+@inject SessionKeepAliveService SessionKeepAliveService
 
 <div class="stitch-header">
     <div class="header-content">
@@ -143,11 +144,28 @@
             </div>
         </div>
     }
+
+    @if (showLogoutConfirm)
+    {
+        <div class="popup-container" @onclick="CancelLogout">
+            <div class="theme-container logout-confirm-container" @onclick:stopPropagation>
+                <div class="theme-section">
+                    <label class="theme-label">Confirm Logout</label>
+                    <p class="logout-confirm-text">Are you sure you want to logout?</p>
+                    <div class="logout-confirm-actions">
+                        <button class="logout-btn-yes" @onclick="ConfirmLogout">Yes, Logout</button>
+                        <button class="logout-btn-cancel" @onclick="CancelLogout">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
     private bool showMenu = false;
     private bool showThemePopup = false;
+    private bool showLogoutConfirm = false;
     private string selectedTheme = "system";
     private string themeIcon = "fa-sun";
     private string? UserName;
@@ -241,23 +259,51 @@
         }
     }
 
-    private async Task OnLogoutClicked()
+    private void OnLogoutClicked()
     {
+        CloseMenu();
+        showLogoutConfirm = true;
+    }
+
+    private void CancelLogout()
+    {
+        showLogoutConfirm = false;
+    }
+
+    private async Task ConfirmLogout()
+    {
+        showLogoutConfirm = false;
+
+        // Prevent in-flight requests from presenting an intentional logout as a
+        // conflicting-device/session-expired error.
+        UserService.BeginIntentionalLogout();
+        SessionKeepAliveService.Stop();
+
         // 1. Stop tracking services if they were active
-        // if (isOn)
-        // {
+        if (isOn)
+        {
             isOn = false;
             await localStorageModule.InvokeVoidAsync("setIsOnState", isOn);
             appUsageTrackerService.Stop();
+            appUsageTrackerService.ClearUserData();
             desktopAutoCaptureService.StopTimer();
             afkTrackerService.Stop();
-            await UserService.EndDailyTrackerAsync(); // First and only call
-            await UserService.LogoutAsync(); // Notify backend session ended
-        // }
+
+            // Superadmins are view-only and never own a tracking session.
+            if (!string.Equals(UserRole, "superadmin", StringComparison.OrdinalIgnoreCase))
+            {
+                await UserService.EndDailyTrackerAsync();
+            }
+        }
+
+        // Notify the backend while the current token is still available.
+        await UserService.LogoutAsync();
 
         // 2. Clear authentication tokens
         SecureStorage.Remove("auth_token");
-        Preferences.Set("authToken", null);
+        SecureStorage.Remove("authToken");
+        Preferences.Remove("authToken");
+        Preferences.Remove("auth_token");
 
         // 3. CLEAR THE USER-SPECIFIC STATE IN THE SERVICE (RESET ON LOGOUT)
         UserStateService.UserId = 0; // Clear the User ID (since it's not nullable, use 0)

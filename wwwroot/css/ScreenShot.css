@@ -33,9 +33,9 @@
     transition: transform 0.3s ease-in-out;
 }
 
-    .screenshot-image:hover {
-        transform: scale(1.03);
-    }
+.screenshot-image:hover {
+    transform: scale(1.03);
+}
 
 .screenshot-info {
     display: flex;
@@ -53,9 +53,9 @@
     border-radius: 2px;
 }
 
-    .block.active {
-        background-color: #28a745;
-    }
+.block.active {
+    background-color: #28a745;
+}
 
 .delete-btn {
     border: none;
@@ -65,9 +65,9 @@
     transition: color 0.2s ease-in-out;
 }
 
-    .delete-btn:hover {
-        color: #c82333;
-    }
+.delete-btn:hover {
+    color: #c82333;
+}
 
 .container {
     font-family: 'Comfortaa';
@@ -86,9 +86,9 @@
     border-radius: 2px;
 }
 
-    .block.active {
-        background-color: #28a745;
-    }
+.block.active {
+    background-color: #28a745;
+}
 
 body {
     background-color: var(--color-primary);
@@ -104,7 +104,26 @@ body {
 
 .stitch-date-picker {
     position: relative;
+}
 
+/* Readonly date display field - looks like a normal input but doesn't show native macOS picker */
+.stitch-date-readonly {
+    cursor: default;
+    background-color: var(--color-input-bg, #ffffff);
+    color: var(--color-text-color, #212529);
+    border: 1px solid var(--color-border, #dee2e6);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-family: inherit;
+    font-size: inherit;
+    width: 140px;
+    outline: none;
+    user-select: none;
+}
+
+.stitch-date-readonly:focus {
+    border-color: var(--theme-accent, #6366f1);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
 }
 
 .dot-container {
@@ -158,9 +177,9 @@ body {
     padding: 5px;
 }
 
-    .calendar-toggle-btn:hover {
-        color: #007bff;
-    }
+.calendar-toggle-btn:hover {
+    color: #007bff;
+}
 
 /*.custom-calendar-container {
     position: absolute;
@@ -203,10 +222,10 @@ body {
     padding: 5px 10px;
 }
 
-    .calendar-nav-btn:hover {
-        background-color: #f0f0f0;
-        border-radius: 4px;
-    }
+.calendar-nav-btn:hover {
+    background-color: #f0f0f0;
+    border-radius: 4px;
+}
 
 .calendar-month {
     font-size: 16px;
@@ -226,7 +245,7 @@ body {
 .calendar-days {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-/*    gap: 5px;*/
+    /*    gap: 5px;*/
 }
 
 .calendar-day {
@@ -243,23 +262,23 @@ body {
     align-items: center;
 }
 
-    .calendar-day:hover {
-        background-color: #f0f0f0;
-    }
+.calendar-day:hover {
+    background-color: #f0f0f0;
+}
 
-    .calendar-day.selected {
-        background-color: #007bff;
-        color: white;
-    }
+.calendar-day.selected {
+    background-color: #007bff;
+    color: white;
+}
 
-    .calendar-day.today {
-        background-color: #e9ecef;
-        font-weight: bold;
-    }
+.calendar-day.today {
+    background-color: #e9ecef;
+    font-weight: bold;
+}
 
-    .calendar-day.other-month {
-        color: #ccc;
-    }
+.calendar-day.other-month {
+    color: #ccc;
+}
 
 /*.day-dot {
     position: absolute;
@@ -298,9 +317,9 @@ body {
     transition: transform 0.2s;
 }
 
-    .screenshot-image:hover {
-        transform: scale(1.05);
-    }
+.screenshot-image:hover {
+    transform: scale(1.05);
+}
 
 .screenshot-info {
     margin-top: 8px;
@@ -320,9 +339,9 @@ body {
     border-radius: 1px;
 }
 
-    .block.active {
-        background-color: #28a745;
-    }
+.block.active {
+    background-color: #28a745;
+}
 
 .delete-btn {
     background: none;
@@ -332,9 +351,9 @@ body {
     padding: 2px 5px;
 }
 
-    .delete-btn:hover {
-        color: #bd2130;
-    }
+.delete-btn:hover {
+    color: #bd2130;
+}
 
 .no-screenshots {
     text-align: center;
@@ -373,6 +392,7 @@ body.dark-mode {
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
     width: 100%;
 }
+
 .calendar-weekdays,
 .calendar-days {
     display: grid;
@@ -403,45 +423,46 @@ body.dark-mode {
     font-size: 14px;
     color: var(--theme-text-primary, #212529);
 }
-    .calendar-day:hover {
-        background-color: #f0f0f0;
-    }
+
+.calendar-day:hover {
+    background-color: #f0f0f0;
+}
 
 /*    .calendar-day.selected {
         background-color: var(--highlight-color-dark);
         color: var(--text-color-dark);
     }*/
 
-    .calendar-day.selected {
-        background-color: var(--theme-accent, #6366f1);
-        color: #ffffff;
-    }
+.calendar-day.selected {
+    background-color: var(--theme-accent, #6366f1);
+    color: #ffffff;
+}
 
-    .calendar-day.other-month {
-        color: #888;
-    }
+.calendar-day.other-month {
+    color: #888;
+}
 
 
 /*    .calendar-day.disabled {
         cursor: not-allowed;
     }*/
 
-    .calendar-day.today:not(.selected) {
-        background-color: #f1f3f5;
-        font-weight: 700;
-    }
+.calendar-day.today:not(.selected) {
+    background-color: #f1f3f5;
+    font-weight: 700;
+}
 
-    /* hover */
-    .calendar-day:hover:not(.disabled) {
-        background-color: var(--theme-hover-bg, #f8f9fa);
-    }
+/* hover */
+.calendar-day:hover:not(.disabled) {
+    background-color: var(--theme-hover-bg, #f8f9fa);
+}
 
-    /* disabled/future dates */
-    .calendar-day.disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        pointer-events: none;
-    }
+/* disabled/future dates */
+.calendar-day.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 
 .day-dot {
     position: absolute;
@@ -470,10 +491,10 @@ body.dark-mode {
     color: var(--highlight-color-dark);
 }
 
-    .calendar-nav-btn:disabled {
-        color: #ccc;
-        cursor: not-allowed;
-    }
+.calendar-nav-btn:disabled {
+    color: #ccc;
+    cursor: not-allowed;
+}
 
 /*.calendar-toggle-btn {
     position: absolute;
@@ -498,9 +519,9 @@ body.dark-mode {
     padding: 5px;
 }
 
-    .calendar-toggle-btn:hover {
-        color: var(--highlight-color-light);
-    }
+.calendar-toggle-btn:hover {
+    color: var(--highlight-color-light);
+}
 
 .screenshot-item {
     padding: 10px;
@@ -523,15 +544,15 @@ body.dark-mode {
     transition: transform 0.2s;
 }
 
-    .screenshot-image:hover {
-        transform: scale(1.05);
-    }
+.screenshot-image:hover {
+    transform: scale(1.05);
+}
 
 .screenshot-info {
     margin-top: 8px;
     font-size: 14px;
-/*    background-color: #E1C8E6;*/
-    color:var(--color-text-color);
+    /*    background-color: #E1C8E6;*/
+    color: var(--color-text-color);
 }
 
 .activity-blocks {
@@ -547,9 +568,9 @@ body.dark-mode {
     border-radius: 1px;
 }
 
-    .block.active {
-        background-color: #28a745;
-    }
+.block.active {
+    background-color: #28a745;
+}
 
 .delete-btn {
     background: none;
@@ -559,20 +580,21 @@ body.dark-mode {
     padding: 2px 5px;
 }
 
-    .delete-btn:hover {
-        color: #bd2130;
-    }
+.delete-btn:hover {
+    color: #bd2130;
+}
 
 .no-screenshots {
     text-align: center;
     padding: 40px;
     color: #6c757d;
 }
+
 .card {
     /*    background-color: #EEE8FF;*/
     background-color: var(--color-secondary);
     border-radius: 23px;
-    color:var(--color-text-color);
+    color: var(--color-text-color);
 }
 
 .btn-secondary.btn-sm {
@@ -593,9 +615,10 @@ span.mx-2 {
     white-space: nowrap;
 }
 
-.table{
-    color:var(--color-text-color);
+.table {
+    color: var(--color-text-color);
 }
+
 .card-header-background {
     background: var(--color-pink-shade) !important;
 }
@@ -706,9 +729,9 @@ span.mx-2 {
     color: var(--theme-text-primary, #212529);
 }
 
-    .calendar-day.other-month {
-        color: var(--theme-text-muted, #adb5bd);
-    }
+.calendar-day.other-month {
+    color: var(--theme-text-muted, #adb5bd);
+}
 
 
 .calendar-day:hover {
@@ -730,3 +753,9 @@ span.mx-2 {
 .calendar-toggle-btn:hover {
     color: var(--theme-accent, #6366f1);
 }
+
+/* .screenshot-image {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+} */
