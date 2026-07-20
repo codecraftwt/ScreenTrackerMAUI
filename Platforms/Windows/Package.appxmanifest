@@ -12,7 +12,7 @@
   <mp:PhoneIdentity PhoneProductId="4A2285F3-6655-4380-880E-A4D2B91C58D3" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>Screen Tracker</DisplayName>
+    <DisplayName>ScreenTracker</DisplayName>
     <PublisherDisplayName>Your Name</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
   </Properties>
@@ -29,8 +29,8 @@
   <Applications>
     <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="Screen Tracker"
-        Description="Screen Tracker Application"
+        DisplayName="ScreenTracker"
+        Description="ScreenTracker Application"
         Square150x150Logo="Images\Square150x150Logo.png"
         Square44x44Logo="Images\Square44x44Logo.png"
         BackgroundColor="#512BD4">
@@ -39,12 +39,12 @@
       </uap:VisualElements>
 		<Extensions>
 			<uap5:Extension Category="windows.startupTask">
-				<uap5:StartupTask TaskId="ScreenTrackerStartupId" Enabled="true" DisplayName="Screen Tracker" />
+				<uap5:StartupTask TaskId="ScreenTrackerStartupId" Enabled="true" DisplayName="ScreenTracker" />
 			</uap5:Extension>
 
 			<uap:Extension Category="windows.protocol">
 				<uap:Protocol Name="screentracker">
-					<uap:DisplayName>Screen Tracker Login</uap:DisplayName>
+					<uap:DisplayName>ScreenTracker Login</uap:DisplayName>
 				</uap:Protocol>
 			</uap:Extension>
 		</Extensions>

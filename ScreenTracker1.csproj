@@ -19,7 +19,7 @@
 		<Nullable>enable</Nullable>
 
 		<!-- Display name -->
-		<ApplicationTitle>ScreenTracker1</ApplicationTitle>
+		<ApplicationTitle>ScreenTracker</ApplicationTitle>
 
 		<!-- App Identifier -->
 		<ApplicationId>com.walstar.screentracker</ApplicationId>
@@ -52,7 +52,7 @@
 
 	<!-- MacCatalyst signing applied for AnyCPU / x64 / Debug / Release -->
 	<PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-maccatalyst'">
-		<ApplicationTitle>ScreenTracker1</ApplicationTitle>
+		<ApplicationTitle>ScreenTracker</ApplicationTitle>
 		<ApplicationId>com.walstar.screentracker</ApplicationId>
 
 		<CodesignKey>Apple Development: Pratap Patil (W7HRZPGLA4)</CodesignKey>
@@ -60,29 +60,29 @@
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net8.0-android|AnyCPU'">
-		<ApplicationTitle>Screen Tracker</ApplicationTitle>
+		<ApplicationTitle>ScreenTracker</ApplicationTitle>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net8.0-ios|AnyCPU'">
-		<ApplicationTitle>Screen Tracker</ApplicationTitle>
+		<ApplicationTitle>ScreenTracker</ApplicationTitle>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net8.0-maccatalyst|AnyCPU'">
-		<ApplicationTitle>Screen Tracker</ApplicationTitle>
+		<ApplicationTitle>ScreenTracker</ApplicationTitle>
 		<CodesignKey>Apple Development: Pratap Patil (W7HRZPGLA4)</CodesignKey>
 		<EnableCodeSigning>true</EnableCodeSigning>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net8.0-windows10.0.19041.0|AnyCPU'">
-		<ApplicationTitle>Screen Tracker</ApplicationTitle>
+		<ApplicationTitle>ScreenTracker</ApplicationTitle>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net8.0-android|AnyCPU'">
-		<ApplicationTitle>Screen Tracker</ApplicationTitle>
+		<ApplicationTitle>ScreenTracker</ApplicationTitle>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net8.0-ios|AnyCPU'">
-		<ApplicationTitle>Screen Tracker</ApplicationTitle>
+		<ApplicationTitle>ScreenTracker</ApplicationTitle>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net8.0-maccatalyst|AnyCPU'">
