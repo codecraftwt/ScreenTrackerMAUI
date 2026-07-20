@@ -237,6 +237,7 @@ namespace ScreenTracker1.Services
                 return;
 
             DateTime scheduledCaptureUtc = _nextCaptureUtc;
+#if MACCATALYST
             long sleepPlaceholderThroughTicks =
                 Interlocked.Read(ref _sleepPlaceholderThroughUtcTicks);
             bool isSleepCapture = _macSleeping ||
@@ -247,14 +248,19 @@ namespace ScreenTracker1.Services
             bool uploaded = await CaptureAndSendCoreAsync(
                 placeholder,
                 isSleepCapture ? "Missed While macOS Was Asleep" : "10-Minute");
+#else
+            bool uploaded = await CaptureAndSendCoreAsync();
+#endif
             if (!uploaded)
                 return;
 
             // Advance from the intended slot, not from the upload/wake time. This
             // preserves 11:44, 11:54, 12:04... and lets overdue sleep slots catch up.
             _nextCaptureUtc = scheduledCaptureUtc.AddMinutes(10);
+#if MACCATALYST
             if (_nextCaptureUtc.Ticks > sleepPlaceholderThroughTicks)
                 Interlocked.Exchange(ref _sleepPlaceholderThroughUtcTicks, 0);
+#endif
         }
 
         public void StopTimer()

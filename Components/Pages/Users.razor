@@ -37,7 +37,7 @@
                 {
                     <div class="toolbar-section">
                         <label class="label">Select Admin</label>
-                     
+
                         <div class="tooltip-container">
                             <select id="admin-select" @onchange="OnSelectedAdminChanged" class="stitch-user-select" value="@selectedAdminUsername">
                                 <option value="">Select Admin</option>
@@ -129,7 +129,7 @@
                                max="@maxSelectableDate"
                                class="stitch-date-picker" />
                         <span class="tooltip-text">Select a Date</span>
-                           <!-- <img src="http://10.0.3.55:90/uploads/14/18/82d5d2f9-08d4-4dc0-9e5f-6a3efa241267.png"> -->
+                        <!-- <img src="http://10.0.3.55:90/uploads/14/18/82d5d2f9-08d4-4dc0-9e5f-6a3efa241267.png"> -->
                     </div>
 
                     <div class="tooltip-container-Auto-Refresh">
@@ -402,7 +402,7 @@
                                         @{
                                             var titleIndex = 0;
                                         }
-                                     @*     @foreach (var title in appTitleList)
+                                        @*     @foreach (var title in appTitleList)
                                           {
                                               var percent = maxTitleTime > 0 ? (title.durationInMinutes / maxTitleTime) * 100 : 0;
                                              var isFirst = titleIndex == 0;
@@ -972,7 +972,7 @@
                 if (iconType == "ic07" || iconType == "ic08" || iconType == "ic09" || iconType == "ic10")
                 {
                     // Prefer larger sizes
-                    if (bestType == null || 
+                    if (bestType == null ||
                         (iconType == "ic10") ||
                         (iconType == "ic09" && bestType != "ic10") ||
                         (iconType == "ic08" && bestType == "ic07"))
@@ -1785,7 +1785,6 @@
                 totalAfkMinutes = await UserService.GetAfkLogsTotalAsync(id, selectedDate, userRole, selectedUsageType);
             }
 
-            SyncSelectedDateGraphToCards();
             chartDataReady = true;
         }
         finally
@@ -2601,13 +2600,9 @@
             initialAppUsageList = _allGroupedAppUsage.Take(appUsagePageSize).ToList();
             appUsageList = new List<AppUsage>(initialAppUsageList);
 
-            // Active Time should come from same AppUsage data
-            var allAppUsageList = allAppUsageTask.Result ?? new List<AppUsage>();
-            totalActiveAppMinutes = allAppUsageList.Sum(x => x.durationInMinutes);
-            SyncSelectedDateGraphToCards();
+            totalActiveAppMinutes = _allGroupedAppUsage.Sum(x => x.durationInMinutes);
             chartDataReady = true;
 
-            totalAppUsageRecords = usageCountTask.Result;
             moreAppUsageAvailable = appUsageList.Count < totalAppUsageRecords;
             currentAppUsagePage = 1;
 
