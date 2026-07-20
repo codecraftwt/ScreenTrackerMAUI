@@ -204,7 +204,7 @@ namespace ScreenTracker1.Platforms.MacCatalyst
 
             bool continueRequest = await ShowConfirmPopupAsync(
                 "Screen Recording Permission Required",
-                "ScreenTracker1 needs Screen Recording permission to capture real screenshots.\n\nClick Continue and allow permission in macOS.\n\nAfter enabling permission, quit and restart the app.",
+                "ScreenTracker needs Screen Recording permission to capture real screenshots.\n\nClick Continue and allow permission in macOS.\n\nAfter enabling permission, quit and restart the app.",
                 "Continue",
                 "Cancel"
             );
@@ -237,7 +237,7 @@ namespace ScreenTracker1.Platforms.MacCatalyst
 
             bool openSettings = await ShowConfirmPopupAsync(
                 "Permission Not Active",
-                "Screen Recording permission is not active yet.\n\nPlease enable ScreenTracker1 in:\n\nSystem Settings > Privacy & Security > Screen & System Audio Recording\n\nThen quit and restart the app.",
+                "Screen Recording permission is not active yet.\n\nPlease enable ScreenTracker in:\n\nSystem Settings > Privacy & Security > Screen & System Audio Recording\n\nThen quit and restart the app.",
                 "Open Settings",
                 "Cancel"
             );
