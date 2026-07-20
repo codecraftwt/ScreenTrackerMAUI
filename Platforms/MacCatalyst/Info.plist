@@ -4,10 +4,10 @@
 <dict>
     <!-- Permissions -->
     <key>NSAccessibilityUsageDescription</key>
-    <string>ScreenTracker1 requires Accessibility access to monitor global keyboard and mouse activity for productivity tracking.</string>
+    <string>ScreenTracker requires Accessibility access to monitor global keyboard and mouse activity for productivity tracking.</string>
     
     <key>NSScreenCaptureDescription</key>
-    <string>ScreenTracker1 requires screen recording permission to capture periodic screenshots of your desktop for productivity tracking.</string>
+    <string>ScreenTracker requires screen recording permission to capture periodic screenshots of your desktop for productivity tracking.</string>
 
     <!-- 🔥 CRITICAL: Allow HTTP connections -->
     <key>NSAppTransportSecurity</key>
