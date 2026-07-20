@@ -38,8 +38,10 @@ namespace ScreenTracker1.Services
             _failedHeartbeatCount = 0;
             _cachedToken = null;
 
+            // A short heartbeat lets the previously logged-in desktop learn that
+            // the backend replaced its device session soon after the new login.
             _heartbeatTimer = new Timer(async _ => await DoHeartbeatAsync(), null,
-                TimeSpan.FromMinutes(3), TimeSpan.FromMinutes(3));
+                TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
 
             _tokenRefreshTimer = new Timer(async _ => await CheckAndRefreshTokenAsync(), null,
                 TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(30));
@@ -120,11 +122,8 @@ namespace ScreenTracker1.Services
                     _failedHeartbeatCount++;
                     Console.WriteLine($"[KeepAlive] Heartbeat 401 (#{_failedHeartbeatCount})");
 
-                    if (_failedHeartbeatCount >= 3)
-                    {
-                        Console.WriteLine("[KeepAlive] Too many heartbeat failures. Stopping.");
-                        Stop();
-                    }
+                    Stop();
+                    await _userService.HandleUnauthorizedAsync();
                 }
             }
             catch (Exception ex)
