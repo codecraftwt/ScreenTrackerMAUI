@@ -22,6 +22,11 @@
     <div class="card shadow-sm">
 
         <div class="card-header d-flex align-items-center justify-content-between mb-2 p-2">
+            <button type="button" class="btn-back" @onclick="GoBack" title="Go Back">
+                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                <span>Back</span>
+            </button>
+
             <div class="position-relative d-flex align-items-center">
                 <div class="screenshots-page d-flex align-items-center">
                     <input type="date"
@@ -656,6 +661,11 @@
         NavigationManager.NavigateTo(
             $"/screenshot-details/{screenshotId}?date={selectedDate:yyyy-MM-dd}&usageType={usageType}&viewedUserId={userId}"
         );
+    }
+
+    private async Task GoBack()
+    {
+        await JSRuntime.InvokeVoidAsync("navigationHistory.goBack", "/users");
     }
 
     private async Task ConfirmAndDeleteScreenshot(int screenshotId)

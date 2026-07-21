@@ -46,8 +46,9 @@ else if (screenshots == null)
 else
 {
     <div style="font-family: 'Comfortaa';">
-        <button @onclick="BackToScreenshots" class="btn btn-primary" style="margin-top: 20px; margin-bottom 20px;">
-            <i class="fa fa-arrow-left"></i> Back
+        <button type="button" @onclick="BackToScreenshots" class="btn-back" title="Go Back">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i>
+            <span>Back</span>
         </button>
 
         <div class="row">
@@ -165,6 +166,7 @@ else
     [Parameter] public int ImageId { get; set; }
     [Parameter][SupplyParameterFromQuery] public DateTime? Date { get; set; }
     [Parameter][SupplyParameterFromQuery] public string UsageType { get; set; } = "all";
+    [Parameter][SupplyParameterFromQuery] public int? ViewedUserId { get; set; }
 
     private Screenshots screenshots;
     private Dictionary<string, MinuteActivity> minuteActivity;
@@ -184,7 +186,9 @@ else
     // FIX 1: Change 'loggedInUserId' to 'userId' in the TargetUserId property
     // This property correctly determines if we should view the SELECTED user (App.SelectedUserId)
     // or the LOGGED-IN Admin (userId).
-    private int TargetUserId => App.SelectedUserId != 0 ? App.SelectedUserId : userId;
+    private int TargetUserId => ViewedUserId.GetValueOrDefault() > 0
+        ? ViewedUserId.Value
+        : App.SelectedUserId != 0 ? App.SelectedUserId : userId;
 
 
     protected override async Task OnInitializedAsync()
@@ -405,10 +409,16 @@ else
 
             errorMessage = null;
 
-            // FIX: Navigation does not need 'viewedUserId' if using App.SelectedUserId,
-            // but it must include all other required parameters.
             var dateParam = Date.HasValue ? Date.Value.ToString("yyyy-MM-dd") : null;
-            NavigationManager.NavigateTo($"/screenshot-details/{ImageId}?date={dateParam}&usageType={UsageType}", false);
+            var viewedUserParam = ViewedUserId.GetValueOrDefault() > 0
+                ? $"&viewedUserId={ViewedUserId.Value}"
+                : string.Empty;
+            var detailsUrl = $"/screenshot-details/{ImageId}?date={dateParam}&usageType={UsageType}{viewedUserParam}";
+
+            NavigationManager.NavigateTo(detailsUrl, new NavigationOptions
+            {
+                ReplaceHistoryEntry = true
+            });
         }
         else
         {
@@ -424,12 +434,14 @@ else
         }
     }
 
-    private void BackToScreenshots()
+    private async Task BackToScreenshots()
     {
         var dateParam = Date.HasValue ? Date.Value.ToString("yyyy-MM-dd") : null;
-        // FIX: If we are using App.SelectedUserId, the main screenshot list page
-        // will automatically load the selected user's data.
-        NavigationManager.NavigateTo($"/screenshots/{dateParam}?usageType={UsageType}");
+        var viewedUserParam = ViewedUserId.GetValueOrDefault() > 0
+            ? $"&viewedUserId={ViewedUserId.Value}"
+            : string.Empty;
+        var fallbackUrl = $"/screenshots/{dateParam}?usageType={UsageType}{viewedUserParam}";
+        await JSRuntime.InvokeVoidAsync("navigationHistory.goBack", fallbackUrl);
     }
 
     private string FormatTimestamp(DateTime? timestamp) => timestamp?.ToLocalTime().ToString("h:mm:ss tt") ?? "N/A";
