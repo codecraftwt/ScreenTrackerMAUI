@@ -32,3 +32,14 @@ window.setSelect2Value = function (elementId, value) {
     }
 };
 
+window.navigationHistory = {
+    goBack: function (fallbackUrl) {
+        if (window.history.length > 1) {
+            window.history.back();
+            return;
+        }
+
+        window.location.replace(fallbackUrl);
+    }
+};
+
