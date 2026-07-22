@@ -13,6 +13,76 @@
 @using Microsoft.Maui.ApplicationModel
 @using Microsoft.JSInterop
 
+<header class="report-navbar">
+    <div class="report-navbar-title">
+        <span>Time and Activity Overview</span>
+        <h1>Reports</h1>
+    </div>
+
+    <div class="report-navbar-filters">
+        <div class="report-navbar-field">
+            <label>From</label>
+            <InputDate @bind-Value="FromDate" @bind-Value:after="OnDateFilterChanged" class="input-date" />
+        </div>
+        <div class="report-navbar-field">
+            <label>To</label>
+            <InputDate @bind-Value="ToDate" @bind-Value:after="OnDateFilterChanged" class="input-date" />
+        </div>
+
+        @if (UserRole?.ToLower() == "admin" || UserRole?.ToLower() == "superadmin")
+        {
+            @if (UserRole?.ToLower() == "superadmin")
+            {
+                <div class="report-navbar-field">
+                    <label>Select Admin</label>
+                    <select id="admin-dropdown"
+                            @onchange="OnAdminChanged"
+                            class="stitch-user-selectreport">
+                        <option value="0">All Admins</option>
+                        @foreach (var admin in AllAdmins)
+                        {
+                            <option value="@admin.id" selected="@(SelectedAdminId == admin.id)">
+                                @(admin.firstName + " " + admin.lastName)
+                            </option>
+                        }
+                    </select>
+                </div>
+            }
+
+            <div class="report-navbar-field report-user-field">
+                <label>Select User</label>
+                <select id="user-dropdown" @bind="SelectedUserId" class="stitch-user-selectreport">
+                    @if (SelectedAdminId == 0 && UserRole?.ToLower() == "superadmin")
+                    {
+                        <option value="0">Select an admin first</option>
+                    }
+                    else
+                    {
+                        <option value="0">All Users</option>
+                        @foreach (var user in AllUsers)
+                        {
+                            <option value="@user.id">
+                                @(user.firstName + " " + user.lastName)
+                                @(user.role?.ToLower() == "admin" ? "(Admin)" : "")
+                            </option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div class="report-navbar-field">
+                <label>Usage Type</label>
+                <select id="usage-type-dropdown" @bind="selectedUsageType" class="stitch-user-selectreport">
+                    <option value="all">All</option>
+                    <option value="manual">Manual</option>
+                    <option value="automatic">Automatic</option>
+                </select>
+            </div>
+        }
+
+    </div>
+</header>
+
 <div class="report-container">
     <div class="card">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -23,81 +93,6 @@
             <h2 class="title mb-0">Daily Tracker History</h2>
 
             <div></div>
-        </div>
-
-        <div class="filters">
-            <div class="filters-row">
-                <InputDate @bind-Value="FromDate" class="input-date" />
-                <span class="to-text">to</span>
-                <InputDate @bind-Value="ToDate" class="input-date" />
-
-                @if (UserRole?.ToLower() == "admin" || UserRole?.ToLower() == "superadmin")
-                {
-                    @if (UserRole?.ToLower() == "superadmin")
-                    {
-                        <label class="labels-colors">Select Admin</label>
-
-                        <select id="admin-dropdown"
-                                @onchange="OnAdminChanged"
-                                class="stitch-user-selectreport ms-2">
-                            <option value="0">All Admins</option>
-
-                            @foreach (var admin in AllAdmins)
-                            {
-                                <option value="@admin.id" selected="@(SelectedAdminId == admin.id)">
-                                    @(admin.firstName + " " + admin.lastName)
-                                </option>
-                            }
-                        </select>
-                    }
-
-                    <label class="labels-colors">Select User</label>
-
-                    <select id="user-dropdown"
-                            @bind="SelectedUserId"
-                            class="stitch-user-selectreport ms-2">
-                        @if (SelectedAdminId == 0 && UserRole?.ToLower() == "superadmin")
-                        {
-                            <option value="0">Select an admin first</option>
-                        }
-                        else
-                        {
-                            <option value="0">All Users</option>
-
-                            @foreach (var user in AllUsers)
-                            {
-                                <option value="@user.id">
-                                    @(user.firstName + " " + user.lastName)
-                                    @(user.role?.ToLower() == "admin" ? "(Admin)" : "")
-                                </option>
-                            }
-                        }
-                    </select>
-
-                    <label class="labels-colors">Usage Type</label>
-
-                    <select id="usage-type-dropdown"
-                            @bind="selectedUsageType"
-                            class="stitch-user-selectreport ms-2">
-                        <option value="all">All</option>
-                        <option value="manual">Manual</option>
-                        <option value="automatic">Automatic</option>
-                    </select>
-                }
-
-                <button class="btn-load" @onclick="() => LoadHistory(1)" disabled="@isLoading">
-                    @if (isLoading)
-                    {
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <span> Loading...</span>
-                    }
-                    else
-                    {
-                        <i class="fas fa-cloud-download-alt"></i>
-                        <span> Load</span>
-                    }
-                </button>
-            </div>
         </div>
 
         @if (isLoading && Trackers?.Any() != true)
@@ -266,6 +261,11 @@
     private int PaginationDisplaySize { get; set; } = 5;
 
     private string selectedUsageType = "all";
+
+    private async Task OnDateFilterChanged()
+    {
+        await LoadHistory(1);
+    }
 
     private bool isSelect2UserInitialized = false;
     private bool isSelect2AdminInitialized = false;

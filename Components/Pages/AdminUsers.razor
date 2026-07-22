@@ -9,17 +9,26 @@
 @using System.IdentityModel.Tokens.Jwt
 
 <div class="admin-users-container">
+    <header class="page-header page-navbar user-list-navbar">
+        <div class="header-title page-navbar-copy">
+            <span class="page-navbar-eyebrow">Time and Activity Overview</span>
+            <h1>User List</h1>
+        </div>
+        <div class="user-list-navbar-summary">
+            <span class="admin-navbar-name">@(adminInfo?.username ?? "Admin")</span>
+            <span class="navbar-stat"><strong>@(users?.Count ?? 0)</strong> total</span>
+            <span class="navbar-stat active"><strong>@(users?.Count(u => u.isActive == true) ?? 0)</strong> active</span>
+            <span class="navbar-stat inactive"><strong>@(users?.Count(u => u.isActive != true) ?? 0)</strong> inactive</span>
+            <button class="btn-add-user" @onclick="NavigateToAddUser">
+                <i class="bi bi-plus-circle"></i> Add User
+            </button>
+        </div>
+    </header>
     <div class="right-panel">
         <div class="form-container">
-            <div class="page-header">
-                <button class="btn-back" @onclick="async () => await GoBack()">
-                    <i class="bi bi-arrow-left"></i> Back
-                </button>
-                <div class="header-title">
-                    <h2 class="text-center mb-4"><i class="bi bi-people"></i> Users of @(adminInfo?.username ?? "Admin")</h2>
-                    <p class="subtitle text-center">All users created by this admin</p>
-                </div>
-            </div>
+            <button class="btn-back user-list-back" @onclick="async () => await GoBack()">
+                <i class="bi bi-arrow-left"></i> Back
+            </button>
 
     @if (isLoading)
     {
@@ -37,12 +46,6 @@
     }
     else
     {
-        <div class="admin-actions">
-            <button class="btn-add-user" @onclick="NavigateToAddUser">
-                <i class="bi bi-plus-circle"></i> Add User
-            </button>
-        </div>
-
         @if (users == null || !users.Any())
         {
             <div class="empty-state">
@@ -53,33 +56,6 @@
         }
         else
         {
-
-        <div class="admin-info-card">
-            <div class="admin-avatar-large">
-                @(string.IsNullOrEmpty(adminInfo?.firstName) ? "A" : adminInfo.firstName[0].ToString().ToUpper())
-                @(string.IsNullOrEmpty(adminInfo?.lastName) ? "" : adminInfo.lastName[0].ToString().ToUpper())
-            </div>
-            <div class="admin-details">
-                <h4>@(adminInfo?.firstName ?? "") @(adminInfo?.lastName ?? "")</h4>
-                <p><i class="bi bi-person"></i> @adminInfo?.username</p>
-                <p><i class="bi bi-envelope"></i> @adminInfo?.email</p>
-                <p><i class="bi bi-telephone"></i> @adminInfo?.phoneNumber</p>
-            </div>
-            <div class="admin-stats">
-                <div class="stat-box">
-                    <span class="stat-number">@users.Count</span>
-                    <span class="stat-label">Total Users</span>
-                </div>
-                <div class="stat-box active">
-                    <span class="stat-number">@users.Count(u => u.isActive == true)</span>
-                    <span class="stat-label">Active</span>
-                </div>
-                <div class="stat-box inactive">
-                    <span class="stat-number">@users.Count(u => u.isActive != true)</span>
-                    <span class="stat-label">Inactive</span>
-                </div>
-            </div>
-        </div>
 
         <div class="table-responsive">
             <table class="users-table">

@@ -9,19 +9,18 @@
 @using System.IdentityModel.Tokens.Jwt
 
 <div class="admin-list-container">
-    <div class="page-header">
-        <h2><i class="bi bi-people-fill"></i> Admin List</h2>
-        <p class="subtitle">Admins created by you</p>
-    </div>
-
-    @if (isSuperAdmin)
-    {
-        <div class="add-admin-container">
+    <header class="page-navbar">
+        <div class="page-navbar-copy">
+            <span class="page-navbar-eyebrow">User Administration</span>
+            <h1>Admin List</h1>
+        </div>
+        @if (isSuperAdmin)
+        {
             <button class="btn btn-primary add-admin-btn" @onclick="NavigateToRegister">
                 <i class="bi bi-person-plus"></i> Add Admin
             </button>
-        </div>
-    }
+        }
+    </header>
 
     @if (isLoading)
     {
