@@ -11,54 +11,62 @@
 @using NEvaldas.Blazor.Select2
 
 <div class="settings-container">
-    <div class="settings-header">
-        <button @onclick="GoBack" class="btn btn-outline-secondary me-3">
-            <i class="fa-solid fa-arrow-left me-2"></i>
-            Back
+    <header class="settings-navbar page-navbar">
+        <div class="page-navbar-copy">
+            <span class="page-navbar-eyebrow">Time and Activity Overview</span>
+            <h1>Settings</h1>
+        </div>
+        <div class="settings-navbar-controls">
+            @if (isSuperAdmin)
+            {
+                <div class="admin-selection">
+                    <label>Select Admin:</label>
+                    <select id="admin-select" class="form-select select2-dropdown" @onchange="OnAdminChanged" value="@selectedAdminId">
+                        <option value="">--Select Admin--</option>
+                        @foreach (var admin in admins?.Where(a => a.role?.ToLower() != "superadmin"))
+                        {
+                            <option value="@admin.id">@admin.username</option>
+                        }
+                    </select>
+                </div>
+
+                @if (selectedAdminId.HasValue && users != null && users.Count > 0)
+                {
+                    <div class="user-selection">
+                        <label>Select User:</label>
+                        <select id="user-select" class="form-select select2-dropdown" @onchange="OnUserChanged" value="@selectedUserId">
+                            <option value="">All Users</option>
+                            @foreach (var user in users)
+                            {
+                                <option value="@user.id">@user.username</option>
+                            }
+                        </select>
+                    </div>
+                }
+            }
+            else if (isAdmin && users != null && users.Count > 0)
+            {
+                <div class="user-selection">
+                    <label>Select User:</label>
+                    <select id="user-select" class="form-select select2-dropdown" @onchange="OnUserChanged" value="@selectedUserId">
+                        <option value="">All Users</option>
+                        @foreach (var user in users)
+                        {
+                            <option value="@user.id">@user.username</option>
+                        }
+                    </select>
+                </div>
+            }
+        </div>
+    </header>
+
+    <div class="settings-content-header">
+        <button @onclick="GoBack" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-arrow-left me-2"></i> Back
         </button>
-        <h1>User Management</h1>
+        <h2>User Management</h2>
+        <span></span>
     </div>
-
-    @if (isSuperAdmin)
-    {
-        <div class="admin-selection mb-3">
-            <label>Select Admin:</label>
-            <select id="admin-select" class="form-select select2-dropdown" @onchange="OnAdminChanged" value="@selectedAdminId">
-                <option value="">--Select Admin--</option>
-                @foreach (var admin in admins?.Where(a => a.role?.ToLower() != "superadmin"))
-                {
-                    <option value="@admin.id">@admin.username</option>
-                }
-            </select>
-        </div>
-
-        @if (selectedAdminId.HasValue && users != null && users.Count > 0)
-        {
-            <div class="user-selection mb-3">
-                <label>Select User:</label>
-                <select id="user-select" class="form-select select2-dropdown" @onchange="OnUserChanged" value="@selectedUserId">
-                    <option value="">--Select User--</option>
-                    @foreach (var user in users)
-                    {
-                        <option value="@user.id">@user.username</option>
-                    }
-                </select>
-            </div>
-        }
-    }
-    else if (isAdmin && users != null && users.Count > 0)
-    {
-        <div class="user-selection mb-3">
-            <label>Select User:</label>
-            <select id="user-select" class="form-select select2-dropdown" @onchange="OnUserChanged" value="@selectedUserId">
-                <option value="">--Select User--</option>
-                @foreach (var user in users)
-                {
-                    <option value="@user.id">@user.username</option>
-                }
-            </select>
-        </div>
-    }
 
     <div class="user-management-card">
       @*    <div class="search-container mb-3">
