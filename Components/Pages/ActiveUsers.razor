@@ -9,6 +9,18 @@
 @using ScreenTracker1.Services
 @implements IDisposable
 
+<header class="page-navbar">
+    <div class="page-navbar-copy">
+        <span class="page-navbar-eyebrow">Time and Activity Overview</span>
+        <h1>Active Users</h1>
+    </div>
+    <div class="active-now-summary" aria-live="polite">
+        <span class="active-now-dot"></span>
+        <strong>@(activeUsers?.Count ?? 0)</strong>
+        <span>active now</span>
+    </div>
+</header>
+
 @if (activeUsers == null)
 {
     <p class="loading">Loading active users...</p>

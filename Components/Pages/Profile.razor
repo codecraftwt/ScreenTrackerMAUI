@@ -6,6 +6,16 @@
 @inject UserService UserService
 @inject NavigationManager NavigationManager
 
+<header class="page-navbar">
+    <div class="page-navbar-copy">
+        <span class="page-navbar-eyebrow">Account</span>
+        <h1>User Profile</h1>
+    </div>
+    <button class="btn btn-outline-secondary" @onclick="BackToHome">
+        <i class="fas fa-arrow-left me-2"></i> Back to Dashboard
+    </button>
+</header>
+
 <div class="profile-container">
     @if (!string.IsNullOrEmpty(errorMessage))
     {
