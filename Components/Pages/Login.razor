@@ -356,6 +356,9 @@
                     uid = userId;
                     UserService.SetUserId(userId);
 
+                    // Cache current user settings so we can detect changes made by admin
+                    await UserService.CacheCurrentUserSettingsAsync(userId);
+
 #if MACCATALYST
                     // macOS permission flow should happen after successful login
                     // but before screenshot/audio tracking starts.

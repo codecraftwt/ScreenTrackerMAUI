@@ -12,6 +12,7 @@ main {
 
 .sidebar {
     background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+    overflow: hidden;
 }
 
 .top-row {
@@ -62,7 +63,6 @@ main {
         flex: 0 0 250px;
         position: relative;
         overflow: hidden;
-        z-index: 20;
     }
 
     main {
