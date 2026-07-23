@@ -15,10 +15,12 @@ namespace ScreenTracker1.Services
         private Timer _heartbeatTimer;
         private Timer _tokenRefreshTimer;
         private Timer _scheduledRefreshTimer;
+        private Timer _settingsCheckTimer;
         private bool _isRunning;
         private string _cachedToken;
         private int _failedHeartbeatCount;
         private DateTime _lastTimerTick = DateTime.UtcNow;
+        private int _currentUserId;
         public static bool WasSleeping { get; private set; }
 #if MACCATALYST
         private NSObject _sleepObserver;
@@ -37,6 +39,12 @@ namespace ScreenTracker1.Services
             _isRunning = true;
             _failedHeartbeatCount = 0;
             _cachedToken = null;
+            _currentUserId = GetUserIdFromToken();
+
+            // Start a timer that periodically checks if admin changed user settings
+            _settingsCheckTimer = new Timer(async _ => await CheckUserSettingsChangedAsync(), null,
+                TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+            Console.WriteLine("[KeepAlive] Settings change monitoring started (30s interval).");
 
             // A short heartbeat lets the previously logged-in desktop learn that
             // the backend replaced its device session soon after the new login.
@@ -79,6 +87,7 @@ namespace ScreenTracker1.Services
             _heartbeatTimer?.Change(Timeout.Infinite, Timeout.Infinite);
             _tokenRefreshTimer?.Change(Timeout.Infinite, Timeout.Infinite);
             _scheduledRefreshTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+            _settingsCheckTimer?.Change(Timeout.Infinite, Timeout.Infinite);
         }
 
         public async Task<bool> CheckAndRefreshNowAsync()
@@ -287,12 +296,71 @@ namespace ScreenTracker1.Services
             }
         }
 
+        /// <summary>
+        /// Periodically checks if the admin has changed the current user's tracking settings.
+        /// If a change is detected, shows a popup and redirects to login.
+        /// </summary>
+        private async Task CheckUserSettingsChangedAsync()
+        {
+            try
+            {
+                if (_currentUserId <= 0)
+                {
+                    // Try to get the user ID again
+                    _currentUserId = GetUserIdFromToken();
+                    if (_currentUserId <= 0) return;
+                }
+
+                bool changed = await _userService.CheckSettingsChangedAsync(_currentUserId);
+                if (changed)
+                {
+                    Console.WriteLine("[KeepAlive] Settings changed detected! Showing popup...");
+                    Stop();
+                    await _userService.HandleSettingsChangedAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[KeepAlive] Settings check error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Extracts the user ID from the stored JWT token.
+        /// </summary>
+        private static int GetUserIdFromToken()
+        {
+            try
+            {
+                var token = Preferences.Get("authToken", null);
+                if (string.IsNullOrEmpty(token)) return 0;
+
+                var handler = new JwtSecurityTokenHandler();
+                var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+                if (jwtToken == null) return 0;
+
+                var userIdClaim = jwtToken.Claims.FirstOrDefault(c =>
+                    c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+
+                if (int.TryParse(userIdClaim, out int userId))
+                    return userId;
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[KeepAlive] Error getting user ID from token: {ex.Message}");
+                return 0;
+            }
+        }
+
         public void Dispose()
         {
             Stop();
             _heartbeatTimer?.Dispose();
             _tokenRefreshTimer?.Dispose();
             _scheduledRefreshTimer?.Dispose();
+            _settingsCheckTimer?.Dispose();
         }
 
 #if MACCATALYST

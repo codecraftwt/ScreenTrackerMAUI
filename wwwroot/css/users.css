@@ -18,6 +18,7 @@ h4 {
 .stitch-container {
     background: #fafafa;
     padding: 20px;
+    padding-top: 170px;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
@@ -727,8 +728,8 @@ h4 {
 .selectbox {
     display: flex;
     position: sticky;
-    top: 14px;
-    z-index: 30;
+    top: 0;
+    z-index: 100;
     align-items: center;
     align-content: center;
     flex-direction: row;
@@ -742,6 +743,7 @@ h4 {
     border: 1px solid var(--color-border);
     border-radius: 17px;
     box-shadow: 0 6px 20px var(--color-shadow);
+    width: 100%;
 }
 
 .dashboard-navbar-title {
@@ -1378,11 +1380,6 @@ body {
 
 .select2-results__options {
     background-color: #F5E1FA;
-}
-
-.select2-search--dropdown {
-    /*    background-color: var(--color-dropdown);*/
-    /*    background-color: var( --color-secondary);*/
 }
 
 .select2-container--default {

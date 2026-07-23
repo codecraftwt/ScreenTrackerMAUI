@@ -19,6 +19,12 @@ namespace ScreenTracker1.Services
         private bool _isIntentionalLogout;
         private readonly SemaphoreSlim _unauthorizedLock = new(1, 1);
         private int uid;
+
+        // Settings change detection
+        private CachedUserSettings? _cachedSettings;
+        private bool _isSettingPopupShown = false;
+        private readonly SemaphoreSlim _settingsChangeLock = new(1, 1);
+
         public UserService(HttpClient httpClient)
         {
             _httpClient = httpClient;
@@ -31,6 +37,33 @@ namespace ScreenTracker1.Services
             uid = userId;
         }
 
+        /// <summary>
+        /// Cached snapshot of user's permission settings at login time.
+        /// </summary>
+        private class CachedUserSettings
+        {
+            public bool? IsManualTrackingEnabled { get; set; }
+            public bool? IsAutoTrackingEnabled { get; set; }
+            public bool? IsActive { get; set; }
+            public bool? IsSelected { get; set; }
+
+            public static CachedUserSettings FromUser(User user) => new()
+            {
+                IsManualTrackingEnabled = user.isManualTrackingEnabled,
+                IsAutoTrackingEnabled = user.isAutoTrackingEnabled,
+                IsActive = user.isActive,
+                IsSelected = user.isSelected
+            };
+
+            public bool HasChanged(User current)
+            {
+                return IsManualTrackingEnabled != current.isManualTrackingEnabled
+                    || IsAutoTrackingEnabled != current.isAutoTrackingEnabled
+                    || IsActive != current.isActive
+                    || IsSelected != current.isSelected;
+            }
+        }
+
         public void BeginIntentionalLogout()
         {
             _isIntentionalLogout = true;
@@ -40,6 +73,108 @@ namespace ScreenTracker1.Services
         {
             _navigationManager = navigationManager;
         }
+
+        /// <summary>
+        /// Fetches the current user's settings and caches them for later comparison.
+        /// Call this after successful login.
+        /// </summary>
+        public async Task CacheCurrentUserSettingsAsync(int userId)
+        {
+            try
+            {
+                var user = await GetUserByIdAsync(userId);
+                if (user != null)
+                {
+                    _cachedSettings = CachedUserSettings.FromUser(user);
+                    Console.WriteLine($"[UserService] Cached settings for user {userId}: Manual={user.isManualTrackingEnabled}, Auto={user.isAutoTrackingEnabled}, Active={user.isActive}, Selected={user.isSelected}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[UserService] Error caching settings: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Checks if the user's settings have changed since they were cached.
+        /// Returns true if any tracked setting has changed.
+        /// </summary>
+        public async Task<bool> CheckSettingsChangedAsync(int userId)
+        {
+            if (_cachedSettings == null)
+            {
+                // No cache yet — try to initialize it
+                await CacheCurrentUserSettingsAsync(userId);
+                return false;
+            }
+
+            try
+            {
+                var currentUser = await GetUserByIdAsync(userId);
+                if (currentUser == null)
+                    return false;
+
+                bool changed = _cachedSettings.HasChanged(currentUser);
+                if (changed)
+                {
+                    Console.WriteLine($"[UserService] Settings change detected for user {userId}!");
+                }
+                return changed;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[UserService] Error checking settings: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Shows a popup to the user that their settings have been updated
+        /// and redirects to the login page.
+        /// </summary>
+        public async Task HandleSettingsChangedAsync()
+        {
+            if (_isSettingPopupShown || _isIntentionalLogout) return;
+
+            await _settingsChangeLock.WaitAsync();
+            try
+            {
+                if (_isSettingPopupShown || _isIntentionalLogout) return;
+
+                _isSettingPopupShown = true;
+                _isIntentionalLogout = true;
+                Preferences.Set("isLoggingOut", true);
+                Preferences.Remove("authToken");
+                Preferences.Remove("auth_token");
+                SecureStorage.Remove("authToken");
+                SecureStorage.Remove("auth_token");
+                SecureStorage.RemoveAll();
+
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    await App.Current.MainPage.DisplayAlert(
+                        "Settings Updated",
+                        "Your settings have been updated by the admin. Please log in again to apply the changes.",
+                        "OK"
+                    );
+
+                    _navigationManager?.NavigateTo("/login", forceLoad: true);
+
+                    _isSettingPopupShown = false;
+                    _cachedSettings = null;
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[UserService] HandleSettingsChangedAsync error: {ex.Message}");
+                _isSettingPopupShown = false;
+            }
+            finally
+            {
+                _settingsChangeLock.Release();
+            }
+        }
+
         public async Task<bool> TryHeartbeatRecoveryAsync()
         {
             try
